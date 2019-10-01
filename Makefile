@@ -37,8 +37,8 @@ ifeq ($(GOHOSTOS),darwin)
   SED_I=sed -i ''
 endif
 
-REPO_INFO ?= $(shell git config --get remote.origin.url)
-GIT_COMMIT ?= git-$(shell git rev-parse --short HEAD)
+REPO_INFO ?= ${SHOPIFY_BUILD_REPO}
+GIT_COMMIT ?= ${SHOPIFY_BUILD_COMMIT}
 
 PKG = k8s.io/ingress-nginx
 
