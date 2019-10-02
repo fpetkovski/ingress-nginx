@@ -4,7 +4,8 @@
 
 # NGINX Ingress Controller
 
-[![Coverage Status](https://codecov.io/gh/kubernetes/ingress-nginx/branch/master/graph/badge.svg)](https://codecov.io/gh/kubernetes/ingress-nginx)
+[![Build status](https://badge.buildkite.com/6b154dcf19d6d1eeb00fc3857eb3300929bd061f0f793ab072.svg)](https://buildkite.com/shopify/ingress-nginx)
+[![codecov](https://codecov.io/gh/Shopify/ingress-nginx/branch/master/graph/badge.svg?token=iB1T6uxpFC)](https://codecov.io/gh/Shopify/ingress-nginx)
 [![Go Report Card](https://goreportcard.com/badge/github.com/kubernetes/ingress-nginx)](https://goreportcard.com/report/github.com/kubernetes/ingress-nginx)
 [![GitHub license](https://img.shields.io/github/license/kubernetes/ingress-nginx.svg)](https://github.com/kubernetes/ingress-nginx/blob/master/LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/kubernetes/ingress-nginx.svg)](https://github.com/kubernetes/ingress-nginx/stargazers)
