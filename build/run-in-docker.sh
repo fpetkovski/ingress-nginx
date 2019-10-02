@@ -39,7 +39,7 @@ KUBE_ROOT=$(cd $(dirname "${BASH_SOURCE}")/.. && pwd -P)
 FLAGS=$@
 
 PKG=k8s.io/ingress-nginx
-ARCH=$(go env GOARCH)
+ARCH=amd64
 
 MINIKUBE_PATH=${HOME}/.minikube
 MINIKUBE_VOLUME="-v ${MINIKUBE_PATH}:${MINIKUBE_PATH}"
@@ -49,17 +49,19 @@ if [ ! -d "${MINIKUBE_PATH}" ]; then
 fi
 
 docker run                                            \
+  --net=host                                          \
   --tty                                               \
-  --rm                                                \
   ${DOCKER_OPTS}                                      \
   -e GOCACHE="/go/src/${PKG}/.cache"                  \
   -e GO111MODULE=off                                  \
+  -e KUBECONFIG="$HOME/.kube/config"                  \
+  -e KUBECONTEXT="minikube"                           \
   -v "${HOME}/.kube:${HOME}/.kube"                    \
+  ${MINIKUBE_VOLUME}                                  \
   -v "${KUBE_ROOT}:/go/src/${PKG}"                    \
   -v "${KUBE_ROOT}/bin/${ARCH}:/go/bin/linux_${ARCH}" \
   -v "/var/run/docker.sock:/var/run/docker.sock"      \
   -v "${INGRESS_VOLUME}:/etc/ingress-controller/"     \
-  ${MINIKUBE_VOLUME}                                  \
   -w "/go/src/${PKG}"                                 \
   -u $(id -u ${USER}):$(id -g ${USER})                \
   ${E2E_IMAGE} /bin/bash -c "${FLAGS}"
