@@ -1,0 +1,6 @@
+containers:
+  production:
+    environment: production
+
+steps:
+- build: production
