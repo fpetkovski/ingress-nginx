@@ -37,7 +37,7 @@ ifeq ($(GOHOSTOS),darwin)
   SED_I=sed -i ''
 endif
 
-REPO_INFO ?= ${SHOPIFY_BUILD_REPO}
+REPO_INFO ?= git@github.com:Shopify/ingress-nginx.git
 GIT_COMMIT ?= ${SHOPIFY_BUILD_COMMIT}
 
 PKG = k8s.io/ingress-nginx
