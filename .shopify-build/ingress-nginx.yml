@@ -1,5 +1,12 @@
 # Based on https://github.com/kubernetes/test-infra/blob/master/config/jobs/kubernetes/sig-network/ingress-nginx.yaml
 
+shared:
+  e2e_defaults: &e2e_defaults
+    timeout: 30m
+    run: build/shopify/e2e.sh
+    agents:
+      queue: k8s-ci
+
 containers:
   default:
     docker: quay.io/kubernetes-ingress-controller/e2e:v06232019-5bb168152
@@ -20,3 +27,23 @@ steps:
   timeout: 15m
   run:
   - make cover
+
+- label: e2e (:kubernetes:v1.11-latest)
+  <<: *e2e_defaults
+  env:
+    KUBERNETES_VERSION: v1.11-latest
+
+- label: e2e (:kubernetes:v1.12-latest)
+  <<: *e2e_defaults
+  env:
+    KUBERNETES_VERSION: v1.12-latest
+
+- label: e2e (:kubernetes:v1.13-latest)
+  <<: *e2e_defaults
+  env:
+    KUBERNETES_VERSION: v1.13-latest
+
+- label: e2e (:kubernetes:v1.14-latest)
+  <<: *e2e_defaults
+  env:
+    KUBERNETES_VERSION: v1.14-latest

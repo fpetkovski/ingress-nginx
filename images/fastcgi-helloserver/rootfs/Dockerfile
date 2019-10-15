@@ -12,9 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM BASEIMAGE
-
-CROSS_BUILD_COPY qemu-QEMUARCH-static /usr/bin/
+FROM quay.io/kubernetes-ingress-controller/debian-base-amd64:0.1
 
 COPY . /
 
