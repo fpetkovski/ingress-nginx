@@ -41,13 +41,14 @@ docker_build()
 {
   IMAGE=$1
   DIR=$2
-  ARGS=${3:-}
+  FILE=${3:-Dockerfile}
+  ARGS=${4:-}
 
   if [ -z $ARGS ]
   then
-    docker build --network=host -t ${IMAGE} ${DIR}
+    docker build --network=host -t ${IMAGE} -f ${DIR}/${FILE} ${DIR}
   else
-    docker build --network=host --build-arg ${ARGS} -t ${IMAGE} ${DIR}
+    docker build --network=host --build-arg ${ARGS} -t ${IMAGE} -f ${DIR}/${FILE} ${DIR}
   fi
 }
 
@@ -57,7 +58,7 @@ export REGISTRY=ingress-controller
 
 pretty_title "Building controller binary and image"
 DEV_IMAGE=${REGISTRY}/nginx-ingress-controller:${TAG}
-docker_build "${DEV_IMAGE}" "." "APP_SHA=e2e"
+docker_build "${DEV_IMAGE}" "." "Dockerfile.shopify-build" "APP_SHA=e2e"
 
 pretty_title "Building e2e test binary"
 build/run-in-docker.sh make e2e-test-binary

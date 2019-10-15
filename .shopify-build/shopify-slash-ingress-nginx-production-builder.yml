@@ -1,6 +1,9 @@
 containers:
   production:
     environment: production
+    build:
+      env:
+        PIPA_DOCKERFILE: Dockerfile.shopify-build
 
 steps:
 - build: production
