@@ -53,7 +53,7 @@ server {
 
 		f.UpdateNginxConfigMapData("http-snippet", snippet)
 
-		ing := framework.NewSingleIngress(host, "/", host, f.Namespace, framework.EchoService, 80, map[string]string{
+		ing := framework.NewSingleIngress(host, "/", host, f.Namespace, framework.EchoService, 80, &map[string]string{
 			"nginx.ingress.kubernetes.io/auth-signin": "https://httpbin.org/uuid",
 			"nginx.ingress.kubernetes.io/auth-url":    "https://httpbin.org/basic-auth/user/passwd",
 		})
