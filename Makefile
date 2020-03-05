@@ -88,8 +88,9 @@ sub-push-%: ## Publish image for a particular arch.
 container: clean-container .container-$(ARCH) ## Build image for a particular arch.
 
 # internal task to build image for a particular arch.
+# NOTE(elvinefendi): since Shopify's CI does not have recent docker we can not use buildx here
 .PHONY: .container-$(ARCH)
-.container-$(ARCH): init-docker-buildx
+.container-$(ARCH):
 	mkdir -p $(TEMP_DIR)/rootfs
 	cp bin/$(ARCH)/nginx-ingress-controller $(TEMP_DIR)/rootfs/nginx-ingress-controller
 	cp bin/$(ARCH)/dbg $(TEMP_DIR)/rootfs/dbg
@@ -98,13 +99,10 @@ container: clean-container .container-$(ARCH) ## Build image for a particular ar
 	cp -RP rootfs/* $(TEMP_DIR)/rootfs
 
 	echo "Building docker image ($(ARCH))..."
-	# buildx assumes images are multi-arch
-	docker buildx build \
+	docker build \
+		--network=host \
 		--pull \
-		--load \
 		--no-cache \
-		--progress plain \
-		--platform linux/$(ARCH) \
 		--build-arg BASE_IMAGE="$(BASE_IMAGE)-$(ARCH):$(BASE_TAG)" \
 		--build-arg VERSION="$(TAG)" \
 		-t $(REGISTRY)/nginx-ingress-controller-${ARCH}:$(TAG) $(TEMP_DIR)/rootfs
@@ -268,9 +266,15 @@ kind-e2e-test: check-go-version ## Run e2e tests using kind.
 run-ingress-controller: ## Run the ingress controller locally using a kubectl proxy connection.
 	@build/run-ingress-controller.sh
 
+# NOTE(elvinefendi) since Shopify CI does not have Go installed on the host, we should make sure this command is run inside docker
 .PHONY: check-go-version
 check-go-version:
+ifeq ($(USE_DOCKER), true)
+	@build/run-in-docker.sh \
+		hack/check-go-version.sh
+else
 	@hack/check-go-version.sh
+endif
 
 .PHONY: init-docker-buildx
 init-docker-buildx:

@@ -31,7 +31,10 @@ RUN apk add -U --no-cache \
   diffutils \
   libcap
 
-COPY --chown=www-data:www-data . /
+# TODO(elvinefendi): our docker version does not support --chown
+# otherwise we could just do `COPY --chown=www-data:www-data . /`
+COPY . /
+RUN chown -R www-data.www-data /etc/nginx/
 
 # Fix permission during the build to avoid issues at runtime
 # with volumes (custom templates)

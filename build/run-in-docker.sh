@@ -42,21 +42,27 @@ KUBE_ROOT=$(cd $(dirname "${BASH_SOURCE}")/.. && pwd -P)
 
 FLAGS=$@
 
-PKG=k8s.io/ingress-nginx
-ARCH=amd64
+# NOTE(elvinefendi): Shopify's CI does not have go, therefore we have to make sure we don't call go here if ARCH is given
+PKG=${PKG:-k8s.io/ingress-nginx}
+ARCH=${ARCH:-}
+if [[ -z "$ARCH" ]]; then
+  ARCH=$(go env GOARCH)
+fi
 
 # create output directory as current user to avoid problem with docker.
 mkdir -p "${KUBE_ROOT}/bin" "${KUBE_ROOT}/bin/${ARCH}"
 
 docker run                                            \
-  --net=host                                          \
+  --network=host                                      \
   --tty                                               \
+  --rm                                                \
   ${DOCKER_OPTS}                                      \
   -e GOCACHE="/go/src/${PKG}/.cache"                  \
   -e GO111MODULE=off                                  \
+  -e KUBECONFIG="$HOME/.kube/config"                  \
+  -e KUBECONTEXT="minikube"                           \
   -e DIND_TASKS=0                                     \
   -v "${HOME}/.kube:${HOME}/.kube"                    \
-  ${MINIKUBE_VOLUME}                                  \
   -v "${KUBE_ROOT}:/go/src/${PKG}"                    \
   -v "${KUBE_ROOT}/bin/${ARCH}:/go/bin/linux_${ARCH}" \
   -v "/var/run/docker.sock:/var/run/docker.sock"      \

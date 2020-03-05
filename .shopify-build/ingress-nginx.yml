@@ -9,39 +9,24 @@ shared:
 
 containers:
   default:
-    docker: quay.io/kubernetes-ingress-controller/e2e:v09052019-38b985663
+    docker: quay.io/kubernetes-ingress-controller/e2e:v02262020-a830e931d
     workdir: /go/src/k8s.io/ingress-nginx
 
 steps:
 - label: Static Check
   timeout: 5m
   run:
-  - make static-check
+  - USE_DOCKER=false make static-check
 
 - label: Lua Unit Test
   timeout: 5m
   run:
-  - make lua-test
+  - USE_DOCKER=false make lua-test
 
 - label: Go Unit Test
   timeout: 15m
   run:
-  - make cover
-
-- label: e2e (:kubernetes:v1.11-latest)
-  <<: *e2e_defaults
-  env:
-    KUBERNETES_VERSION: v1.11-latest
-
-- label: e2e (:kubernetes:v1.12-latest)
-  <<: *e2e_defaults
-  env:
-    KUBERNETES_VERSION: v1.12-latest
-
-- label: e2e (:kubernetes:v1.13-latest)
-  <<: *e2e_defaults
-  env:
-    KUBERNETES_VERSION: v1.13-latest
+  - PKG=k8s.io/ingress-nginx build/cover.sh
 
 - label: e2e (:kubernetes:v1.14-latest)
   <<: *e2e_defaults

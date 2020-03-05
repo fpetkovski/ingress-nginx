@@ -25,13 +25,13 @@ IMAGE = $(REGISTRY)/$(IMGNAME)
 
 PKG=k8s.io/ingress-nginx/images/fastcgi-helloserver
 
-container: clean build
-	$(DOCKER) buildx build \
-		--load \
-		--platform linux/amd64 \
+container:
+	# NOTE(elvinefendi): since Shopify's CI does not have recent docker we can not use buildx here
+	$(DOCKER) build \
+		--network=host \
 		-t $(IMAGE):$(TAG) rootfs
 
-build: clean
+build:
 	CGO_ENABLED=0 go build -a -installsuffix cgo \
 		-ldflags "-s -w" \
 		-o rootfs/fastcgi-helloserver ${PKG}/...

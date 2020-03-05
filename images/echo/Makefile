@@ -24,9 +24,9 @@ IMGNAME = echo
 IMAGE = $(REGISTRY)/$(IMGNAME)
 
 container:
-	$(DOCKER) buildx build \
-		--load \
-		--platform linux/amd64 \
+	# NOTE(elvinefendi): since Shopify's CI does not have recent docker we can not use buildx here
+	$(DOCKER) build \
+		--network=host \
 		-t $(IMAGE):$(TAG) .
 
 clean:

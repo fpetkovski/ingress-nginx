@@ -24,9 +24,9 @@ endif
 	cp $(DIR)/../e2e/wait-for-nginx.sh .
 	cp -R $(DIR)/../../charts .
 
-	docker buildx build \
-		--load \
-		--progress plain \
+	# NOTE(elvinefendi): since Shopify's CI does not have recent docker we can not use buildx here
+	docker build \
+		--network=host \
 		--tag nginx-ingress-controller:e2e .
 
 .PHONY: clean

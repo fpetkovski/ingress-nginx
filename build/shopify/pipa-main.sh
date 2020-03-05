@@ -1,4 +1,6 @@
-# Copyright 2020 The Kubernetes Authors.
+#!/bin/bash
+
+# Copyright 2018 The Kubernetes Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,22 +14,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Docker image for e2e testing.
+if ! [ -z "$DEBUG" ]; then
+	set -x
+fi
 
-# Use the 0.0 tag for testing, it shouldn't clobber any release builds
-TAG ?= 0.0
+set -o errexit
+set -o nounset
+set -o pipefail
 
-REGISTRY ?= ingress-controller
-DOCKER ?= docker
+echo "--- docker build"
+ARCH="amd64"
+TAG=${PIPA_APP_SHA:-latest}
+REGISTRY=${PIPA_DOCKER_REGISTRY}/shopify-docker-images/apps/production ARCH=${ARCH} TAG=${TAG} make build container
 
-IMGNAME = httpbin
-IMAGE = $(REGISTRY)/$(IMGNAME)
-
-container:
-	# NOTE(elvinefendi): since Shopify's CI does not have recent docker we can not use buildx here
-	$(DOCKER) build \
-		--network=host \
-		-t $(IMAGE):$(TAG) rootfs
-
-clean:
-	$(DOCKER) rmi -f $(IMAGE):$(TAG) || true
+IMAGE_NAME="shopify-docker-images/apps/production/nginx-ingress-controller-${ARCH}"
+echo "--- pushing ${PIPA_DOCKER_REGISTRY}/${IMAGE_NAME}:${TAG}"
+pipa image push -r "${PIPA_DOCKER_REGISTRY}" -n "${IMAGE_NAME}" -t "${TAG}"
