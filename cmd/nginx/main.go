@@ -17,7 +17,6 @@ limitations under the License.
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"math/rand"
 	"net/http"
@@ -36,7 +35,9 @@ import (
 	discovery "k8s.io/apimachinery/pkg/version"
 	"k8s.io/apiserver/pkg/server/healthz"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	certutil "k8s.io/client-go/util/cert"
 	"k8s.io/klog"
 
 	"k8s.io/ingress-nginx/internal/file"
@@ -69,7 +70,7 @@ func main() {
 		klog.Fatal(err)
 	}
 
-	kubeClient, err := createApiserverClient(conf.APIServerHost, conf.KubeConfigFile)
+	kubeClient, err := createApiserverClient(conf.APIServerHost, conf.RootCAFile, conf.KubeConfigFile)
 	if err != nil {
 		handleFatalInitError(err)
 	}
@@ -124,24 +125,22 @@ func main() {
 	}
 	mc.Start()
 
-	ngx := controller.NewNGINXController(conf, mc)
-	go handleSigterm(ngx, func(code int) {
-		os.Exit(code)
-	})
-
-	mux := http.NewServeMux()
-
 	if conf.EnableProfiling {
 		go registerProfiler()
 	}
 
+	ngx := controller.NewNGINXController(conf, mc)
+
+	mux := http.NewServeMux()
 	registerHealthz(nginx.HealthPath, ngx, mux)
 	registerMetrics(reg, mux)
-	registerHandlers(mux)
 
 	go startHTTPServer(conf.ListenPorts.Health, mux)
+	go ngx.Start()
 
-	ngx.Start()
+	handleSigterm(ngx, func(code int) {
+		os.Exit(code)
+	})
 }
 
 type exiter func(code int)
@@ -173,10 +172,22 @@ func handleSigterm(ngx *controller.NGINXController, exit exiter) {
 // If neither apiserverHost nor kubeConfig is passed in, we assume the
 // controller runs inside Kubernetes and fallback to the in-cluster config. If
 // the in-cluster config is missing or fails, we fallback to the default config.
-func createApiserverClient(apiserverHost, kubeConfig string) (*kubernetes.Clientset, error) {
+func createApiserverClient(apiserverHost, rootCAFile, kubeConfig string) (*kubernetes.Clientset, error) {
 	cfg, err := clientcmd.BuildConfigFromFlags(apiserverHost, kubeConfig)
 	if err != nil {
 		return nil, err
+	}
+
+	if apiserverHost != "" && rootCAFile != "" {
+		tlsClientConfig := rest.TLSClientConfig{}
+
+		if _, err := certutil.NewPool(rootCAFile); err != nil {
+			klog.Errorf("Expected to load root CA config from %s, but got err: %v", rootCAFile, err)
+		} else {
+			tlsClientConfig.CAFile = rootCAFile
+		}
+
+		cfg.TLSClientConfig = tlsClientConfig
 	}
 
 	klog.Infof("Creating API client for %s", cfg.Host)
@@ -237,14 +248,6 @@ func handleFatalInitError(err error) {
 		"Refer to the troubleshooting guide for more information: "+
 		"https://kubernetes.github.io/ingress-nginx/troubleshooting/",
 		err)
-}
-
-func registerHandlers(mux *http.ServeMux) {
-	mux.HandleFunc("/build", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		b, _ := json.Marshal(version.String())
-		w.Write(b)
-	})
 }
 
 func registerHealthz(healthPath string, ic *controller.NGINXController, mux *http.ServeMux) {

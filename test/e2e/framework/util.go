@@ -21,9 +21,7 @@ import (
 	"os"
 	"time"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-
+	"github.com/onsi/ginkgo"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,10 +34,10 @@ import (
 
 const (
 	// Poll how often to poll for conditions
-	Poll = 3 * time.Second
+	Poll = 2 * time.Second
 
 	// DefaultTimeout time to wait for operations to complete
-	DefaultTimeout = 3 * time.Minute
+	DefaultTimeout = 90 * time.Second
 )
 
 func nowStamp() string {
@@ -47,7 +45,7 @@ func nowStamp() string {
 }
 
 func log(level string, format string, args ...interface{}) {
-	fmt.Fprintf(GinkgoWriter, nowStamp()+": "+level+": "+format+"\n", args...)
+	fmt.Fprintf(ginkgo.GinkgoWriter, nowStamp()+": "+level+": "+format+"\n", args...)
 }
 
 // Logf logs to the INFO logs.
@@ -59,14 +57,14 @@ func Logf(format string, args ...interface{}) {
 func Failf(format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
 	log("INFO", msg)
-	Fail(nowStamp()+": "+msg, 1)
+	ginkgo.Fail(nowStamp()+": "+msg, 1)
 }
 
 // Skipf logs to the INFO logs and skips the test.
 func Skipf(format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
 	log("INFO", msg)
-	Skip(nowStamp() + ": " + msg)
+	ginkgo.Skip(nowStamp() + ": " + msg)
 }
 
 // RestclientConfig deserializes the contents of a kubeconfig file into a Config object.
@@ -107,7 +105,6 @@ func CreateKubeNamespace(baseName string, c kubernetes.Interface) (string, error
 			Logf("Unexpected error while creating namespace: %v", err)
 			return false, nil
 		}
-		Logf("Created namespace: %v", got.Name)
 		return true, nil
 	})
 	if err != nil {
@@ -118,15 +115,12 @@ func CreateKubeNamespace(baseName string, c kubernetes.Interface) (string, error
 
 // DeleteKubeNamespace deletes a namespace and all the objects inside
 func DeleteKubeNamespace(c kubernetes.Interface, namespace string) error {
-	return c.CoreV1().Namespaces().Delete(namespace, metav1.NewDeleteOptions(0))
-}
-
-// ExpectNoError tests whether an error occurred.
-func ExpectNoError(err error, explain ...interface{}) {
-	if err != nil {
-		Logf("Unexpected error occurred: %v", err)
-	}
-	ExpectWithOffset(1, err).NotTo(HaveOccurred(), explain...)
+	grace := int64(0)
+	pb := metav1.DeletePropagationBackground
+	return c.CoreV1().Namespaces().Delete(namespace, &metav1.DeleteOptions{
+		GracePeriodSeconds: &grace,
+		PropagationPolicy:  &pb,
+	})
 }
 
 // WaitForKubeNamespaceNotExist waits until a namespaces is not present in the cluster
@@ -235,7 +229,7 @@ func WaitForNoIngressInNamespace(c kubernetes.Interface, namespace, name string)
 
 func noIngressInNamespace(c kubernetes.Interface, namespace, name string) wait.ConditionFunc {
 	return func() (bool, error) {
-		ing, err := c.ExtensionsV1beta1().Ingresses(namespace).Get(name, metav1.GetOptions{})
+		ing, err := c.NetworkingV1beta1().Ingresses(namespace).Get(name, metav1.GetOptions{})
 		if apierrors.IsNotFound(err) {
 			return true, nil
 		}
@@ -257,7 +251,7 @@ func WaitForIngressInNamespace(c kubernetes.Interface, namespace, name string) e
 
 func ingressInNamespace(c kubernetes.Interface, namespace, name string) wait.ConditionFunc {
 	return func() (bool, error) {
-		ing, err := c.ExtensionsV1beta1().Ingresses(namespace).Get(name, metav1.GetOptions{})
+		ing, err := c.NetworkingV1beta1().Ingresses(namespace).Get(name, metav1.GetOptions{})
 		if apierrors.IsNotFound(err) {
 			return false, nil
 		}

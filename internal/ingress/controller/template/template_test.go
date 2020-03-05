@@ -29,7 +29,6 @@ import (
 	"testing"
 
 	jsoniter "github.com/json-iterator/go"
-
 	apiv1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,8 +37,8 @@ import (
 	"k8s.io/ingress-nginx/internal/ingress"
 	"k8s.io/ingress-nginx/internal/ingress/annotations/authreq"
 	"k8s.io/ingress-nginx/internal/ingress/annotations/influxdb"
-	"k8s.io/ingress-nginx/internal/ingress/annotations/luarestywaf"
 	"k8s.io/ingress-nginx/internal/ingress/annotations/modsecurity"
+	"k8s.io/ingress-nginx/internal/ingress/annotations/opentracing"
 	"k8s.io/ingress-nginx/internal/ingress/annotations/ratelimit"
 	"k8s.io/ingress-nginx/internal/ingress/annotations/rewrite"
 	"k8s.io/ingress-nginx/internal/ingress/controller/config"
@@ -189,7 +188,7 @@ func TestBuildLuaSharedDictionaries(t *testing.T) {
 			"configuration_data": 10, "certificate_data": 20,
 		},
 	}
-	actual := buildLuaSharedDictionaries(cfg, invalidType, true)
+	actual := buildLuaSharedDictionaries(cfg, invalidType)
 
 	if !reflect.DeepEqual(expected, actual) {
 		t.Errorf("Expected '%v' but returned '%v'", expected, actual)
@@ -198,32 +197,23 @@ func TestBuildLuaSharedDictionaries(t *testing.T) {
 	servers := []*ingress.Server{
 		{
 			Hostname:  "foo.bar",
-			Locations: []*ingress.Location{{Path: "/", LuaRestyWAF: luarestywaf.Config{}}},
+			Locations: []*ingress.Location{{Path: "/"}},
 		},
 		{
 			Hostname:  "another.host",
-			Locations: []*ingress.Location{{Path: "/", LuaRestyWAF: luarestywaf.Config{}}},
+			Locations: []*ingress.Location{{Path: "/"}},
 		},
 	}
 	// returns value from config
-	configuration := buildLuaSharedDictionaries(cfg, servers, false)
+	configuration := buildLuaSharedDictionaries(cfg, servers)
 	if !strings.Contains(configuration, "lua_shared_dict configuration_data 10M;\n") {
 		t.Errorf("expected to include 'configuration_data' but got %s", configuration)
 	}
 	if !strings.Contains(configuration, "lua_shared_dict certificate_data 20M;\n") {
 		t.Errorf("expected to include 'certificate_data' but got %s", configuration)
 	}
-	if strings.Contains(configuration, "waf_storage") {
-		t.Errorf("expected to not include 'waf_storage' but got %s", configuration)
-	}
-
-	servers[1].Locations[0].LuaRestyWAF = luarestywaf.Config{Mode: "ACTIVE"}
-	configuration = buildLuaSharedDictionaries(cfg, servers, false)
-	if !strings.Contains(configuration, "lua_shared_dict waf_storage") {
-		t.Errorf("expected to configure 'waf_storage', but got %s", configuration)
-	}
 	// test invalid config
-	configuration = buildLuaSharedDictionaries(invalidType, servers, false)
+	configuration = buildLuaSharedDictionaries(invalidType, servers)
 	if configuration != "" {
 		t.Errorf("expected an empty string, but got %s", configuration)
 	}
@@ -893,14 +883,14 @@ func TestEscapeLiteralDollar(t *testing.T) {
 }
 
 func TestOpentracingPropagateContext(t *testing.T) {
-	tests := map[interface{}]string{
-		&ingress.Location{BackendProtocol: "HTTP"}:  "opentracing_propagate_context",
-		&ingress.Location{BackendProtocol: "HTTPS"}: "opentracing_propagate_context",
-		&ingress.Location{BackendProtocol: "GRPC"}:  "opentracing_grpc_propagate_context",
-		&ingress.Location{BackendProtocol: "GRPCS"}: "opentracing_grpc_propagate_context",
-		&ingress.Location{BackendProtocol: "AJP"}:   "opentracing_propagate_context",
-		&ingress.Location{BackendProtocol: "FCGI"}:  "opentracing_propagate_context",
-		"not a location": "opentracing_propagate_context",
+	tests := map[*ingress.Location]string{
+		{BackendProtocol: "HTTP"}:  "opentracing_propagate_context;",
+		{BackendProtocol: "HTTPS"}: "opentracing_propagate_context;",
+		{BackendProtocol: "GRPC"}:  "opentracing_grpc_propagate_context;",
+		{BackendProtocol: "GRPCS"}: "opentracing_grpc_propagate_context;",
+		{BackendProtocol: "AJP"}:   "opentracing_propagate_context;",
+		{BackendProtocol: "FCGI"}:  "opentracing_propagate_context;",
+		nil:                        "",
 	}
 
 	for loc, expectedDirective := range tests {
@@ -933,7 +923,7 @@ func TestGetIngressInformation(t *testing.T) {
 		},
 		"valid ingress definition with name validIng in namespace default": {
 			&ingress.Ingress{
-				networking.Ingress{
+				Ingress: networking.Ingress{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "validIng",
 						Namespace: apiv1.NamespaceDefault,
@@ -947,7 +937,6 @@ func TestGetIngressInformation(t *testing.T) {
 						},
 					},
 				},
-				nil,
 			},
 			"host1",
 			"",
@@ -962,7 +951,7 @@ func TestGetIngressInformation(t *testing.T) {
 		},
 		"valid ingress definition with name demo in namespace something and path /ok using a service with name b-svc port 80": {
 			&ingress.Ingress{
-				networking.Ingress{
+				Ingress: networking.Ingress{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "demo",
 						Namespace: "something",
@@ -992,7 +981,6 @@ func TestGetIngressInformation(t *testing.T) {
 						},
 					},
 				},
-				nil,
 			},
 			"foo.bar",
 			"/ok",
@@ -1110,12 +1098,8 @@ func TestBuildCustomErrorLocationsPerServer(t *testing.T) {
 
 	for _, c := range testCases {
 		response := buildCustomErrorLocationsPerServer(c.server)
-		if results, ok := response.([]errorLocation); ok {
-			if !reflect.DeepEqual(c.expectedResults, results) {
-				t.Errorf("Expected %+v but got %+v", c.expectedResults, results)
-			}
-		} else {
-			t.Error("Unable to convert to []errorLocation")
+		if !reflect.DeepEqual(c.expectedResults, response) {
+			t.Errorf("Expected %+v but got %+v", c.expectedResults, response)
 		}
 	}
 }
@@ -1168,7 +1152,7 @@ func TestBuildInfluxDB(t *testing.T) {
 func TestBuildOpenTracing(t *testing.T) {
 	invalidType := &ingress.Ingress{}
 	expected := ""
-	actual := buildOpentracing(invalidType)
+	actual := buildOpentracing(invalidType, []*ingress.Server{})
 
 	if expected != actual {
 		t.Errorf("Expected '%v' but returned '%v'", expected, actual)
@@ -1179,7 +1163,7 @@ func TestBuildOpenTracing(t *testing.T) {
 		JaegerCollectorHost: "jaeger-host.com",
 	}
 	expected = "opentracing_load_tracer /usr/local/lib/libjaegertracing_plugin.so /etc/nginx/opentracing.json;\r\n"
-	actual = buildOpentracing(cfgJaeger)
+	actual = buildOpentracing(cfgJaeger, []*ingress.Server{})
 
 	if expected != actual {
 		t.Errorf("Expected '%v' but returned '%v'", expected, actual)
@@ -1190,7 +1174,7 @@ func TestBuildOpenTracing(t *testing.T) {
 		ZipkinCollectorHost: "zipkin-host.com",
 	}
 	expected = "opentracing_load_tracer /usr/local/lib/libzipkin_opentracing.so /etc/nginx/opentracing.json;\r\n"
-	actual = buildOpentracing(cfgZipkin)
+	actual = buildOpentracing(cfgZipkin, []*ingress.Server{})
 
 	if expected != actual {
 		t.Errorf("Expected '%v' but returned '%v'", expected, actual)
@@ -1200,8 +1184,8 @@ func TestBuildOpenTracing(t *testing.T) {
 		EnableOpentracing:    true,
 		DatadogCollectorHost: "datadog-host.com",
 	}
-	expected = "opentracing_load_tracer /usr/local/lib/libdd_opentracing.so /etc/nginx/opentracing.json;\r\n"
-	actual = buildOpentracing(cfgDatadog)
+	expected = "opentracing_load_tracer /usr/local/lib64/libdd_opentracing.so /etc/nginx/opentracing.json;\r\n"
+	actual = buildOpentracing(cfgDatadog, []*ingress.Server{})
 
 	if expected != actual {
 		t.Errorf("Expected '%v' but returned '%v'", expected, actual)
@@ -1294,5 +1278,157 @@ func TestShouldLoadModSecurityModule(t *testing.T) {
 	actual = shouldLoadModSecurityModule(configuration, servers)
 	if expected != actual {
 		t.Errorf("Expected '%v' but returned '%v'", expected, actual)
+	}
+}
+
+func TestOpentracingForLocation(t *testing.T) {
+	trueVal := true
+
+	loadOT := `opentracing on;
+opentracing_propagate_context;`
+	testCases := []struct {
+		description string
+		globalOT    bool
+		isSetInLoc  bool
+		isOTInLoc   *bool
+		expected    string
+	}{
+		{"globally enabled, without annotation", true, false, nil, loadOT},
+		{"globally enabled and enabled in location", true, true, &trueVal, loadOT},
+		{"globally disabled and not enabled in location", false, false, nil, ""},
+		{"globally disabled but enabled in location", false, true, &trueVal, loadOT},
+		{"globally disabled, enabled in location but false", false, true, &trueVal, loadOT},
+	}
+
+	for _, testCase := range testCases {
+		il := &ingress.Location{
+			Opentracing: opentracing.Config{Set: testCase.isSetInLoc},
+		}
+		if il.Opentracing.Set {
+			il.Opentracing.Enabled = *testCase.isOTInLoc
+		}
+
+		actual := buildOpentracingForLocation(testCase.globalOT, il)
+
+		if testCase.expected != actual {
+			t.Errorf("%v: expected '%v' but returned '%v'", testCase.description, testCase.expected, actual)
+		}
+	}
+}
+
+func TestShouldLoadOpentracingModule(t *testing.T) {
+	// ### Invalid argument type tests ###
+	// The first tests should return false.
+	expected := false
+
+	invalidType := &ingress.Ingress{}
+	actual := shouldLoadOpentracingModule(config.Configuration{}, invalidType)
+	if expected != actual {
+		t.Errorf("Expected '%v' but returned '%v'", expected, actual)
+	}
+
+	actual = shouldLoadOpentracingModule(invalidType, []*ingress.Server{})
+	if expected != actual {
+		t.Errorf("Expected '%v' but returned '%v'", expected, actual)
+	}
+
+	// ### Functional tests ###
+	actual = shouldLoadOpentracingModule(config.Configuration{}, []*ingress.Server{})
+	if expected != actual {
+		t.Errorf("Expected '%v' but returned '%v'", expected, actual)
+	}
+
+	// All further tests should return true.
+	expected = true
+
+	configuration := config.Configuration{EnableOpentracing: true}
+	actual = shouldLoadOpentracingModule(configuration, []*ingress.Server{})
+	if expected != actual {
+		t.Errorf("Expected '%v' but returned '%v'", expected, actual)
+	}
+
+	servers := []*ingress.Server{
+		{
+			Locations: []*ingress.Location{
+				{
+					Opentracing: opentracing.Config{
+						Enabled: true,
+					},
+				},
+			},
+		},
+	}
+	actual = shouldLoadOpentracingModule(config.Configuration{}, servers)
+	if expected != actual {
+		t.Errorf("Expected '%v' but returned '%v'", expected, actual)
+	}
+
+	actual = shouldLoadOpentracingModule(configuration, servers)
+	if expected != actual {
+		t.Errorf("Expected '%v' but returned '%v'", expected, actual)
+	}
+}
+
+func TestModSecurityForLocation(t *testing.T) {
+	loadModule := `modsecurity on;
+modsecurity_rules_file /etc/nginx/modsecurity/modsecurity.conf;
+`
+
+	modsecRule := `modsecurity_rules '
+#RULE#
+';
+`
+	owaspRules := `modsecurity_rules_file /etc/nginx/owasp-modsecurity-crs/nginx-modsecurity.conf;
+`
+
+	transactionID := "0000000"
+	transactionCfg := fmt.Sprintf(`modsecurity_transaction_id "%v";
+`, transactionID)
+
+	testRule := "#RULE#"
+
+	testCases := []struct {
+		description         string
+		isEnabledInCM       bool
+		isOwaspEnabledInCM  bool
+		isEnabledInLoc      bool
+		isOwaspEnabledInLoc bool
+		snippet             string
+		transactionID       string
+		expected            string
+	}{
+		{"configmap enabled, configmap OWASP disabled, without annotation, snippet or transaction ID", true, false, false, false, "", "", ""},
+		{"configmap enabled, configmap OWASP disabled, without annotation, snippet and with transaction ID", true, false, false, false, "", transactionID, ""},
+		{"configmap enabled, configmap OWASP  enabled, without annotation, OWASP enabled", true, true, false, false, "", "", ""},
+		{"configmap enabled, configmap OWASP  enabled, without annotation, OWASP disabled, with snippet and no transaction ID", true, true, true, false, testRule, "", modsecRule},
+		{"configmap enabled, configmap OWASP  enabled, without annotation, OWASP disabled, with snippet and transaction ID", true, true, true, false, testRule, transactionID, fmt.Sprintf("%v%v", modsecRule, transactionCfg)},
+		{"configmap enabled, with annotation, OWASP disabled", true, false, true, false, "", "", ""},
+		{"configmap enabled, configmap OWASP disabled, with annotation, OWASP enabled, no snippet and no transaction ID", true, false, true, true, "", "", owaspRules},
+		{"configmap enabled, configmap OWASP disabled, with annotation, OWASP enabled, with snippet and no transaction ID", true, false, true, true, "", "", owaspRules},
+		{"configmap enabled, configmap OWASP disabled, with annotation, OWASP enabled, with snippet and transaction ID", true, false, true, true, "", transactionID, fmt.Sprintf("%v%v", owaspRules, transactionCfg)},
+		{"configmap enabled, OWASP configmap enabled, with annotation, OWASP disabled", true, true, true, false, "", "", ""},
+		{"configmap disabled, with annotation, OWASP disabled", false, false, true, false, "", "", loadModule},
+		{"configmap disabled, with annotation, OWASP disabled", false, false, true, false, testRule, "", fmt.Sprintf("%v%v", loadModule, modsecRule)},
+		{"configmap disabled, with annotation, OWASP enabled", false, false, true, false, testRule, "", fmt.Sprintf("%v%v", loadModule, modsecRule)},
+	}
+
+	for _, testCase := range testCases {
+		il := &ingress.Location{
+			ModSecurity: modsecurity.Config{
+				Enable:        testCase.isEnabledInLoc,
+				OWASPRules:    testCase.isOwaspEnabledInLoc,
+				Snippet:       testCase.snippet,
+				TransactionID: testCase.transactionID,
+			},
+		}
+
+		actual := buildModSecurityForLocation(config.Configuration{
+			EnableModsecurity:    testCase.isEnabledInCM,
+			EnableOWASPCoreRules: testCase.isOwaspEnabledInCM,
+		}, il)
+
+		if testCase.expected != actual {
+			t.Errorf("%v: expected '%v' but returned '%v'", testCase.description, testCase.expected, actual)
+		}
 	}
 }
