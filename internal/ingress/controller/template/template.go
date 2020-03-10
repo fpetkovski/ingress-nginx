@@ -95,11 +95,6 @@ func (t *Template) Write(conf config.TemplateConfig) ([]byte, error) {
 	outCmdBuf := t.bp.Get()
 	defer t.bp.Put(outCmdBuf)
 
-	// TODO: remove once we found a fix for coredump running luarocks install lrexlib
-	if runtime.GOARCH == "arm" {
-		conf.Cfg.DisableLuaRestyWAF = true
-	}
-
 	if klog.V(3) {
 		b, err := json.Marshal(conf)
 		if err != nil {
@@ -136,7 +131,6 @@ var (
 			return true
 		},
 		"escapeLiteralDollar":             escapeLiteralDollar,
-		"shouldConfigureLuaRestyWAF":      shouldConfigureLuaRestyWAF,
 		"buildLuaSharedDictionaries":      buildLuaSharedDictionaries,
 		"luaConfigurationRequestBodySize": luaConfigurationRequestBodySize,
 		"buildLocation":                   buildLocation,
@@ -179,11 +173,14 @@ var (
 		"enforceRegexModifier":               enforceRegexModifier,
 		"stripLocationModifer":               stripLocationModifer,
 		"buildCustomErrorDeps":               buildCustomErrorDeps,
-		"opentracingPropagateContext":        opentracingPropagateContext,
 		"buildCustomErrorLocationsPerServer": buildCustomErrorLocationsPerServer,
 		"shouldLoadModSecurityModule":        shouldLoadModSecurityModule,
 		"buildHTTPListener":                  buildHTTPListener,
 		"buildHTTPSListener":                 buildHTTPSListener,
+		"buildOpentracingForLocation":        buildOpentracingForLocation,
+		"shouldLoadOpentracingModule":        shouldLoadOpentracingModule,
+		"buildModSecurityForLocation":        buildModSecurityForLocation,
+		"buildMirrorLocations":               buildMirrorLocations,
 	}
 )
 
@@ -228,15 +225,7 @@ func quote(input interface{}) string {
 	return fmt.Sprintf("%q", inputStr)
 }
 
-func shouldConfigureLuaRestyWAF(disableLuaRestyWAF bool, mode string) bool {
-	if !disableLuaRestyWAF && len(mode) > 0 {
-		return true
-	}
-
-	return false
-}
-
-func buildLuaSharedDictionaries(c interface{}, s interface{}, disableLuaRestyWAF bool) string {
+func buildLuaSharedDictionaries(c interface{}, s interface{}) string {
 	var out []string
 
 	cfg, ok := c.(config.Configuration)
@@ -244,7 +233,8 @@ func buildLuaSharedDictionaries(c interface{}, s interface{}, disableLuaRestyWAF
 		klog.Errorf("expected a 'config.Configuration' type but %T was returned", c)
 		return ""
 	}
-	servers, ok := s.([]*ingress.Server)
+
+	_, ok = s.([]*ingress.Server)
 	if !ok {
 		klog.Errorf("expected an '[]*ingress.Server' type but %T was returned", s)
 		return ""
@@ -252,23 +242,6 @@ func buildLuaSharedDictionaries(c interface{}, s interface{}, disableLuaRestyWAF
 
 	for name, size := range cfg.LuaSharedDicts {
 		out = append(out, fmt.Sprintf("lua_shared_dict %s %dM", name, size))
-	}
-
-	// TODO: there must be a better place for this
-	if _, ok := cfg.LuaSharedDicts["waf_storage"]; !ok && !disableLuaRestyWAF {
-		luaRestyWAFEnabled := func() bool {
-			for _, server := range servers {
-				for _, location := range server.Locations {
-					if len(location.LuaRestyWAF.Mode) > 0 {
-						return true
-					}
-				}
-			}
-			return false
-		}()
-		if luaRestyWAFEnabled {
-			out = append(out, "lua_shared_dict waf_storage 64M")
-		}
 	}
 
 	sort.Strings(out)
@@ -302,6 +275,7 @@ func configForLua(input interface{}) string {
 
 	return fmt.Sprintf(`{
 		use_forwarded_headers = %t,
+		use_proxy_protocol = %t,
 		is_ssl_passthrough_enabled = %t,
 		http_redirect_code = %v,
 		listen_ports = { ssl_proxy = "%v", https = "%v" },
@@ -312,6 +286,7 @@ func configForLua(input interface{}) string {
 		hsts_preload = %t,
 	}`,
 		all.Cfg.UseForwardedHeaders,
+		all.Cfg.UseProxyProtocol,
 		all.IsSSLPassthroughEnabled,
 		all.Cfg.HTTPRedirectCode,
 		all.ListenPorts.SSLProxy,
@@ -548,6 +523,12 @@ func buildProxyPass(host string, b interface{}, loc interface{}) string {
 
 			break
 		}
+	}
+
+	// TODO: add support for custom protocols
+	if location.Backend == "upstream-default-backend" {
+		proto = "http://"
+		proxyPass = "proxy_pass"
 	}
 
 	// defProxyPass returns the default proxy_pass, just the name of the upstream
@@ -952,14 +933,20 @@ func randomString() string {
 	return string(b)
 }
 
-func buildOpentracing(input interface{}) string {
-	cfg, ok := input.(config.Configuration)
+func buildOpentracing(c interface{}, s interface{}) string {
+	cfg, ok := c.(config.Configuration)
 	if !ok {
-		klog.Errorf("expected a 'config.Configuration' type but %T was returned", input)
+		klog.Errorf("expected a 'config.Configuration' type but %T was returned", c)
 		return ""
 	}
 
-	if !cfg.EnableOpentracing {
+	servers, ok := s.([]*ingress.Server)
+	if !ok {
+		klog.Errorf("expected an '[]*ingress.Server' type but %T was returned", s)
+		return ""
+	}
+
+	if !shouldLoadOpentracingModule(cfg, servers) {
 		return ""
 	}
 
@@ -973,7 +960,7 @@ func buildOpentracing(input interface{}) string {
 			buf.WriteString("opentracing_load_tracer /usr/local/lib/libjaegertracing_plugin.so /etc/nginx/opentracing.json;")
 		}
 	} else if cfg.DatadogCollectorHost != "" {
-		buf.WriteString("opentracing_load_tracer /usr/local/lib/libdd_opentracing.so /etc/nginx/opentracing.json;")
+		buf.WriteString("opentracing_load_tracer /usr/local/lib64/libdd_opentracing.so /etc/nginx/opentracing.json;")
 	}
 
 	buf.WriteString("\r\n")
@@ -1043,7 +1030,7 @@ type errorLocation struct {
 // of errorLocations, each of which contain the upstream name and a list of
 // error codes for that given upstream, so that sufficiently unique
 // @custom error location blocks can be created in the template
-func buildCustomErrorLocationsPerServer(input interface{}) interface{} {
+func buildCustomErrorLocationsPerServer(input interface{}) []errorLocation {
 	server, ok := input.(*ingress.Server)
 	if !ok {
 		klog.Errorf("expected a '*ingress.Server' type but %T was returned", input)
@@ -1088,18 +1075,16 @@ func buildCustomErrorLocationsPerServer(input interface{}) interface{} {
 	return errorLocations
 }
 
-func opentracingPropagateContext(loc interface{}) string {
-	location, ok := loc.(*ingress.Location)
-	if !ok {
-		klog.Errorf("expected a '*ingress.Location' type but %T was returned", loc)
-		return "opentracing_propagate_context"
+func opentracingPropagateContext(location *ingress.Location) string {
+	if location == nil {
+		return ""
 	}
 
 	if location.BackendProtocol == "GRPC" || location.BackendProtocol == "GRPCS" {
-		return "opentracing_grpc_propagate_context"
+		return "opentracing_grpc_propagate_context;"
 	}
 
-	return "opentracing_propagate_context"
+	return "opentracing_propagate_context;"
 }
 
 // shouldLoadModSecurityModule determines whether or not the ModSecurity module needs to be loaded.
@@ -1188,12 +1173,6 @@ func buildHTTPSListener(t interface{}, s interface{}) string {
 		klog.Errorf("expected a 'string' type but %T was returned", s)
 		return ""
 	}
-
-	/*
-		if server.SSLCert == nil && server.Hostname != "_" {
-			return ""
-		}
-	*/
 
 	co := commonListenOptions(tc, hostname)
 
@@ -1300,4 +1279,130 @@ func httpsListener(addresses []string, co string, tc config.TemplateConfig) []st
 	}
 
 	return out
+}
+
+func buildOpentracingForLocation(isOTEnabled bool, location *ingress.Location) string {
+	isOTEnabledInLoc := location.Opentracing.Enabled
+	isOTSetInLoc := location.Opentracing.Set
+
+	if isOTEnabled {
+		if isOTSetInLoc && !isOTEnabledInLoc {
+			return "opentracing off;"
+		}
+
+		opc := opentracingPropagateContext(location)
+		if opc != "" {
+			opc = fmt.Sprintf("opentracing on;\n%v", opc)
+		}
+
+		return opc
+	}
+
+	if isOTSetInLoc && isOTEnabledInLoc {
+		opc := opentracingPropagateContext(location)
+		if opc != "" {
+			opc = fmt.Sprintf("opentracing on;\n%v", opc)
+		}
+
+		return opc
+	}
+
+	return ""
+}
+
+// shouldLoadOpentracingModule determines whether or not the Opentracing module needs to be loaded.
+// First, it checks if `enable-opentracing` is set in the ConfigMap. If it is not, it iterates over all locations to
+// check if Opentracing is enabled by the annotation `nginx.ingress.kubernetes.io/enable-opentracing`.
+func shouldLoadOpentracingModule(c interface{}, s interface{}) bool {
+	cfg, ok := c.(config.Configuration)
+	if !ok {
+		klog.Errorf("expected a 'config.Configuration' type but %T was returned", c)
+		return false
+	}
+
+	servers, ok := s.([]*ingress.Server)
+	if !ok {
+		klog.Errorf("expected an '[]*ingress.Server' type but %T was returned", s)
+		return false
+	}
+
+	if cfg.EnableOpentracing {
+		return true
+	}
+
+	for _, server := range servers {
+		for _, location := range server.Locations {
+			if location.Opentracing.Enabled {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+func buildModSecurityForLocation(cfg config.Configuration, location *ingress.Location) string {
+	isMSEnabledInLoc := location.ModSecurity.Enable
+	isMSEnabled := cfg.EnableModsecurity
+
+	if !isMSEnabled && !isMSEnabledInLoc {
+		return ""
+	}
+
+	if !isMSEnabledInLoc {
+		return ""
+	}
+
+	var buffer bytes.Buffer
+
+	if !isMSEnabled {
+		buffer.WriteString(`modsecurity on;
+modsecurity_rules_file /etc/nginx/modsecurity/modsecurity.conf;
+`)
+	}
+
+	if !cfg.EnableOWASPCoreRules && location.ModSecurity.OWASPRules {
+		buffer.WriteString(`modsecurity_rules_file /etc/nginx/owasp-modsecurity-crs/nginx-modsecurity.conf;
+`)
+	}
+
+	if location.ModSecurity.Snippet != "" {
+		buffer.WriteString(fmt.Sprintf(`modsecurity_rules '
+%v
+';
+`, location.ModSecurity.Snippet))
+	}
+
+	if location.ModSecurity.TransactionID != "" {
+		buffer.WriteString(fmt.Sprintf(`modsecurity_transaction_id "%v";
+`, location.ModSecurity.TransactionID))
+	}
+
+	return buffer.String()
+}
+
+func buildMirrorLocations(locs []*ingress.Location) string {
+	var buffer bytes.Buffer
+
+	mapped := sets.String{}
+
+	for _, loc := range locs {
+		if loc.Mirror.Source == "" || loc.Mirror.Target == "" {
+			continue
+		}
+
+		if mapped.Has(loc.Mirror.Source) {
+			continue
+		}
+
+		mapped.Insert(loc.Mirror.Source)
+		buffer.WriteString(fmt.Sprintf(`location = %v {
+internal;
+proxy_pass %v;
+}
+
+`, loc.Mirror.Source, loc.Mirror.Target))
+	}
+
+	return buffer.String()
 }

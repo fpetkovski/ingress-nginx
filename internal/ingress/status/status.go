@@ -40,9 +40,9 @@ import (
 	"k8s.io/ingress-nginx/internal/task"
 )
 
-const (
-	updateInterval = 60 * time.Second
-)
+// UpdateInterval defines the time interval, in seconds, in
+// which the status should check if an update is required.
+var UpdateInterval = 60
 
 // Syncer ...
 type Syncer interface {
@@ -98,7 +98,7 @@ func (s statusSync) Run(stopCh chan struct{}) {
 
 	// when this instance is the leader we need to enqueue
 	// an item to trigger the update of the Ingress status.
-	wait.PollUntil(updateInterval, func() (bool, error) {
+	wait.PollUntil(time.Duration(UpdateInterval)*time.Second, func() (bool, error) {
 		s.syncQueue.EnqueueTask(task.GetDummyObject("sync status"))
 		return false, nil
 	}, stopCh)
@@ -338,7 +338,13 @@ func statusAddressFromService(service string, kubeClient clientset.Interface) ([
 	case apiv1.ServiceTypeClusterIP:
 		return []string{svc.Spec.ClusterIP}, nil
 	case apiv1.ServiceTypeNodePort:
-		return []string{svc.Spec.ClusterIP}, nil
+		addresses := []string{}
+		if svc.Spec.ExternalIPs != nil {
+			addresses = append(addresses, svc.Spec.ExternalIPs...)
+		} else {
+			addresses = append(addresses, svc.Spec.ClusterIP)
+		}
+		return addresses, nil
 	case apiv1.ServiceTypeLoadBalancer:
 		addresses := []string{}
 		for _, ip := range svc.Status.LoadBalancer.Ingress {

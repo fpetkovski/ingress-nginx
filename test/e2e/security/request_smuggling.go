@@ -23,23 +23,20 @@ import (
 	"strings"
 	"time"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/ginkgo"
+	"github.com/stretchr/testify/assert"
 
 	"k8s.io/ingress-nginx/test/e2e/framework"
 )
 
-var _ = framework.IngressNginxDescribe("Request smuggling", func() {
+var _ = framework.IngressNginxDescribe("[Security] request smuggling", func() {
 	f := framework.NewDefaultFramework("request-smuggling")
 
-	BeforeEach(func() {
+	ginkgo.BeforeEach(func() {
 		f.NewEchoDeployment()
 	})
 
-	AfterEach(func() {
-	})
-
-	It("should not return body content from error_page", func() {
+	ginkgo.It("should not return body content from error_page", func() {
 		host := "foo.bar.com"
 
 		snippet := `
@@ -53,7 +50,7 @@ server {
 
 		f.UpdateNginxConfigMapData("http-snippet", snippet)
 
-		ing := framework.NewSingleIngress(host, "/", host, f.Namespace, framework.EchoService, 80, &map[string]string{
+		ing := framework.NewSingleIngress(host, "/", host, f.Namespace, framework.EchoService, 80, map[string]string{
 			"nginx.ingress.kubernetes.io/auth-signin": "https://httpbin.org/uuid",
 			"nginx.ingress.kubernetes.io/auth-url":    "https://httpbin.org/basic-auth/user/passwd",
 		})
@@ -65,8 +62,8 @@ server {
 			})
 
 		out, err := smugglingRequest(host, f.GetNginxIP(), 80)
-		Expect(err).NotTo(HaveOccurred(), "obtaining response of request smuggling check")
-		Expect(out).ShouldNot(ContainSubstring("This should be hidden!"))
+		assert.Nil(ginkgo.GinkgoT(), err, "obtaining response of request smuggling check")
+		assert.NotContains(ginkgo.GinkgoT(), out, "This should be hidden!")
 	})
 })
 

@@ -2,8 +2,8 @@ containers:
   production:
     environment: production
     build:
-      env:
-        PIPA_DOCKERFILE: Dockerfile.shopify-build
+      command: build/shopify/pipa-main.sh
+      timeout: 40m
 
 steps:
 - build: production
