@@ -27,6 +27,10 @@ ARCH="amd64"
 TAG=${PIPA_APP_SHA:-latest}
 REGISTRY=${PIPA_DOCKER_REGISTRY}/shopify-docker-images/apps/production ARCH=${ARCH} TAG=${TAG} make build container
 
-IMAGE_NAME="shopify-docker-images/apps/production/nginx-ingress-controller-${ARCH}"
+INTERMEDIATE_IMAGE_NAME="shopify-docker-images/apps/production/nginx-ingress-controller-${ARCH}"
+IMAGE_NAME="shopify-docker-images/apps/production/ingress-nginx"
+
+docker tag "${PIPA_DOCKER_REGISTRY}/${INTERMEDIATE_IMAGE_NAME}:${TAG}" "${PIPA_DOCKER_REGISTRY}/${IMAGE_NAME}:${TAG}"
+
 echo "--- pushing ${PIPA_DOCKER_REGISTRY}/${IMAGE_NAME}:${TAG}"
 pipa image push -r "${PIPA_DOCKER_REGISTRY}" -n "${IMAGE_NAME}" -t "${TAG}"

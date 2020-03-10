@@ -7,3 +7,9 @@ containers:
 
 steps:
 - build: production
+- wait
+- label: ':admission_tickets: Binary Authorization Checks'
+  agents:
+    queue: pipa-production
+  command: pipa vouch
+  timeout_in_minutes: 5
