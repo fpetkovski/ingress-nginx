@@ -1,14 +1,13 @@
-{{- if or .Values.controller.config (or (or .Values.controller.proxySetHeaders .Values.controller.headers) .Values.controller.addHeaders) -}}
 apiVersion: v1
 kind: ConfigMap
 metadata:
   labels:
     {{- include "ingress-nginx.labels" . | nindent 4 }}
-    app.kubernetes.io/component: {{ .Values.controller.name | quote }}
+    app.kubernetes.io/component: controller
 {{- if .Values.controller.configAnnotations }}
   annotations: {{ toYaml .Values.controller.configAnnotations | nindent 4 }}
 {{- end }}
-  name: {{ template "ingress-nginx.controller.fullname" . }}
+  name: {{ include "ingress-nginx.controller.fullname" . }}
 data:
 {{- if .Values.controller.addHeaders }}
   add-headers: {{ .Release.Namespace }}/{{ include "ingress-nginx.fullname" . }}-custom-add-headers
@@ -18,5 +17,4 @@ data:
 {{- end }}
 {{- if .Values.controller.config }}
   {{ toYaml .Values.controller.config | nindent 2 }}
-{{- end }}
 {{- end }}

@@ -107,21 +107,12 @@ controller:
   config:
     worker-processes: "1"
   podLabels:
-    app.kubernetes.io/name: ingress-nginx
-    app.kubernetes.io/part-of: ingress-nginx
     deploy-date: "$(date +%s)"
-  service:
-    labels:
-      app.kubernetes.io/name: ingress-nginx
-      app.kubernetes.io/part-of: ingress-nginx
   updateStrategy:
     type: RollingUpdate
     rollingUpdate:
       maxUnavailable: 1
-  # change this when deployment supports hostPort without kubectl patch
-  kind: DaemonSet
-  daemonset:
-    useHostPort: true
+  useHostPort: true
   terminationGracePeriodSeconds: 0
 
 defaultBackend:
