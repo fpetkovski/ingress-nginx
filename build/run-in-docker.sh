@@ -42,8 +42,7 @@ KUBE_ROOT=$(cd $(dirname "${BASH_SOURCE}")/.. && pwd -P)
 
 FLAGS=$@
 
-# NOTE(elvinefendi): Shopify's CI does not have go, therefore we have to make sure we don't call go here if ARCH is given
-PKG=${PKG:-k8s.io/ingress-nginx}
+PKG=k8s.io/ingress-nginx
 ARCH=${ARCH:-}
 if [[ -z "$ARCH" ]]; then
   ARCH=$(go env GOARCH)
