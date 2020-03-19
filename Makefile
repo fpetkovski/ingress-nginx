@@ -55,12 +55,16 @@ PKG = k8s.io/ingress-nginx
 
 BUSTED_ARGS =-v --pattern=_test
 
-ARCH ?= $(shell go env GOARCH)
+HOST_ARCH = $(shell which go >/dev/null 2>&1 && go env GOARCH)
+ARCH ?= $(HOST_ARCH)
+ifeq ($(ARCH),)
+    $(error mandatory variable ARCH is empty, either set it when calling the command or make sure 'go env GOARCH' works)
+endif
 
 REGISTRY ?= quay.io/kubernetes-ingress-controller
 
 BASE_IMAGE ?= quay.io/kubernetes-ingress-controller/nginx
-BASE_TAG ?= c5db20ace43ada5b4c191df24c480fddceb5d482
+BASE_TAG ?= 7b6e2dd312f1808e43fb39992ea814035557c7f3
 
 GOARCH=$(ARCH)
 GOBUILD_FLAGS := -v

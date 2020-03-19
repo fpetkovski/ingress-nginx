@@ -34,7 +34,7 @@ function cleanup {
 }
 trap cleanup EXIT
 
-E2E_IMAGE=quay.io/kubernetes-ingress-controller/e2e:v02262020-a830e931d
+E2E_IMAGE=quay.io/kubernetes-ingress-controller/e2e:v03062020-7b6e2dd31
 
 DOCKER_OPTS=${DOCKER_OPTS:-}
 
@@ -42,8 +42,7 @@ KUBE_ROOT=$(cd $(dirname "${BASH_SOURCE}")/.. && pwd -P)
 
 FLAGS=$@
 
-# NOTE(elvinefendi): Shopify's CI does not have go, therefore we have to make sure we don't call go here if ARCH is given
-PKG=${PKG:-k8s.io/ingress-nginx}
+PKG=k8s.io/ingress-nginx
 ARCH=${ARCH:-}
 if [[ -z "$ARCH" ]]; then
   ARCH=$(go env GOARCH)
