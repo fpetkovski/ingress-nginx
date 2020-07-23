@@ -22,6 +22,18 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
+echo "--- downloading geoip databases"
+IFS=','; free_urls=($FREE_GEOIP_FILES)
+IFS=','; paid_urls=($PAID_GEOIP_FILES)
+urls=()
+
+GEOIP_DB_DIR="$PWD/rootfs/geoip"
+mkdir "${GEOIP_DB_DIR}"
+
+for url in "${free_urls[@]}"; do urls+=("gs://shopify-mmdb-free/$url.gz"); done
+for url in "${paid_urls[@]}"; do urls+=("gs://shopify-mmdb-licensed/$url.gz"); done
+for url in "${urls[@]}"; do echo "$url"; done | gsutil -m cp -I "${GEOIP_DB_DIR}"
+
 echo "--- docker build"
 ARCH="amd64"
 TAG=${PIPA_APP_SHA:-latest}

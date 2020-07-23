@@ -37,6 +37,12 @@ export TAG=1.0.0-dev
 export ARCH=amd64
 export REGISTRY=ingress-controller
 
+# Mock file and directory to prevent e2e docker build from failing due to geoip databases copied during production build
+GEOIP_DB_DIR="$PWD/rootfs/geoip"
+mkdir "${GEOIP_DB_DIR}"
+touch "${GEOIP_DB_DIR}/file.txt"
+tar -czvf "${GEOIP_DB_DIR}/file.gz" "${GEOIP_DB_DIR}/file.txt"
+
 echo "[dev-env] building container"
 make build container
 make e2e-test-image
