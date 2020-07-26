@@ -172,9 +172,25 @@ http {
         $geoip2_region_name source=$remote_addr subdivisions 0 names en;
     }
 
-    geoip2 /etc/nginx/geoip/GeoLite2-ASN.mmdb {
-        $geoip2_asn source=$remote_addr autonomous_system_number;
-        $geoip2_org source=$remote_addr autonomous_system_organization;
+    # Shopify specific begins
+    # We prefer GeoIP2 databases ovver GeoLite2 ones,
+    # because they are more accurate: https://support.maxmind.com/geolite-faq/general/what-is-the-difference-between-geoip2-and-geolite2-databases/
+    # For the full list of what databases we downlaod see .shopify-build/shopify-slash-nginx-routing-modules-production-builder.yml
+    # geoip2 /etc/nginx/geoip/GeoLite2-ASN.mmdb {
+    #     $geoip2_asn source=$remote_addr autonomous_system_number;
+    #     $geoip2_org source=$remote_addr autonomous_system_organization;
+    # }
+
+    geoip2 /etc/nginx/geoip/GeoIP2-ISP.mmdb {
+        $geoip2_asn source=$remote_addr default=0 autonomous_system_number;
+    }
+
+    geoip2 /etc/nginx/geoip/GeoIP2-Anonymous-IP.mmdb {
+        $geoip2_is_anonymous source=$remote_addr default=0 is_anonymous;
+        $geoip2_is_anonymous_vpn source=$remote_addr default=0 is_anonymous_vpn;
+        $geoip2_is_hosting_provider source=$remote_addr default=0 is_hosting_provider;
+        $geoip2_is_public_proxy source=$remote_addr default=0 is_public_proxy;
+        $geoip2_is_tor_exit_node source=$remote_addr default=0 is_tor_exit_node;
     }
     {{ end }}
 

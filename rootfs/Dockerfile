@@ -51,6 +51,11 @@ RUN bash -xeu -c ' \
     chown -R www-data.www-data ${dir}; \
   done'
 
+COPY geoip/*.gz /etc/nginx/geoip/
+RUN gunzip -fk /etc/nginx/geoip/*.gz \
+  && rm -rf /etc/nginx/geoip/*.gz \
+  && chown -R www-data.www-data /etc/nginx/geoip
+
 RUN  setcap    cap_net_bind_service=+ep /nginx-ingress-controller \
   && setcap -v cap_net_bind_service=+ep /nginx-ingress-controller
 
