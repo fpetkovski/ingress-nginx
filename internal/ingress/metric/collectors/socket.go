@@ -27,7 +27,7 @@ import (
 	jsoniter "github.com/json-iterator/go"
 	"github.com/prometheus/client_golang/prometheus"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 )
 
 type upstream struct {
@@ -230,8 +230,8 @@ func (sc *SocketCollector) handleMessage(msg []byte) {
 	}
 
 	for _, stats := range statsBatch {
-		if !sc.hosts.Has(stats.Host) {
-			klog.V(3).Infof("skiping metric for host %v that is not being served", stats.Host)
+		if sc.metricsPerHost && !sc.hosts.Has(stats.Host) {
+			klog.V(3).Infof("Skipping metric for host %v that is not being served", stats.Host)
 			continue
 		}
 

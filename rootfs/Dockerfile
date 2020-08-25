@@ -16,7 +16,9 @@ ARG BASE_IMAGE
 
 FROM ${BASE_IMAGE}
 
+ARG TARGETARCH
 ARG VERSION
+ARG COMMIT_SHA
 
 LABEL org.opencontainers.image.title="NGINX Ingress Controller for Kubernetes"
 LABEL org.opencontainers.image.documentation="https://kubernetes.github.io/ingress-nginx/"
@@ -24,17 +26,29 @@ LABEL org.opencontainers.image.source="https://github.com/kubernetes/ingress-ngi
 LABEL org.opencontainers.image.vendor="The Kubernetes Authors"
 LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL org.opencontainers.image.version="${VERSION}"
+LABEL org.opencontainers.image.revision="${COMMIT_SHA}"
 
 WORKDIR  /etc/nginx
 
-RUN apk add -U --no-cache \
-  diffutils \
-  libcap
+RUN apk update \
+  && apk upgrade \
+  && apk add --no-cache \
+    diffutils \
+  && rm -rf /var/cache/apk/*
 
 # TODO(elvinefendi): our docker version does not support --chown
 # otherwise we could just do `COPY --chown=www-data:www-data . /`
-COPY . /
-RUN chown -R www-data.www-data /etc/nginx/
+COPY etc /etc
+RUN chown -R www-data.www-data /etc
+COPY ingress-controller /ingress-controller
+RUN chown -R www-data.www-data /ingress-controller
+
+COPY bin/${TARGETARCH}/dbg /
+RUN chown -R www-data.www-data /dbg
+COPY bin/${TARGETARCH}/nginx-ingress-controller /
+RUN chown -R www-data.www-data /nginx-ingress-controller
+COPY bin/${TARGETARCH}/wait-shutdown /
+RUN chown -R www-data.www-data /wait-shutdown
 
 # Fix permission during the build to avoid issues at runtime
 # with volumes (custom templates)
@@ -56,11 +70,12 @@ RUN gunzip -fk /etc/nginx/geoip/*.gz \
   && rm -rf /etc/nginx/geoip/*.gz \
   && chown -R www-data.www-data /etc/nginx/geoip
 
-RUN  setcap    cap_net_bind_service=+ep /nginx-ingress-controller \
-  && setcap -v cap_net_bind_service=+ep /nginx-ingress-controller
-
-RUN  setcap    cap_net_bind_service=+ep /usr/local/nginx/sbin/nginx \
-  && setcap -v cap_net_bind_service=+ep /usr/local/nginx/sbin/nginx
+RUN apk add --no-cache libcap \
+  && setcap    cap_net_bind_service=+ep /nginx-ingress-controller \
+  && setcap -v cap_net_bind_service=+ep /nginx-ingress-controller \
+  && setcap    cap_net_bind_service=+ep /usr/local/nginx/sbin/nginx \
+  && setcap -v cap_net_bind_service=+ep /usr/local/nginx/sbin/nginx \
+  && apk del libcap
 
 USER www-data
 

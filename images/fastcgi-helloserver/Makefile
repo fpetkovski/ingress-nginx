@@ -14,16 +14,16 @@
 
 # Docker image for e2e testing.
 
-# Use the 0.0 tag for testing, it shouldn't clobber any release builds
-TAG ?= 0.0
+# set default shell
+SHELL=/bin/bash -o pipefail -o errexit
 
-REGISTRY ?= ingress-controller
-DOCKER ?= docker
+DIR:=$(strip $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST)))))
+INIT_BUILDX=$(DIR)/../../hack/init-buildx.sh
 
-IMGNAME = fastcgi-helloserver
-IMAGE = $(REGISTRY)/$(IMGNAME)
+TAG ?=v$(shell date +%m%d%Y)-$(shell git rev-parse --short HEAD)
+REGISTRY ?= local
 
-PKG=k8s.io/ingress-nginx/images/fastcgi-helloserver
+IMAGE = $(REGISTRY)/e2e-test-fastcgi-helloserver
 
 container:
 	# NOTE(elvinefendi): since Shopify's CI does not have recent docker we can not use buildx here
@@ -36,5 +36,18 @@ build:
 		-ldflags "-s -w" \
 		-o rootfs/fastcgi-helloserver ${PKG}/...
 
-clean:
-	$(DOCKER) rmi -f $(IMAGE):$(TAG) || true
+# push the cross built image
+push: OUTPUT=--push
+push: build
+
+# enable buildx
+ensure-buildx:
+# this is required for cloudbuild
+ifeq ("$(wildcard $(INIT_BUILDX))","")
+	@curl -sSL https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/hack/init-buildx.sh | bash
+else
+	@exec $(INIT_BUILDX)
+endif
+	@echo "done"
+
+.PHONY: build push ensure-buildx

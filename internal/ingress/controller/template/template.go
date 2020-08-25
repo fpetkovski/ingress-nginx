@@ -39,8 +39,9 @@ import (
 
 	"github.com/pkg/errors"
 
+	networkingv1beta1 "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 
 	"k8s.io/ingress-nginx/internal/ingress"
 	"k8s.io/ingress-nginx/internal/ingress/annotations/influxdb"
@@ -95,7 +96,7 @@ func (t *Template) Write(conf config.TemplateConfig) ([]byte, error) {
 	outCmdBuf := t.bp.Get()
 	defer t.bp.Put(outCmdBuf)
 
-	if klog.V(3) {
+	if klog.V(3).Enabled() {
 		b, err := json.Marshal(conf)
 		if err != nil {
 			klog.Errorf("unexpected error: %v", err)
@@ -171,7 +172,6 @@ var (
 		"proxySetHeader":                     proxySetHeader,
 		"buildInfluxDB":                      buildInfluxDB,
 		"enforceRegexModifier":               enforceRegexModifier,
-		"stripLocationModifer":               stripLocationModifer,
 		"buildCustomErrorDeps":               buildCustomErrorDeps,
 		"buildCustomErrorLocationsPerServer": buildCustomErrorLocationsPerServer,
 		"shouldLoadModSecurityModule":        shouldLoadModSecurityModule,
@@ -373,10 +373,6 @@ func needsRewrite(location *ingress.Location) bool {
 	return false
 }
 
-func stripLocationModifer(path string) string {
-	return strings.TrimLeft(path, "~* ")
-}
-
 // enforceRegexModifier checks if the "rewrite-target" or "use-regex" annotation
 // is used on any location path within a server
 func enforceRegexModifier(input interface{}) bool {
@@ -407,6 +403,11 @@ func buildLocation(input interface{}, enforceRegex bool) string {
 	if enforceRegex {
 		return fmt.Sprintf(`~* "^%s"`, path)
 	}
+
+	if location.PathType != nil && *location.PathType == networkingv1beta1.PathTypeExact {
+		return fmt.Sprintf(`= %s`, path)
+	}
+
 	return path
 }
 
@@ -557,7 +558,6 @@ rewrite "(?i)%s" %s break;
 	return defProxyPass
 }
 
-// TODO: Needs Unit Tests
 func filterRateLimits(input interface{}) []ratelimit.Config {
 	ratelimits := []ratelimit.Config{}
 	found := sets.String{}
@@ -578,7 +578,6 @@ func filterRateLimits(input interface{}) []ratelimit.Config {
 	return ratelimits
 }
 
-// TODO: Needs Unit Tests
 // buildRateLimitZones produces an array of limit_conn_zone in order to allow
 // rate limiting of request. Each Ingress rule could have up to three zones, one
 // for connection limit by IP address, one for limiting requests per minute, and
@@ -872,6 +871,10 @@ func getIngressInformation(i, h, p interface{}) *ingressInformation {
 			continue
 		}
 
+		if hostname != rule.Host {
+			continue
+		}
+
 		for _, rPath := range rule.HTTP.Paths {
 			if path == rPath.Path {
 				info.Service = rPath.Backend.ServiceName
@@ -966,6 +969,13 @@ func buildOpentracing(c interface{}, s interface{}) string {
 	}
 
 	buf.WriteString("\r\n")
+
+	if cfg.OpentracingOperationName != "" {
+		buf.WriteString(fmt.Sprintf("opentracing_operation_name \"%s\";\n", cfg.OpentracingOperationName))
+	}
+	if cfg.OpentracingLocationOperationName != "" {
+		buf.WriteString(fmt.Sprintf("opentracing_location_operation_name \"%s\";\n", cfg.OpentracingLocationOperationName))
+	}
 
 	return buf.String()
 }
@@ -1226,18 +1236,17 @@ func commonListenOptions(template config.TemplateConfig, hostname string) string
 func httpListener(addresses []string, co string, tc config.TemplateConfig) []string {
 	out := make([]string, 0)
 	for _, address := range addresses {
-		l := make([]string, 0)
-		l = append(l, "listen")
+		lo := []string{"listen"}
 
 		if address == "" {
-			l = append(l, fmt.Sprintf("%v", tc.ListenPorts.HTTP))
+			lo = append(lo, fmt.Sprintf("%v", tc.ListenPorts.HTTP))
 		} else {
-			l = append(l, fmt.Sprintf("%v:%v", address, tc.ListenPorts.HTTP))
+			lo = append(lo, fmt.Sprintf("%v:%v", address, tc.ListenPorts.HTTP))
 		}
 
-		l = append(l, co)
-		l = append(l, ";")
-		out = append(out, strings.Join(l, " "))
+		lo = append(lo, co)
+		lo = append(lo, ";")
+		out = append(out, strings.Join(lo, " "))
 	}
 
 	return out
@@ -1246,38 +1255,35 @@ func httpListener(addresses []string, co string, tc config.TemplateConfig) []str
 func httpsListener(addresses []string, co string, tc config.TemplateConfig) []string {
 	out := make([]string, 0)
 	for _, address := range addresses {
-		l := make([]string, 0)
-		l = append(l, "listen")
+		lo := []string{"listen"}
 
 		if tc.IsSSLPassthroughEnabled {
 			if address == "" {
-				l = append(l, fmt.Sprintf("%v", tc.ListenPorts.SSLProxy))
+				lo = append(lo, fmt.Sprintf("%v", tc.ListenPorts.SSLProxy))
 			} else {
-				l = append(l, fmt.Sprintf("%v:%v", address, tc.ListenPorts.SSLProxy))
+				lo = append(lo, fmt.Sprintf("%v:%v", address, tc.ListenPorts.SSLProxy))
 			}
 
-			l = append(l, "proxy_protocol")
+			if !strings.Contains(co, "proxy_protocol") {
+				lo = append(lo, "proxy_protocol")
+			}
 		} else {
 			if address == "" {
-				l = append(l, fmt.Sprintf("%v", tc.ListenPorts.HTTPS))
+				lo = append(lo, fmt.Sprintf("%v", tc.ListenPorts.HTTPS))
 			} else {
-				l = append(l, fmt.Sprintf("%v:%v", address, tc.ListenPorts.HTTPS))
-			}
-
-			if tc.Cfg.UseProxyProtocol {
-				l = append(l, "proxy_protocol")
+				lo = append(lo, fmt.Sprintf("%v:%v", address, tc.ListenPorts.HTTPS))
 			}
 		}
 
-		l = append(l, co)
-		l = append(l, "ssl")
+		lo = append(lo, co)
+		lo = append(lo, "ssl")
 
 		if tc.Cfg.UseHTTP2 {
-			l = append(l, "http2")
+			lo = append(lo, "http2")
 		}
 
-		l = append(l, ";")
-		out = append(out, strings.Join(l, " "))
+		lo = append(lo, ";")
+		out = append(out, strings.Join(lo, " "))
 	}
 
 	return out
@@ -1345,26 +1351,21 @@ func shouldLoadOpentracingModule(c interface{}, s interface{}) bool {
 
 func buildModSecurityForLocation(cfg config.Configuration, location *ingress.Location) string {
 	isMSEnabledInLoc := location.ModSecurity.Enable
+	isMSEnableSetInLoc := location.ModSecurity.EnableSet
 	isMSEnabled := cfg.EnableModsecurity
 
 	if !isMSEnabled && !isMSEnabledInLoc {
 		return ""
 	}
 
-	if !isMSEnabledInLoc {
-		return ""
+	if isMSEnableSetInLoc && !isMSEnabledInLoc {
+		return "modsecurity off;"
 	}
 
 	var buffer bytes.Buffer
 
 	if !isMSEnabled {
 		buffer.WriteString(`modsecurity on;
-modsecurity_rules_file /etc/nginx/modsecurity/modsecurity.conf;
-`)
-	}
-
-	if !cfg.EnableOWASPCoreRules && location.ModSecurity.OWASPRules {
-		buffer.WriteString(`modsecurity_rules_file /etc/nginx/owasp-modsecurity-crs/nginx-modsecurity.conf;
 `)
 	}
 
@@ -1378,6 +1379,16 @@ modsecurity_rules_file /etc/nginx/modsecurity/modsecurity.conf;
 	if location.ModSecurity.TransactionID != "" {
 		buffer.WriteString(fmt.Sprintf(`modsecurity_transaction_id "%v";
 `, location.ModSecurity.TransactionID))
+	}
+
+	if !isMSEnabled {
+		buffer.WriteString(`modsecurity_rules_file /etc/nginx/modsecurity/modsecurity.conf;
+`)
+	}
+
+	if !cfg.EnableOWASPCoreRules && location.ModSecurity.OWASPRules {
+		buffer.WriteString(`modsecurity_rules_file /etc/nginx/owasp-modsecurity-crs/nginx-modsecurity.conf;
+`)
 	}
 
 	return buffer.String()

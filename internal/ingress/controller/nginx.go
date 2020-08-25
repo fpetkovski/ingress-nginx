@@ -44,9 +44,9 @@ import (
 	v1core "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/flowcontrol"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 
-	adm_controler "k8s.io/ingress-nginx/internal/admission/controller"
+	adm_controller "k8s.io/ingress-nginx/internal/admission/controller"
 	"k8s.io/ingress-nginx/internal/file"
 	"k8s.io/ingress-nginx/internal/ingress"
 	"k8s.io/ingress-nginx/internal/ingress/annotations/class"
@@ -113,7 +113,7 @@ func NewNGINXController(config *Configuration, mc metric.Collector) *NGINXContro
 	if n.cfg.ValidationWebhook != "" {
 		n.validationWebhookServer = &http.Server{
 			Addr:      config.ValidationWebhook,
-			Handler:   adm_controler.NewAdmissionControllerServer(&adm_controler.IngressAdmission{Checker: n}),
+			Handler:   adm_controller.NewAdmissionControllerServer(&adm_controller.IngressAdmission{Checker: n}),
 			TLSConfig: ssl.NewTLSListener(n.cfg.ValidationWebhookCertPath, n.cfg.ValidationWebhookKeyPath).TLSConfig(),
 		}
 	}
@@ -337,23 +337,12 @@ func (n *NGINXController) Start() {
 				return
 			}
 
-			// if the nginx master process dies the workers continue to process requests,
-			// passing checks but in case of updates in ingress no updates will be
-			// reflected in the nginx configuration which can lead to confusion and report
-			// issues because of this behavior.
-			// To avoid this issue we restart nginx in case of errors.
+			// if the nginx master process dies, the workers continue to process requests
+			// until the failure of the configured livenessProbe and restart of the pod.
 			if process.IsRespawnIfRequired(err) {
-				process.WaitUntilPortIsAvailable(n.cfg.ListenPorts.HTTP)
-				// release command resources
-				cmd.Process.Release()
-				// start a new nginx master process if the controller is not being stopped
-				cmd = n.command.ExecCommand()
-				cmd.SysProcAttr = &syscall.SysProcAttr{
-					Setpgid: true,
-					Pgid:    0,
-				}
-				n.start(cmd)
+				return
 			}
+
 		case event := <-n.updateCh.Out():
 			if n.isShuttingDown {
 				break
@@ -615,12 +604,13 @@ func (n NGINXController) generateTemplate(cfg ngx_config.Configuration, ingressC
 		ListenPorts:              n.cfg.ListenPorts,
 		PublishService:           n.GetPublishService(),
 		EnableMetrics:            n.cfg.EnableMetrics,
-
-		HealthzURI: nginx.HealthPath,
-		PID:        nginx.PID,
-		StatusPath: nginx.StatusPath,
-		StatusPort: nginx.StatusPort,
-		StreamPort: nginx.StreamPort,
+		MaxmindEditionFiles:      n.cfg.MaxmindEditionFiles,
+		HealthzURI:               nginx.HealthPath,
+		MonitorMaxBatchSize:      n.cfg.MonitorMaxBatchSize,
+		PID:                      nginx.PID,
+		StatusPath:               nginx.StatusPath,
+		StatusPort:               nginx.StatusPort,
+		StreamPort:               nginx.StreamPort,
 	}
 
 	tc.Cfg.Checksum = ingressCfg.ConfigurationChecksum
@@ -683,7 +673,7 @@ func (n *NGINXController) OnUpdate(ingressCfg ingress.Configuration) error {
 		return err
 	}
 
-	if klog.V(2) {
+	if klog.V(2).Enabled() {
 		src, _ := ioutil.ReadFile(cfgPath)
 		if !bytes.Equal(src, content) {
 			tmpfile, err := ioutil.TempFile("", "new-nginx-cfg")

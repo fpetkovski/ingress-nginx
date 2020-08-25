@@ -1,4 +1,4 @@
-# Copyright 2020 The Kubernetes Authors.
+# Copyright 2020 The Kubernetes Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,22 +12,53 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Docker image for e2e testing.
+# set default shell
+SHELL=/bin/bash -o pipefail -o errexit
 
-# Use the 0.0 tag for testing, it shouldn't clobber any release builds
-TAG ?= 0.0
+DIR:=$(strip $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST)))))
+INIT_BUILDX=$(DIR)/../../hack/init-buildx.sh
 
-REGISTRY ?= ingress-controller
-DOCKER ?= docker
+TAG ?=v$(shell date +%m%d%Y)-$(shell git rev-parse --short HEAD)
+REGISTRY ?= local
 
-IMGNAME = echo
-IMAGE = $(REGISTRY)/$(IMGNAME)
+IMAGE = $(REGISTRY)/e2e-test-echo
 
 container:
 	# NOTE(elvinefendi): since Shopify's CI does not have recent docker we can not use buildx here
 	$(DOCKER) build \
 		--network=host \
 		-t $(IMAGE):$(TAG) .
+		
+# required to enable buildx
+export DOCKER_CLI_EXPERIMENTAL=enabled
 
-clean:
-	$(DOCKER) rmi -f $(IMAGE):$(TAG) || true
+# build with buildx
+PLATFORMS?=linux/amd64
+OUTPUT=
+PROGRESS=plain
+
+build: ensure-buildx
+	docker buildx build \
+		--platform=${PLATFORMS} $(OUTPUT) \
+		--progress=$(PROGRESS) \
+		--pull \
+		--build-arg BASE_IMAGE=us.gcr.io/k8s-artifacts-prod/ingress-nginx/nginx:v20200812-g0673e5e17@sha256:3bafc6840f2477c05eb029580fa8ecf4bd33b0f0765e3cd9cc82ad91f817ccf3 \
+		--build-arg LUAROCKS_VERSION=3.3.1 \
+		--build-arg LUAROCKS_SHA=837481e408f7c06b59befe7ec194537c657687d624894bca7f79034302141a34 \
+		-t $(IMAGE):$(TAG) rootfs
+
+# push the cross built image
+push: OUTPUT=--push
+push: build
+
+# enable buildx
+ensure-buildx:
+# this is required for cloudbuild
+ifeq ("$(wildcard $(INIT_BUILDX))","")
+	@curl -sSL https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/hack/init-buildx.sh | bash
+else
+	@exec $(INIT_BUILDX)
+endif
+	@echo "done"
+
+.PHONY: build push ensure-buildx

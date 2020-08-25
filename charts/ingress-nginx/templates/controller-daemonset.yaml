@@ -1,24 +1,24 @@
 {{- if or (eq .Values.controller.kind "DaemonSet") (eq .Values.controller.kind "Both") -}}
 {{- include  "isControllerTagValid" . -}}
-apiVersion: {{ template "daemonset.apiVersion" . }}
+apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   labels:
     {{- include "ingress-nginx.labels" . | nindent 4 }}
     app.kubernetes.io/component: controller
   name: {{ include "ingress-nginx.controller.fullname" . }}
-{{- if .Values.controller.daemonsetAnnotations }}
-  annotations: {{ toYaml .Values.controller.daemonsetAnnotations | nindent 4 }}
-{{- end }}
+  {{- if .Values.controller.annotations }}
+  annotations: {{ toYaml .Values.controller.annotations | nindent 4 }}
+  {{- end }}
 spec:
   selector:
     matchLabels:
       {{- include "ingress-nginx.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: controller
   revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
-{{- if .Values.controller.updateStrategy }}
+  {{- if .Values.controller.updateStrategy }}
   updateStrategy: {{ toYaml .Values.controller.updateStrategy | nindent 4 }}
-{{- end }}
+  {{- end }}
   minReadySeconds: {{ .Values.controller.minReadySeconds }}
   template:
     metadata:
@@ -42,12 +42,24 @@ spec:
     {{- if .Values.controller.priorityClassName }}
       priorityClassName: {{ .Values.controller.priorityClassName }}
     {{- end }}
-    {{- if .Values.controller.podSecurityContext }}
-      securityContext: {{ toYaml .Values.controller.podSecurityContext | nindent 8 }}
+    {{- if or .Values.controller.podSecurityContext .Values.controller.sysctls }}
+      securityContext:
+    {{- end }}
+    {{- if .Values.controller.podSecurityContext  }}
+        {{- toYaml .Values.controller.podSecurityContext | nindent 8 }}
+    {{- end }}
+    {{- if .Values.controller.sysctls }}
+        sysctls:
+    {{- range $sysctl, $value := .Values.controller.sysctls }}
+        - name: {{ $sysctl | quote }}
+          value: {{ $value | quote }}
+    {{- end }}
     {{- end }}
       containers:
         - name: controller
-          image: {{ .Values.controller.image.repository }}:{{ .Values.controller.image.tag }}
+          {{- with .Values.controller.image }}
+          image: "{{.repository}}:{{ .tag }}{{- if (.digest) -}} @{{.digest}} {{- end -}}"
+          {{- end }}
           imagePullPolicy: {{ .Values.controller.image.pullPolicy }}
         {{- if .Values.controller.lifecycle }}
           lifecycle: {{ toYaml .Values.controller.lifecycle | nindent 12 }}
@@ -110,6 +122,10 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
+          {{- if .Values.controller.enableMimalloc }}
+            - name: LD_PRELOAD
+              value: /usr/local/lib/libmimalloc.so
+          {{- end }}
           {{- if .Values.controller.extraEnvs }}
             {{- toYaml .Values.controller.extraEnvs | nindent 12 }}
           {{- end }}
@@ -138,8 +154,8 @@ spec:
             - name: {{ $key }}
               containerPort: {{ $value }}
               protocol: TCP
-              {{- if $.Values.controller.useHostPort }}
-              hostPort: {{ index $.Values.controller.hostPorts $key | default $value }}
+              {{- if $.Values.controller.hostPort.enabled }}
+              hostPort: {{ index $.Values.controller.hostPort.ports $key | default $value }}
               {{- end }}
           {{- end }}
           {{- if .Values.controller.metrics.enabled }}
@@ -156,7 +172,7 @@ spec:
             - name: {{ $key }}-tcp
               containerPort: {{ $key }}
               protocol: TCP
-              {{- if $.Values.controller.useHostPort }}
+              {{- if $.Values.controller.hostPort.enabled }}
               hostPort: {{ $key }}
               {{- end }}
           {{- end }}
@@ -164,7 +180,7 @@ spec:
             - name: {{ $key }}-udp
               containerPort: {{ $key }}
               protocol: UDP
-              {{- if $.Values.controller.useHostPort }}
+              {{- if $.Values.controller.hostPort.enabled }}
               hostPort: {{ $key }}
               {{- end }}
           {{- end }}

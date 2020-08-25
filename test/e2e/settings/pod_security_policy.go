@@ -17,6 +17,7 @@ limitations under the License.
 package settings
 
 import (
+	"context"
 	"net/http"
 	"strings"
 
@@ -39,14 +40,14 @@ const (
 var _ = framework.IngressNginxDescribe("[Security] Pod Security Policies", func() {
 	f := framework.NewDefaultFramework("pod-security-policies")
 
-	ginkgo.BeforeEach(func() {
+	ginkgo.It("should be running with a Pod Security Policy", func() {
 		psp := createPodSecurityPolicy()
-		_, err := f.KubeClientSet.PolicyV1beta1().PodSecurityPolicies().Create(psp)
+		_, err := f.KubeClientSet.PolicyV1beta1().PodSecurityPolicies().Create(context.TODO(), psp, metav1.CreateOptions{})
 		if !k8sErrors.IsAlreadyExists(err) {
 			assert.Nil(ginkgo.GinkgoT(), err, "creating Pod Security Policy")
 		}
 
-		role, err := f.KubeClientSet.RbacV1().Roles(f.Namespace).Get("nginx-ingress", metav1.GetOptions{})
+		role, err := f.KubeClientSet.RbacV1().Roles(f.Namespace).Get(context.TODO(), "nginx-ingress", metav1.GetOptions{})
 		assert.Nil(ginkgo.GinkgoT(), err, "getting ingress controller cluster role")
 		assert.NotNil(ginkgo.GinkgoT(), role)
 
@@ -57,7 +58,7 @@ var _ = framework.IngressNginxDescribe("[Security] Pod Security Policies", func(
 			Verbs:         []string{"use"},
 		})
 
-		_, err = f.KubeClientSet.RbacV1().Roles(f.Namespace).Update(role)
+		_, err = f.KubeClientSet.RbacV1().Roles(f.Namespace).Update(context.TODO(), role, metav1.UpdateOptions{})
 		assert.Nil(ginkgo.GinkgoT(), err, "updating ingress controller cluster role to use a pod security policy")
 
 		// update the deployment just to trigger a rolling update and the use of the security policy
@@ -66,16 +67,16 @@ var _ = framework.IngressNginxDescribe("[Security] Pod Security Policies", func(
 				args := deployment.Spec.Template.Spec.Containers[0].Args
 				args = append(args, "--v=2")
 				deployment.Spec.Template.Spec.Containers[0].Args = args
-				_, err := f.KubeClientSet.AppsV1().Deployments(f.Namespace).Update(deployment)
+				_, err := f.KubeClientSet.AppsV1().Deployments(f.Namespace).Update(context.TODO(), deployment, metav1.UpdateOptions{})
 
 				return err
 			})
 		assert.Nil(ginkgo.GinkgoT(), err, "unexpected error updating ingress controller deployment flags")
 
-		f.NewEchoDeployment()
-	})
+		f.WaitForNginxListening(80)
 
-	ginkgo.It("should be running with a Pod Security Policy", func() {
+		f.NewEchoDeployment()
+
 		f.WaitForNginxConfiguration(
 			func(cfg string) bool {
 				return strings.Contains(cfg, "server_tokens on")
@@ -124,5 +125,4 @@ func createPodSecurityPolicy() *policyv1beta1.PodSecurityPolicy {
 			},
 		},
 	}
-
 }

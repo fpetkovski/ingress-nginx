@@ -27,7 +27,7 @@ import (
 	"k8s.io/ingress-nginx/test/e2e/framework"
 )
 
-var _ = framework.DescribeAnnotation("permanen-redirect permanen-redirect-code", func() {
+var _ = framework.DescribeAnnotation("permanent-redirect permanent-redirect-code", func() {
 	f := framework.NewDefaultFramework("redirect")
 
 	ginkgo.It("should respond with a standard redirect code", func() {
@@ -46,8 +46,7 @@ var _ = framework.DescribeAnnotation("permanen-redirect permanen-redirect-code",
 
 		f.WaitForNginxServer(host,
 			func(server string) bool {
-				return strings.Contains(server, fmt.Sprintf("if ($uri ~* %s) {", redirectPath)) &&
-					strings.Contains(server, fmt.Sprintf("return 301 %s;", redirectURL))
+				return strings.Contains(server, fmt.Sprintf("return 301 %s;", redirectURL))
 			})
 
 		ginkgo.By("sending request to redirected URL path")
@@ -77,8 +76,7 @@ var _ = framework.DescribeAnnotation("permanen-redirect permanen-redirect-code",
 
 		f.WaitForNginxServer(host,
 			func(server string) bool {
-				return strings.Contains(server, fmt.Sprintf("if ($uri ~* %s) {", redirectPath)) &&
-					strings.Contains(server, fmt.Sprintf("return %d %s;", redirectCode, redirectURL))
+				return strings.Contains(server, fmt.Sprintf("return %d %s;", redirectCode, redirectURL))
 			})
 
 		ginkgo.By("sending request to redirected URL path")

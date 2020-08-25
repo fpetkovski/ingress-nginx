@@ -17,11 +17,11 @@ limitations under the License.
 package ssl
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/onsi/ginkgo"
 	"github.com/stretchr/testify/assert"
@@ -57,7 +57,7 @@ var _ = framework.IngressNginxDescribe("[SSL] secret update", func() {
 			ing.Namespace)
 		assert.Nil(ginkgo.GinkgoT(), err)
 
-		time.Sleep(5 * time.Second)
+		framework.Sleep()
 
 		f.WaitForNginxServer(host,
 			func(server string) bool {
@@ -69,11 +69,11 @@ var _ = framework.IngressNginxDescribe("[SSL] secret update", func() {
 		assert.Nil(ginkgo.GinkgoT(), err, "obtaining nginx logs")
 		assert.NotContains(ginkgo.GinkgoT(), log, fmt.Sprintf("starting syncing of secret %v/dummy", f.Namespace))
 
-		time.Sleep(5 * time.Second)
+		framework.Sleep()
 
 		dummySecret.Data["some-key"] = []byte("some value")
 
-		f.KubeClientSet.CoreV1().Secrets(f.Namespace).Update(dummySecret)
+		f.KubeClientSet.CoreV1().Secrets(f.Namespace).Update(context.TODO(), dummySecret, metav1.UpdateOptions{})
 
 		assert.NotContains(ginkgo.GinkgoT(), log, fmt.Sprintf("starting syncing of secret %v/dummy", f.Namespace))
 		assert.NotContains(ginkgo.GinkgoT(), log, fmt.Sprintf("error obtaining PEM from secret %v/dummy", f.Namespace))

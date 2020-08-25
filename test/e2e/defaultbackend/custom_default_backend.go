@@ -17,14 +17,15 @@ limitations under the License.
 package defaultbackend
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/onsi/ginkgo"
 	"github.com/stretchr/testify/assert"
 	appsv1 "k8s.io/api/apps/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"k8s.io/ingress-nginx/test/e2e/framework"
 )
@@ -40,13 +41,10 @@ var _ = framework.IngressNginxDescribe("[Default Backend] custom service", func(
 				args := deployment.Spec.Template.Spec.Containers[0].Args
 				args = append(args, fmt.Sprintf("--default-backend-service=%v/%v", f.Namespace, framework.EchoService))
 				deployment.Spec.Template.Spec.Containers[0].Args = args
-				_, err := f.KubeClientSet.AppsV1().Deployments(f.Namespace).Update(deployment)
-				time.Sleep(5 * time.Second)
+				_, err := f.KubeClientSet.AppsV1().Deployments(f.Namespace).Update(context.TODO(), deployment, metav1.UpdateOptions{})
 				return err
 			})
 		assert.Nil(ginkgo.GinkgoT(), err, "updating deployment")
-
-		time.Sleep(5 * time.Second)
 
 		f.WaitForNginxServer("_",
 			func(server string) bool {
