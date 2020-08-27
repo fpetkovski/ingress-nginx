@@ -102,8 +102,7 @@ clean: ## Remove .gocache directory.
 
 .PHONY: static-check
 static-check: ## Run verification script for boilerplate, codegen, gofmt, golint, lualint and chart-lint.
-	@build/run-in-docker.sh \
-		hack/verify-all.sh
+	hack/verify-all.sh
 
 .PHONY: test
 test:  ## Run go unit tests.
@@ -118,9 +117,7 @@ test:  ## Run go unit tests.
 
 .PHONY: lua-test
 lua-test: ## Run lua unit tests.
-	@build/run-in-docker.sh \
-		BUSTED_ARGS=$(BUSTED_ARGS) \
-		build/test-lua.sh
+	BUSTED_ARGS=$(BUSTED_ARGS) build/test-lua.sh
 
 .PHONY: e2e-test
 e2e-test:  ## Run e2e tests (expects access to a working Kubernetes cluster).

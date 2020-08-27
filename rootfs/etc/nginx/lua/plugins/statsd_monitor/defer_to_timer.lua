@@ -1,3 +1,10 @@
+local ipairs = ipairs
+local unpack = unpack
+local ngx = ngx
+local string = string
+local tostring = tostring
+local table = table
+
 local queue = {}
 local MAX_QUEUE_SIZE = 10000
 local FLUSH_INTERVAL = 1
@@ -16,7 +23,9 @@ end
 function _M.init_worker()
   local _, err = ngx.timer.every(FLUSH_INTERVAL, flush_queue)
   if err then
-    ngx.log(ngx.ERR, string.format("error when setting up timer.every for flush_queue: %s", tostring(err)))
+    ngx.log(ngx.ERR,
+      string.format("error when setting up timer.every for flush_queue: %s",
+      tostring(err)))
   end
 end
 
@@ -28,10 +37,10 @@ function _M.enqueue(func, ...)
   table.insert(queue, { func = func, args = {...} })
 end
 
-if _TEST then
-  _M.MAX_QUEUE_SIZE = MAX_QUEUE_SIZE
-  _M.get_queue = function() return queue end
-  _M.flush_queue = flush_queue
-end
+setmetatable(_M, {__index = {
+  MAX_QUEUE_SIZE = MAX_QUEUE_SIZE,
+  get_queue = function() return queue end,
+  flush_queue = flush_queue,
+}})
 
 return _M

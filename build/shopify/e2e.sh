@@ -44,15 +44,11 @@ touch "${GEOIP_DB_DIR}/file.txt"
 tar -czvf "${GEOIP_DB_DIR}/file.gz" "${GEOIP_DB_DIR}/file.txt"
 
 echo "[dev-env] building container"
-make build container
-make e2e-test-image
-build/run-in-docker.sh make -C images/fastcgi-helloserver/ GO111MODULE=\"on\" build
+make build image
+make -C test/e2e-image
 make -C images/fastcgi-helloserver/ container
 make -C images/echo/ container
 make -C images/httpbin/ container
-
-# Remove after https://github.com/kubernetes/ingress-nginx/pull/4271 is merged
-docker tag ${REGISTRY}/nginx-ingress-controller-${ARCH}:${TAG} ${REGISTRY}/nginx-ingress-controller:${TAG}
 
 echo "[dev-env] running e2e tests..."
 make e2e-test

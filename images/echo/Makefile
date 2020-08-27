@@ -25,9 +25,12 @@ IMAGE = $(REGISTRY)/e2e-test-echo
 
 container:
 	# NOTE(elvinefendi): since Shopify's CI does not have recent docker we can not use buildx here
-	$(DOCKER) build \
+	docker build \
 		--network=host \
-		-t $(IMAGE):$(TAG) .
+		--build-arg BASE_IMAGE=us.gcr.io/k8s-artifacts-prod/ingress-nginx/nginx:v20200812-g0673e5e17@sha256:3bafc6840f2477c05eb029580fa8ecf4bd33b0f0765e3cd9cc82ad91f817ccf3 \
+		--build-arg LUAROCKS_VERSION=3.3.1 \
+		--build-arg LUAROCKS_SHA=837481e408f7c06b59befe7ec194537c657687d624894bca7f79034302141a34 \
+		-t $(IMAGE):$(TAG) rootfs
 		
 # required to enable buildx
 export DOCKER_CLI_EXPERIMENTAL=enabled

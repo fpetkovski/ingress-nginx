@@ -27,7 +27,7 @@ IMAGE = $(REGISTRY)/e2e-test-fastcgi-helloserver
 
 container:
 	# NOTE(elvinefendi): since Shopify's CI does not have recent docker we can not use buildx here
-	$(DOCKER) build \
+	docker build \
 		--network=host \
 		-t $(IMAGE):$(TAG) rootfs
 

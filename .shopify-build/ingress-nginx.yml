@@ -2,26 +2,26 @@
 
 shared:
   e2e_defaults: &e2e_defaults
-    timeout: 30m
+    timeout: 60m
     run: build/shopify/e2e.sh
     agents:
       queue: k8s-ci
 
 containers:
   default:
-    docker: gcr.io/k8s-staging-ingress-nginx/e2e-test-runner:v20200627-ingress-nginx-2.9.0-9-ga003eabd5
+    docker: us.gcr.io/k8s-artifacts-prod/ingress-nginx/e2e-test-runner:v20200812-gf6dce060b
     workdir: /go/src/k8s.io/ingress-nginx
 
 steps:
 - label: Static Check
   timeout: 5m
   run:
-  - USE_DOCKER=false make static-check
+  - make static-check
 
 - label: Lua Unit Test
   timeout: 5m
   run:
-  - USE_DOCKER=false make lua-test
+  - make lua-test
 
 - label: Go Unit Test
   timeout: 15m
