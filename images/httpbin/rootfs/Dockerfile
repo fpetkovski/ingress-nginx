@@ -12,14 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM alpine:3.11
+FROM alpine:3.12
 
 ENV LC_ALL=C.UTF-8
 ENV LANG=C.UTF-8
 
-RUN apk add --no-cache \
-    python3 python3-dev musl-dev gcc g++ make libffi libffi-dev libstdc++ \
- && pip3 install gunicorn httpbin gevent \
+RUN apk update \
+  && apk add --no-cache \
+    python3 python3-dev \
+    musl-dev gcc g++ make \
+    libffi libffi-dev libstdc++ \
+    py3-gevent py3-gunicorn py3-wheel \
+    py3-pip \
+ && pip3 install httpbin \
  && apk del python3-dev musl-dev gcc g++ make libffi-dev
 
 EXPOSE 80

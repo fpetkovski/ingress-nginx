@@ -1,5 +1,4 @@
 site_name: NGINX Ingress Controller
-strict: true
 repo_name: "kubernetes/ingress-nginx"
 repo_url: https://github.com/kubernetes/ingress-nginx
 site_url: https://kubernetes.github.io/ingress-nginx
@@ -17,17 +16,19 @@ markdown_extensions:
       permalink: " ¶"
 theme:
   name: material
-  feature:
-    tabs: true
-  logo:
-    icon: "public" # globe icon
+  features:
+    - tabs
+    - instant
+
   palette:
     primary: "teal"
     accent: "green"
+
   include_sidebar: true
 
 plugins:
   - search
+  - awesome-pages
 
 extra_css: [extra.css]
 
@@ -44,7 +45,6 @@ nav:
       - Installation Guide: "deploy/index.md"
       - Bare-metal considerations: "deploy/baremetal.md"
       - Role Based Access Control (RBAC): "deploy/rbac.md"
-      - Validating Webhook (admission controller): "deploy/validating-webhook.md"
       - Upgrade: "deploy/upgrade.md"
   - User guide:
       - NGINX Configuration:

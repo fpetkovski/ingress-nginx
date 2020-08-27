@@ -94,6 +94,7 @@ http {
           error("require failed: " .. tostring(res))
         else
           certificate = res
+          certificate.is_ocsp_stapling_enabled = {{ $cfg.EnableOCSP }}
         end
 
         ok, res = pcall(require, "plugins")
@@ -103,14 +104,14 @@ http {
           plugins = res
         end
         -- load all plugins that'll be used here
-        plugins.init({ "statsd_monitor" })
+        plugins.init({ {{ range  $idx, $plugin := $cfg.Plugins }}{{ if $idx }},{{ end }}{{ $plugin | quote }}{{ end }} })
     }
 
     init_worker_by_lua_block {
         lua_ingress.init_worker()
         balancer.init_worker()
         {{ if $all.EnableMetrics }}
-        monitor.init_worker()
+        monitor.init_worker({{ $all.MonitorMaxBatchSize }})
         {{ end }}
 
         plugins.run()
@@ -159,6 +160,12 @@ http {
     {{ if $cfg.UseGeoIP2 }}
     # https://github.com/leev/ngx_http_geoip2_module#example-usage
 
+    # Shopify specific begins
+    # We prefer GeoIP2 databases over GeoLite2 ones,
+    # because they are more accurate: https://support.maxmind.com/geolite-faq/general/what-is-the-difference-between-geoip2-and-geolite2-databases/
+    # For the full list of what databases we downlaod see .shopify-build/shopify-slash-nginx-routing-modules-production-builder.yml
+
+    # TODO: replace the following GeoLite with GeoIP2
     geoip2 /etc/nginx/geoip/GeoLite2-City.mmdb {
         $geoip2_city_country_code source=$remote_addr country iso_code;
         $geoip2_city_country_name source=$remote_addr country names en;
@@ -172,15 +179,6 @@ http {
         $geoip2_region_name source=$remote_addr subdivisions 0 names en;
     }
 
-    # Shopify specific begins
-    # We prefer GeoIP2 databases ovver GeoLite2 ones,
-    # because they are more accurate: https://support.maxmind.com/geolite-faq/general/what-is-the-difference-between-geoip2-and-geolite2-databases/
-    # For the full list of what databases we downlaod see .shopify-build/shopify-slash-nginx-routing-modules-production-builder.yml
-    # geoip2 /etc/nginx/geoip/GeoLite2-ASN.mmdb {
-    #     $geoip2_asn source=$remote_addr autonomous_system_number;
-    #     $geoip2_org source=$remote_addr autonomous_system_organization;
-    # }
-
     geoip2 /etc/nginx/geoip/GeoIP2-ISP.mmdb {
         $geoip2_asn source=$remote_addr default=0 autonomous_system_number;
     }
@@ -192,6 +190,76 @@ http {
         $geoip2_is_public_proxy source=$remote_addr default=0 is_public_proxy;
         $geoip2_is_tor_exit_node source=$remote_addr default=0 is_tor_exit_node;
     }
+    # Shopify specific ends
+
+    {{ range $index, $file := $all.MaxmindEditionFiles }}
+    {{ if eq $file "GeoLite2-City.mmdb" }}
+    geoip2 /etc/nginx/geoip/GeoLite2-City.mmdb {
+        $geoip2_city_country_code source=$remote_addr country iso_code;
+        $geoip2_city_country_name source=$remote_addr country names en;
+        $geoip2_city source=$remote_addr city names en;
+        $geoip2_postal_code source=$remote_addr postal code;
+        $geoip2_dma_code source=$remote_addr location metro_code;
+        $geoip2_latitude source=$remote_addr location latitude;
+        $geoip2_longitude source=$remote_addr location longitude;
+        $geoip2_time_zone source=$remote_addr location time_zone;
+        $geoip2_region_code source=$remote_addr subdivisions 0 iso_code;
+        $geoip2_region_name source=$remote_addr subdivisions 0 names en;
+    }
+    {{ end }}
+
+    {{ if eq $file "GeoIP2-City.mmdb" }}
+    geoip2 /etc/nginx/geoip/GeoIP2-City.mmdb {
+        $geoip2_city_country_code source=$remote_addr country iso_code;
+        $geoip2_city_country_name source=$remote_addr country names en;
+        $geoip2_city source=$remote_addr city names en;
+        $geoip2_postal_code source=$remote_addr postal code;
+        $geoip2_dma_code source=$remote_addr location metro_code;
+        $geoip2_latitude source=$remote_addr location latitude;
+        $geoip2_longitude source=$remote_addr location longitude;
+        $geoip2_time_zone source=$remote_addr location time_zone;
+        $geoip2_region_code source=$remote_addr subdivisions 0 iso_code;
+        $geoip2_region_name source=$remote_addr subdivisions 0 names en;
+    }
+    {{ end }}
+
+    {{ if eq $file "GeoLite2-ASN.mmdb" }}
+    geoip2 /etc/nginx/geoip/GeoLite2-ASN.mmdb {
+        $geoip2_asn source=$remote_addr autonomous_system_number;
+        $geoip2_org source=$remote_addr autonomous_system_organization;
+    }
+    {{ end }}
+
+    {{ if eq $file "GeoIP2-ASN.mmdb" }}
+    geoip2 /etc/nginx/geoip/GeoIP2-ASN.mmdb {
+        $geoip2_asn source=$remote_addr autonomous_system_number;
+        $geoip2_org source=$remote_addr autonomous_system_organization;
+    }
+    {{ end }}
+
+    {{ if eq $file "GeoIP2-ISP.mmdb" }}
+    geoip2 /etc/nginx/geoip/GeoIP2-ISP.mmdb {
+        $geoip2_isp isp;
+        $geoip2_isp_org organization;
+    }
+    {{ end }}
+
+    {{ if eq $file "GeoIP2-Connection-Type.mmdb" }}
+    geoip2 /etc/nginx/geoip/GeoIP2-Connection-Type.mmdb {
+        $geoip2_connection_type connection_type;
+    }
+    {{ end }}
+
+    {{ if eq $file "GeoIP2-Anonymous-IP.mmdb" }}
+    geoip2 /etc/nginx/geoip/GeoIP2-Anonymous-IP.mmdb {
+        $geoip2_is_anon source=$remote_addr is_anonymous;
+        $geoip2_is_hosting_provider source=$remote_addr is_hosting_provider;
+        $geoip2_is_public_proxy source=$remote_addr is_public_proxy;
+    }
+    {{ end }}
+
+    {{ end }}
+
     {{ end }}
 
     aio                 threads;
@@ -243,7 +311,7 @@ http {
     {{ buildOpentracing $cfg $servers }}
 
     include /etc/nginx/mime.types;
-    default_type text/html;
+    default_type {{ $cfg.DefaultType }};
 
     {{ if $cfg.EnableBrotli }}
     brotli on;
@@ -295,7 +363,7 @@ http {
     {{ if $cfg.EnableSyslog }}
     access_log syslog:server={{ $cfg.SyslogHost }}:{{ $cfg.SyslogPort }} upstreaminfo if=$loggable;
     {{ else }}
-    access_log {{ $cfg.AccessLogPath }} upstreaminfo {{ $cfg.AccessLogParams }} if=$loggable;
+    access_log {{ or $cfg.HttpAccessLogPath $cfg.AccessLogPath }} upstreaminfo {{ $cfg.AccessLogParams }} if=$loggable;
     {{ end }}
     {{ end }}
 
@@ -340,6 +408,9 @@ http {
         {{ end}}
     }
 
+    {{ end }}
+
+    {{ if $cfg.UseForwardedHeaders }}
     map $http_x_forwarded_proto $full_x_forwarded_proto {
         default $http_x_forwarded_proto;
         "" $scheme;
@@ -661,7 +732,7 @@ stream {
     {{ if $cfg.DisableAccessLog }}
     access_log off;
     {{ else }}
-    access_log {{ $cfg.AccessLogPath }} log_stream {{ $cfg.AccessLogParams }};
+    access_log {{ or $cfg.StreamAccessLogPath $cfg.AccessLogPath }} log_stream {{ $cfg.AccessLogParams }};
     {{ end }}
 
     error_log  {{ $cfg.ErrorLogPath }};
@@ -836,8 +907,9 @@ stream {
         proxy_ssl_verify                        {{ $server.ProxySSL.Verify }};
         proxy_ssl_verify_depth                  {{ $server.ProxySSL.VerifyDepth }};
         {{ if not (empty $server.ProxySSL.ProxySSLName) }}
-        proxy_ssl_name                           {{ $server.ProxySSL.ProxySSLName }};
-        {{ end }}        
+        proxy_ssl_name                          {{ $server.ProxySSL.ProxySSLName }};
+        proxy_ssl_server_name                   {{ $server.ProxySSL.ProxySSLServerName }};
+        {{ end }}
         {{ end }}
 
         {{ if not (empty $server.ProxySSL.PemFileName) }}
@@ -847,6 +919,10 @@ stream {
 
         {{ if not (empty $server.SSLCiphers) }}
         ssl_ciphers                             {{ $server.SSLCiphers }};
+        {{ end }}
+
+        {{ if not (empty $server.SSLPreferServerCiphers) }}
+        ssl_prefer_server_ciphers               {{ $server.SSLPreferServerCiphers }};
         {{ end }}
 
         {{ if not (empty $server.ServerSnippet) }}
@@ -871,9 +947,9 @@ stream {
         {{ $externalAuth = $all.Cfg.GlobalExternalAuth }}
         {{ end }}
 
-        {{ if not (empty $location.Rewrite.AppRoot)}}
+        {{ if not (empty $location.Rewrite.AppRoot) }}
         if ($uri = /) {
-            return 302 {{ $location.Rewrite.AppRoot }};
+            return 302 $scheme://$http_host{{ $location.Rewrite.AppRoot }};
         }
         {{ end }}
 
@@ -909,8 +985,9 @@ stream {
             set $proxy_upstream_name {{ buildUpstreamName $location | quote }};
 
             proxy_pass_request_body     off;
-            proxy_set_header            Content-Length "";
-            proxy_set_header            X-Forwarded-Proto "";
+            proxy_set_header            Content-Length          "";
+            proxy_set_header            X-Forwarded-Proto       "";
+            proxy_set_header            X-Request-ID            $req_id;
 
             {{ if $externalAuth.Method }}
             proxy_method                {{ $externalAuth.Method }};
@@ -977,7 +1054,7 @@ stream {
         }
         {{ end }}
 
-
+        {{ if isLocationAllowed $location }}
         {{ if $externalAuth.SigninURL }}
         location {{ buildAuthSignURLLocation $location.Path $externalAuth.SigninURL }} {
             internal;
@@ -986,6 +1063,7 @@ stream {
 
             return 302 {{ buildAuthSignURL $externalAuth.SigninURL }};
         }
+        {{ end }}
         {{ end }}
 
         location {{ $path }} {
@@ -1110,12 +1188,6 @@ stream {
 
             {{ buildInfluxDB $location.InfluxDB }}
 
-            {{ if not (empty $location.Redirect.URL) }}
-            if ($uri ~* {{ stripLocationModifer $path }}) {
-                return {{ $location.Redirect.Code }} {{ $location.Redirect.URL }};
-            }
-            {{ end }}
-
             {{ if isValidByteSize $location.Proxy.BodySize true }}
             client_max_body_size                    {{ $location.Proxy.BodySize }};
             {{ end }}
@@ -1154,13 +1226,16 @@ stream {
             {{ $proxySetHeader }} X-Real-IP              $remote_addr;
             {{ if and $all.Cfg.UseForwardedHeaders $all.Cfg.ComputeFullForwardedFor }}
             {{ $proxySetHeader }} X-Forwarded-For        $full_x_forwarded_for;
-            {{ $proxySetHeader }} X-Forwarded-Proto      $full_x_forwarded_proto;
             {{ else }}
             {{ $proxySetHeader }} X-Forwarded-For        $remote_addr;
             {{ end }}
+            {{ if $all.Cfg.UseForwardedHeaders }}
+            {{ $proxySetHeader }} X-Forwarded-Proto      $full_x_forwarded_proto;
+            {{ else }}
+            {{ $proxySetHeader }} X-Forwarded-Proto      $pass_access_scheme;
+            {{ end }}
             {{ $proxySetHeader }} X-Forwarded-Host       $best_http_host;
             {{ $proxySetHeader }} X-Forwarded-Port       $pass_port;
-            {{ $proxySetHeader }} X-Forwarded-Proto      $pass_access_scheme;
             {{ if $all.Cfg.ProxyAddOriginalURIHeader }}
             {{ $proxySetHeader }} X-Original-URI         $request_uri;
             {{ end }}
@@ -1241,6 +1316,10 @@ stream {
             fastcgi_param {{ $k }} {{ $v | quote }};
             {{ end }}
 
+            {{ if not (empty $location.Redirect.URL) }}
+            return {{ $location.Redirect.Code }} {{ $location.Redirect.URL }};
+            {{ end }}
+
             {{ buildProxyPass $server.Hostname $all.Backends $location }}
             {{ if (or (eq $location.Proxy.ProxyRedirectFrom "default") (eq $location.Proxy.ProxyRedirectFrom "off")) }}
             proxy_redirect                          {{ $location.Proxy.ProxyRedirectFrom }};
@@ -1261,7 +1340,10 @@ stream {
             {{ end }}
 
             {{ if not (empty $location.ProxySSL.ProxySSLName) }}
-            proxy_ssl_name                           {{ $location.ProxySSL.ProxySSLName }};
+            proxy_ssl_name                          {{ $location.ProxySSL.ProxySSLName }};
+            {{ end }}
+            {{ if not (empty $location.ProxySSL.ProxySSLServerName) }}
+            proxy_ssl_server_name                   {{ $location.ProxySSL.ProxySSLServerName }};
             {{ end }}
 
             {{ if not (empty $location.ProxySSL.PemFileName) }}

@@ -65,19 +65,6 @@ Flags:
 Use "ingress-nginx [command] --help" for more information about a command.
 ```
 
-If a new `ingress-nginx` version has just been released, the plugin may not yet have been updated inside the repository. In that case, you can install the latest version of the plugin by running:
-
-```console
-(
-    set -x; cd "$(mktemp -d)" &&
-    curl -fsSLO "https://github.com/kubernetes/ingress-nginx/releases/download/nginx-0.24.0/{ingress-nginx.yaml,kubectl-ingress_nginx-$(uname | tr '[:upper:]' '[:lower:]')-amd64.tar.gz}" &&
-    kubectl krew install \
-    --manifest=ingress-nginx.yaml --archive=kubectl-ingress_nginx-$(uname | tr '[:upper:]' '[:lower:]')-amd64.tar.gz
-)
-```
-
-Replacing `0.24.0` with the recently released version.
-
 ## Common Flags
 
 - Every subcommand supports the basic `kubectl` configuration flags like `--namespace`, `--context`, `--client-key` and so on.
@@ -160,7 +147,7 @@ Add the `--list` option to show only the backend names. Add the `--backend <back
 
 ### certs
 
-Use `kubectl ingress-nginx certs --host <hostname>` to dump the SSL cert/key information for a given host. Requires that `--enable-dynamic-certificates` is `true` (this is the default as of version `0.24.0`).
+Use `kubectl ingress-nginx certs --host <hostname>` to dump the SSL cert/key information for a given host.
 
 **WARNING:** This command will dump sensitive private key information. Don't blindly share the output, and certainly don't log it anywhere.
 

@@ -20,7 +20,7 @@ import (
 	"strconv"
 	"time"
 
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 
 	apiv1 "k8s.io/api/core/v1"
 
@@ -70,7 +70,7 @@ const (
 
 	// SSL enabled protocols to use
 	// http://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_protocols
-	sslProtocols = "TLSv1.2"
+	sslProtocols = "TLSv1.2 TLSv1.3"
 
 	// Disable TLS 1.3 early data
 	// http://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_early_data
@@ -111,10 +111,19 @@ type Configuration struct {
 	// By default this is disabled
 	EnableAccessLogForDefaultBackend bool `json:"enable-access-log-for-default-backend"`
 
-	// AccessLogPath sets the path of the access logs if enabled
+	// AccessLogPath sets the path of the access logs for both http and stream contexts if enabled
 	// http://nginx.org/en/docs/http/ngx_http_log_module.html#access_log
+	// http://nginx.org/en/docs/stream/ngx_stream_log_module.html#access_log
 	// By default access logs go to /var/log/nginx/access.log
 	AccessLogPath string `json:"access-log-path,omitempty"`
+
+	// HttpAccessLogPath sets the path of the access logs for http context globally if enabled
+	// http://nginx.org/en/docs/http/ngx_http_log_module.html#access_log
+	HttpAccessLogPath string `json:"http-access-log-path,omitempty"`
+
+	// StreamAccessLogPath sets the path of the access logs for stream context globally if enabled
+	// http://nginx.org/en/docs/stream/ngx_stream_log_module.html#access_log
+	StreamAccessLogPath string `json:"stream-access-log-path,omitempty"`
 
 	// WorkerCPUAffinity bind nginx worker processes to CPUs this will improve response latency
 	// http://nginx.org/en/docs/ngx_core_module.html#worker_cpu_affinity
@@ -128,6 +137,10 @@ type Configuration struct {
 	// EnableModsecurity enables the modsecurity module for NGINX
 	// By default this is disabled
 	EnableModsecurity bool `json:"enable-modsecurity"`
+
+	// EnableOCSP enables the OCSP support in SSL connections
+	// By default this is disabled
+	EnableOCSP bool `json:"enable-ocsp"`
 
 	// EnableOWASPCoreRules enables the OWASP ModSecurity Core Rule Set (CRS)
 	// By default this is disabled
@@ -267,6 +280,11 @@ type Configuration struct {
 	// the /nginx_status endpoint of the "_" server
 	NginxStatusIpv4Whitelist []string `json:"nginx-status-ipv4-whitelist,omitempty"`
 	NginxStatusIpv6Whitelist []string `json:"nginx-status-ipv6-whitelist,omitempty"`
+
+	// Plugins configures plugins to use placed in the directory /etc/nginx/lua/plugins.
+	// Every plugin has to have main.lua in the root. Every plugin has to bundle all of its dependencies.
+	// The execution order follows the definition.
+	Plugins []string `json:"plugins,omitempty"`
 
 	// If UseProxyProtocol is enabled ProxyRealIPCIDR defines the default the IP/network address
 	// of your external load balancer
@@ -485,6 +503,12 @@ type Configuration struct {
 	// By default this is disabled
 	EnableOpentracing bool `json:"enable-opentracing"`
 
+	// OpentracingOperationName specifies a custom name for the server span
+	OpentracingOperationName string `json:"opentracing-operation-name"`
+
+	// OpentracingOperationName specifies a custom name for the location span
+	OpentracingLocationOperationName string `json:"opentracing-location-operation-name"`
+
 	// ZipkinCollectorHost specifies the host to use when uploading traces
 	ZipkinCollectorHost string `json:"zipkin-collector-host"`
 
@@ -656,6 +680,11 @@ type Configuration struct {
 	// proxy-ssl-* annotations are applied on on location level only in the nginx.conf file
 	// Default is that those are applied on server level, too
 	ProxySSLLocationOnly bool `json:"proxy-ssl-location-only"`
+
+	// DefaultType Sets the default MIME type of a response.
+	// http://nginx.org/en/docs/http/ngx_http_core_module.html#default_type
+	// Default: text/html
+	DefaultType string `json:"default-type"`
 }
 
 // NewDefault returns the default nginx configuration
@@ -801,9 +830,10 @@ func NewDefault() Configuration {
 		NoAuthLocations:              "/.well-known/acme-challenge",
 		GlobalExternalAuth:           defGlobalExternalAuth,
 		ProxySSLLocationOnly:         false,
+		DefaultType:                  "text/html",
 	}
 
-	if klog.V(5) {
+	if klog.V(5).Enabled() {
 		cfg.ErrorLogLevel = "debug"
 	}
 
@@ -830,6 +860,8 @@ type TemplateConfig struct {
 	ListenPorts              *ListenPorts
 	PublishService           *apiv1.Service
 	EnableMetrics            bool
+	MaxmindEditionFiles      []string
+	MonitorMaxBatchSize      int
 
 	PID        string
 	StatusPath string

@@ -18,6 +18,7 @@ package annotations
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"net/http"
 	"os/exec"
@@ -71,12 +72,12 @@ var _ = framework.DescribeAnnotation("influxdb-*", func() {
 				Expect().
 				Status(http.StatusOK)
 
-			time.Sleep(10 * time.Second)
+			framework.Sleep(10 * time.Second)
 
 			var measurements string
 			var err error
 
-			err = wait.PollImmediate(time.Second, time.Minute, func() (bool, error) {
+			err = wait.Poll(time.Second, time.Minute, func() (bool, error) {
 				measurements, err = extractInfluxDBMeasurements(f)
 				if err != nil {
 					return false, nil
@@ -130,7 +131,7 @@ func createInfluxDBIngress(f *framework.Framework, host, service string, port in
 }
 
 func extractInfluxDBMeasurements(f *framework.Framework) (string, error) {
-	l, err := f.KubeClientSet.CoreV1().Pods(f.Namespace).List(metav1.ListOptions{
+	l, err := f.KubeClientSet.CoreV1().Pods(f.Namespace).List(context.TODO(), metav1.ListOptions{
 		LabelSelector: "app=influxdb",
 	})
 	if err != nil {

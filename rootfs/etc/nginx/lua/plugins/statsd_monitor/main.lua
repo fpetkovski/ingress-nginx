@@ -1,3 +1,8 @@
+local ipairs = ipairs
+local ngx = ngx
+local string = string
+local tostring = tostring
+
 local statsd = require("plugins.statsd_monitor.statsd")
 local defer_to_timer = require("plugins.statsd_monitor.defer_to_timer")
 local split = require("util.split")

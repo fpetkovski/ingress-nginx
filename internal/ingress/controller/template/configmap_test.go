@@ -74,6 +74,7 @@ func TestMergeConfigMapToStruct(t *testing.T) {
 		"nginx-status-ipv6-whitelist":   "::1,2001::/16",
 		"proxy-add-original-uri-header": "false",
 		"disable-ipv6-dns":              "true",
+		"default-type":                  "text/plain",
 	}
 	def := config.NewDefault()
 	def.CustomHTTPErrors = []int{300, 400}
@@ -97,6 +98,7 @@ func TestMergeConfigMapToStruct(t *testing.T) {
 	def.ProxyAddOriginalURIHeader = false
 	def.LuaSharedDicts = defaultLuaSharedDicts
 	def.DisableIpv6DNS = true
+	def.DefaultType = "text/plain"
 
 	hash, err := hashstructure.Hash(def, &hashstructure.HashOptions{
 		TagName: "json",
@@ -355,6 +357,42 @@ func TestLuaSharedDictsParsing(t *testing.T) {
 		cfg := ReadConfig(tc.entry)
 		if !reflect.DeepEqual(cfg.LuaSharedDicts, tc.expect) {
 			t.Errorf("Testing %v. Expected \"%v\" but \"%v\" was returned", tc.name, tc.expect, cfg.LuaSharedDicts)
+		}
+	}
+}
+
+func TestSplitAndTrimSpace(t *testing.T) {
+	testsCases := []struct {
+		name   string
+		input  string
+		expect []string
+	}{
+		{
+			name:   "empty string",
+			input:  "",
+			expect: []string{},
+		},
+		{
+			name:   "two elements",
+			input:  "el1,el2",
+			expect: []string{"el1", "el2"},
+		},
+		{
+			name:   "two elements with spaces",
+			input:  " el1, el2",
+			expect: []string{"el1", "el2"},
+		},
+		{
+			name:   "empty elements with spaces",
+			input:  " el1, el2,el3,,",
+			expect: []string{"el1", "el2", "el3"},
+		},
+	}
+
+	for _, tc := range testsCases {
+		data := splitAndTrimSpace(tc.input, ",")
+		if !reflect.DeepEqual(data, tc.expect) {
+			t.Errorf("Testing %v. Expected \"%v\" but \"%v\" was returned", tc.name, tc.expect, data)
 		}
 	}
 }

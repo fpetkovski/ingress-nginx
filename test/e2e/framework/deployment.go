@@ -17,6 +17,7 @@ limitations under the License.
 package framework
 
 import (
+	"context"
 	"time"
 
 	"github.com/onsi/ginkgo"
@@ -51,10 +52,8 @@ func (f *Framework) NewEchoDeploymentWithReplicas(replicas int) {
 // replicas is configurable and
 // name is configurable
 func (f *Framework) NewEchoDeploymentWithNameAndReplicas(name string, replicas int) {
-	deployment := newDeployment(name, f.Namespace, "ingress-controller/echo:1.0.0-dev", 80, int32(replicas),
-		[]string{
-			"openresty",
-		},
+	deployment := newDeployment(name, f.Namespace, "us.gcr.io/k8s-artifacts-prod/ingress-nginx/e2e-test-echo@sha256:41c043188a499d460e7425883a3b196e13f10bf40c395895dbdf06caf3324536", 80, int32(replicas),
+		nil,
 		[]corev1.VolumeMount{},
 		[]corev1.Volume{},
 	)
@@ -90,41 +89,56 @@ func (f *Framework) NewEchoDeploymentWithNameAndReplicas(name string, replicas i
 // NewSlowEchoDeployment creates a new deployment of the slow echo server image in a particular namespace.
 func (f *Framework) NewSlowEchoDeployment() {
 	data := map[string]string{}
-	data["default.conf"] = `#
+	data["nginx.conf"] = `#
 
-server {
-	access_log on;
-	access_log /dev/stdout;
+events {
+	worker_connections  1024;
+	multi_accept on;
+}
 
-	listen 80;
+http {
+	default_type 'text/plain';
+	client_max_body_size 0;
 
-	location / {
-		echo ok;
-	}
+	server {
+		access_log on;
+		access_log /dev/stdout;
 
-	location ~ ^/sleep/(?<sleepTime>[0-9]+)$ {
-		echo_sleep $sleepTime;
-		echo "ok after $sleepTime seconds";
+		listen 80;
+
+		location / {
+			content_by_lua_block {
+				ngx.print("ok")
+			}
+		}
+
+		location ~ ^/sleep/(?<sleepTime>[0-9]+)$ {
+			content_by_lua_block {
+				ngx.sleep(ngx.var.sleepTime)
+				ngx.print("ok after " .. ngx.var.sleepTime .. " seconds")
+			}
+		}
 	}
 }
 
 `
 
-	_, err := f.KubeClientSet.CoreV1().ConfigMaps(f.Namespace).Create(&corev1.ConfigMap{
+	_, err := f.KubeClientSet.CoreV1().ConfigMaps(f.Namespace).Create(context.TODO(), &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      SlowEchoService,
 			Namespace: f.Namespace,
 		},
 		Data: data,
-	})
+	}, metav1.CreateOptions{})
 	assert.Nil(ginkgo.GinkgoT(), err, "creating configmap")
 
-	deployment := newDeployment(SlowEchoService, f.Namespace, "openresty/openresty:1.15.8.2-alpine", 80, 1,
+	deployment := newDeployment(SlowEchoService, f.Namespace, "us.gcr.io/k8s-artifacts-prod/ingress-nginx/nginx:v20200812-g0673e5e17@sha256:3bafc6840f2477c05eb029580fa8ecf4bd33b0f0765e3cd9cc82ad91f817ccf3", 80, 1,
 		nil,
 		[]corev1.VolumeMount{
 			{
 				Name:      SlowEchoService,
-				MountPath: "/etc/nginx/conf.d",
+				MountPath: "/etc/nginx/nginx.conf",
+				SubPath:   "nginx.conf",
 				ReadOnly:  true,
 			},
 		},
@@ -249,7 +263,7 @@ func (f *Framework) NewGRPCBinDeployment() {
 				{
 					Name:       "secure",
 					Port:       9001,
-					TargetPort: intstr.FromInt(9000),
+					TargetPort: intstr.FromInt(9001),
 					Protocol:   corev1.ProtocolTCP,
 				},
 			},
@@ -329,7 +343,7 @@ func newDeployment(name, namespace, image string, port int32, replicas int32, co
 
 // NewHttpbinDeployment creates a new single replica deployment of the httpbin image in a particular namespace.
 func (f *Framework) NewHttpbinDeployment() {
-	f.NewDeployment(HTTPBinService, "ingress-controller/httpbin:1.0.0-dev", 80, 1)
+	f.NewDeployment(HTTPBinService, "us.gcr.io/k8s-artifacts-prod/ingress-nginx/e2e-test-httpbin@sha256:c6372ef57a775b95f18e19d4c735a9819f2e7bb4641e5e3f27287d831dfeb7e8", 80, 1)
 }
 
 // NewDeployment creates a new deployment in a particular namespace.
@@ -366,24 +380,29 @@ func (f *Framework) NewDeployment(name, image string, port int32, replicas int32
 
 // DeleteDeployment deletes a deployment with a particular name and waits for the pods to be deleted
 func (f *Framework) DeleteDeployment(name string) error {
-	d, err := f.KubeClientSet.AppsV1().Deployments(f.Namespace).Get(name, metav1.GetOptions{})
+	d, err := f.KubeClientSet.AppsV1().Deployments(f.Namespace).Get(context.TODO(), name, metav1.GetOptions{})
 	assert.Nil(ginkgo.GinkgoT(), err, "getting deployment")
-	err = f.KubeClientSet.AppsV1().Deployments(f.Namespace).Delete(name, &metav1.DeleteOptions{})
+
+	grace := int64(0)
+	err = f.KubeClientSet.AppsV1().Deployments(f.Namespace).Delete(context.TODO(), name, metav1.DeleteOptions{
+		GracePeriodSeconds: &grace,
+	})
 	assert.Nil(ginkgo.GinkgoT(), err, "deleting deployment")
-	return WaitForPodsDeleted(f.KubeClientSet, time.Second*60, f.Namespace, metav1.ListOptions{
+
+	return waitForPodsDeleted(f.KubeClientSet, 2*time.Minute, f.Namespace, metav1.ListOptions{
 		LabelSelector: labelSelectorToString(d.Spec.Selector.MatchLabels),
 	})
 }
 
 // ScaleDeploymentToZero scales a deployment with a particular name and waits for the pods to be deleted
 func (f *Framework) ScaleDeploymentToZero(name string) {
-	d, err := f.KubeClientSet.AppsV1().Deployments(f.Namespace).Get(name, metav1.GetOptions{})
+	d, err := f.KubeClientSet.AppsV1().Deployments(f.Namespace).Get(context.TODO(), name, metav1.GetOptions{})
 	assert.Nil(ginkgo.GinkgoT(), err, "getting deployment")
 	assert.NotNil(ginkgo.GinkgoT(), d, "expected a deployment but none returned")
 
 	d.Spec.Replicas = NewInt32(0)
 
-	d, err = f.KubeClientSet.AppsV1().Deployments(f.Namespace).Update(d)
+	d, err = f.KubeClientSet.AppsV1().Deployments(f.Namespace).Update(context.TODO(), d, metav1.UpdateOptions{})
 	assert.Nil(ginkgo.GinkgoT(), err, "getting deployment")
 	assert.NotNil(ginkgo.GinkgoT(), d, "expected a deployment but none returned")
 

@@ -25,7 +25,7 @@ import (
 	"github.com/spf13/pflag"
 
 	apiv1 "k8s.io/api/core/v1"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 
 	"k8s.io/ingress-nginx/internal/ingress/annotations/class"
 	"k8s.io/ingress-nginx/internal/ingress/annotations/parser"
@@ -59,8 +59,8 @@ requests to the first port of this Service.`)
 
 		ingressClass = flags.String("ingress-class", "",
 			`Name of the ingress class this controller satisfies.
-The class of an Ingress object is set using the annotation "kubernetes.io/ingress.class".
-All ingress classes are satisfied if this parameter is left empty.`)
+The class of an Ingress object is set using the field IngressClassName in Kubernetes clusters version v1.18.0 or higher or the annotation "kubernetes.io/ingress.class" (deprecated).
+If this parameter is not set, or set to the default value of "nginx", it will handle ingresses with either an empty or "nginx" class name.`)
 
 		configMap = flags.String("configmap", "",
 			`Name of the ConfigMap containing custom global configurations for the controller.`)
@@ -112,11 +112,6 @@ Requires setting the publish-service parameter to a valid Service reference.`)
 		electionID = flags.String("election-id", "ingress-controller-leader",
 			`Election id to use for Ingress status updates.`)
 
-		_ = flags.Bool("force-namespace-isolation", false,
-			`Force namespace isolation.
-Prevents Ingress objects from referencing Secrets and ConfigMaps located in a
-different namespace than their own. May be used together with watch-namespace.`)
-
 		updateStatusOnShutdown = flags.Bool("update-status-on-shutdown", true,
 			`Update the load-balancer status of Ingress objects when the controller shuts down.
 Requires the update-status parameter.`)
@@ -146,13 +141,11 @@ extension for this to succeed.`)
 			`Customized address to set as the load-balancer status of Ingress objects this controller satisfies.
 Requires the update-status parameter.`)
 
-		_ = flags.Bool("enable-dynamic-certificates", true,
-			`Dynamically update SSL certificates instead of reloading NGINX. Feature backed by OpenResty Lua libraries.`)
-
 		enableMetrics = flags.Bool("enable-metrics", true,
 			`Enables the collection of NGINX metrics`)
 		metricsPerHost = flags.Bool("metrics-per-host", true,
 			`Export metrics per-host`)
+		monitorMaxBatchSize = flags.Int("monitor-max-batch-size", 10000, "Max batch size of NGINX metrics")
 
 		httpPort  = flags.Int("http-port", 80, `Port to use for servicing HTTP traffic.`)
 		httpsPort = flags.Int("https-port", 443, `Port to use for servicing HTTPS traffic.`)
@@ -180,12 +173,9 @@ Takes the form "<host>:port". If not provided, no admission controller is starte
 		statusUpdateInterval = flags.Int("status-update-interval", status.UpdateInterval, "Time interval in seconds in which the status should check if an update is required. Default is 60 seconds")
 	)
 
-	flags.MarkDeprecated("force-namespace-isolation", `This flag doesn't do anything.`)
-
-	flags.MarkDeprecated("enable-dynamic-certificates", `Only dynamic mode is supported`)
-
 	flags.StringVar(&nginx.MaxmindLicenseKey, "maxmind-license-key", "", `Maxmind license key to download GeoLite2 Databases.
 https://blog.maxmind.com/2019/12/18/significant-changes-to-accessing-and-using-geolite2-databases`)
+	flags.StringVar(&nginx.MaxmindEditionIDs, "maxmind-edition-ids", "GeoLite2-City,GeoLite2-ASN", `Maxmind edition ids to download GeoLite2 Databases.`)
 
 	flag.Set("logtostderr", "true")
 
@@ -216,6 +206,8 @@ https://blog.maxmind.com/2019/12/18/significant-changes-to-accessing-and-using-g
 
 		if *ingressClass != class.DefaultClass {
 			klog.Warningf("Only Ingresses with class %q will be processed by this Ingress controller", *ingressClass)
+		} else {
+			klog.Warning("Ingresses with an empty class will also be processed by this Ingress controller", *ingressClass)
 		}
 
 		class.IngressClass = *ingressClass
@@ -280,6 +272,7 @@ https://blog.maxmind.com/2019/12/18/significant-changes-to-accessing-and-using-g
 		EnableProfiling:        *profiling,
 		EnableMetrics:          *enableMetrics,
 		MetricsPerHost:         *metricsPerHost,
+		MonitorMaxBatchSize:    *monitorMaxBatchSize,
 		EnableSSLPassthrough:   *enableSSLPassthrough,
 		ResyncPeriod:           *resyncPeriod,
 		DefaultService:         *defaultSvc,
@@ -310,12 +303,15 @@ https://blog.maxmind.com/2019/12/18/significant-changes-to-accessing-and-using-g
 		config.RootCAFile = *rootCAFile
 	}
 
-	if nginx.MaxmindLicenseKey != "" {
+	if nginx.MaxmindLicenseKey != "" && nginx.MaxmindEditionIDs != "" {
+		if err := nginx.ValidateGeoLite2DBEditions(); err != nil {
+			return false, nil, err
+		}
 		klog.Info("downloading maxmind GeoIP2 databases...")
-		err := nginx.DownloadGeoLite2DB()
-		if err != nil {
+		if err := nginx.DownloadGeoLite2DB(); err != nil {
 			klog.Errorf("unexpected error downloading GeoIP2 database: %v", err)
 		}
+		config.MaxmindEditionFiles = nginx.MaxmindEditionFiles
 	}
 
 	return false, config, nil

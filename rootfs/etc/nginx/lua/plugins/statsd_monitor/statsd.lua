@@ -1,4 +1,8 @@
+local ngx = ngx
 local pairs = pairs
+local tostring = tostring
+local math = math
+local unpack = unpack
 local string_format = string.format
 local string_len = string.len
 local udp = ngx.socket.udp
@@ -100,7 +104,8 @@ local function generate_packet(metric, key, value, tags, sampling_rate)
     sampling_rate = string_format("|@%g", sampling_rate)
   end
 
-  return string_format("%s:%s|%s%s%s", key, tostring(value), metric, sampling_rate, generate_tag_string(tags))
+  return string_format("%s:%s|%s%s%s", key, tostring(value),
+    metric, sampling_rate, generate_tag_string(tags))
 end
 
 local function metric(metric_type, key, value, tags, sample_rate)

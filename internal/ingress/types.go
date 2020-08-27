@@ -200,6 +200,9 @@ type Server struct {
 	ServerSnippet string `json:"serverSnippet"`
 	// SSLCiphers returns list of ciphers to be enabled
 	SSLCiphers string `json:"sslCiphers,omitempty"`
+	// SSLPreferServerCiphers indicates that server ciphers should be preferred
+	// over client ciphers when using the SSLv3 and TLS protocols.
+	SSLPreferServerCiphers string `json:"sslPreferServerCiphers,omitempty"`
 	// AuthTLSError contains the reason why the access to a server should be denied
 	AuthTLSError string `json:"authTLSError,omitempty"`
 }
@@ -224,6 +227,8 @@ type Location struct {
 	// a '/'. If unspecified, the path defaults to a catch all sending
 	// traffic to the backend.
 	Path string `json:"path"`
+	// PathType represents the type of path referred to by a HTTPIngressPath.
+	PathType *networking.PathType `json:"pathType"`
 	// IsDefBackend indicates if service specified in the Ingress
 	// contains active endpoints or not. Returning true means the location
 	// uses the default backend.

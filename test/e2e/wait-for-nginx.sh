@@ -51,16 +51,16 @@ if [[ ! -z "$NAMESPACE_OVERLAY" && -d "$DIR/namespace-overlays/$NAMESPACE_OVERLA
     echo "Namespace overlay $NAMESPACE_OVERLAY is being used for namespace $NAMESPACE"
     helm install nginx-ingress ${DIR}/charts/ingress-nginx \
         --namespace=$NAMESPACE \
-        --wait \
         --values "$DIR/namespace-overlays/$NAMESPACE_OVERLAY/values.yaml"
 else
-    cat << EOF | helm install nginx-ingress ${DIR}/charts/ingress-nginx --namespace=$NAMESPACE --wait --values -
+    cat << EOF | helm install nginx-ingress ${DIR}/charts/ingress-nginx --namespace=$NAMESPACE --values -
 # TODO: remove the need to use fullnameOverride
 fullnameOverride: nginx-ingress
 controller:
   image:
-    repository: ingress-controller/nginx-ingress-controller
+    repository: ingress-controller/controller
     tag: 1.0.0-dev
+    digest:
   scope:
     enabled: true
   config:
@@ -81,8 +81,18 @@ controller:
   admissionWebhooks:
     enabled: false
 
-defaultBackend:
-  enabled: false
+  # ulimit -c unlimited
+  # mkdir -p /tmp/coredump
+  # chmod a+rwx /tmp/coredump
+  # echo "/tmp/coredump/core.%e.%p.%h.%t" > /proc/sys/kernel/core_pattern
+  extraVolumeMounts:
+    - name: coredump
+      mountPath: /tmp/coredump
+
+  extraVolumes:
+    - name: coredump
+      hostPath:
+        path: /tmp/coredump
 
 rbac:
   create: true

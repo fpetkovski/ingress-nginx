@@ -1,6 +1,6 @@
-FROM quay.io/kubernetes-ingress-controller/e2e:v04212020-5d67794f4 AS BASE
+FROM us.gcr.io/k8s-artifacts-prod/ingress-nginx/e2e-test-runner:v20200812-gf6dce060b@sha256:a2b6585d6badd2bbf8805cb1f576e7eb6be8fd1e5ece7c362eaa9610f22786ba AS BASE
 
-FROM alpine:3.11
+FROM alpine:3.12
 
 RUN apk add -U --no-cache \
     ca-certificates \
@@ -10,19 +10,12 @@ RUN apk add -U --no-cache \
     libc6-compat \
     openssl
 
-RUN curl -sSL https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash \
-  && helm repo add stable https://kubernetes-charts.storage.googleapis.com \
-  && helm repo update
-
 COPY --from=BASE /go/bin/ginkgo /usr/local/bin/
 COPY --from=BASE /usr/local/bin/kubectl /usr/local/bin/
+COPY --from=BASE /usr/local/bin/cfssl /usr/local/bin/
+COPY --from=BASE /usr/local/bin/helm /usr/local/bin/
+COPY --from=BASE /usr/local/bin/cfssljson /usr/local/bin/
 
-COPY e2e.sh             /e2e.sh
-COPY namespace-overlays /namespace-overlays
-
-COPY wait-for-nginx.sh  /
-COPY e2e.test           /
-
-COPY charts /charts
+COPY . /
 
 CMD [ "/e2e.sh" ]

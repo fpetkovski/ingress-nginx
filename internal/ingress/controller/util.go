@@ -18,13 +18,14 @@ package controller
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"syscall"
 
 	api "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/ingress-nginx/internal/ingress"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/util/sysctl"
 )
 
@@ -92,9 +93,16 @@ type NginxCommand struct {
 // NewNginxCommand returns a new NginxCommand from which path
 // has been detected from environment variable NGINX_BINARY or default
 func NewNginxCommand() NginxCommand {
-	return NginxCommand{
+	command := NginxCommand{
 		Binary: defBinary,
 	}
+
+	binary := os.Getenv("NGINX_BINARY")
+	if binary != "" {
+		command.Binary = binary
+	}
+
+	return command
 }
 
 // ExecCommand instanciates an exec.Cmd object to call nginx program

@@ -37,9 +37,9 @@ for url in "${urls[@]}"; do echo "$url"; done | gsutil -m cp -I "${GEOIP_DB_DIR}
 echo "--- docker build"
 ARCH="amd64"
 TAG=${PIPA_APP_SHA:-latest}
-REGISTRY=${PIPA_DOCKER_REGISTRY}/shopify-docker-images/apps/production ARCH=${ARCH} TAG=${TAG} make build container
+REGISTRY=${PIPA_DOCKER_REGISTRY}/shopify-docker-images/apps/production ARCH=${ARCH} TAG=${TAG} make build image
 
-INTERMEDIATE_IMAGE_NAME="shopify-docker-images/apps/production/nginx-ingress-controller-${ARCH}"
+INTERMEDIATE_IMAGE_NAME="shopify-docker-images/apps/production/controller"
 IMAGE_NAME="shopify-docker-images/apps/production/ingress-nginx"
 
 docker tag "${PIPA_DOCKER_REGISTRY}/${INTERMEDIATE_IMAGE_NAME}:${TAG}" "${PIPA_DOCKER_REGISTRY}/${IMAGE_NAME}:${TAG}"

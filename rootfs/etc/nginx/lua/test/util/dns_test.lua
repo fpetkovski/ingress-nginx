@@ -5,6 +5,8 @@ search ingress-nginx.svc.cluster.local svc.cluster.local cluster.local
 options ndots:5
 ]===]
 
+package.loaded["util.resolv_conf"] = nil
+
 helpers.with_resolv_conf(conf, function()
   require("util.resolv_conf")
 end)
@@ -55,7 +57,7 @@ describe("dns.lookup", function()
       assert.spy(spy_ngx_log).was_called_with(ngx.ERR, "failed to query the DNS server for ", "example.com", ":\n", "server returned error code: 1: format error\nserver returned error code: 1: format error")
     end)
 
-    it("retuns host when there's answer but no A/AAAA record in it", function()
+    it("returns host when there's answer but no A/AAAA record in it", function()
       helpers.mock_resty_dns_query(nil, { { name = "example.com", cname = "sub.example.com", ttl = 60 } })
       assert.are.same({ "example.com" }, dns_lookup("example.com"))
       assert.spy(spy_ngx_log).was_called_with(ngx.ERR, "failed to query the DNS server for ", "example.com", ":\n", "no A record resolved\nno AAAA record resolved")

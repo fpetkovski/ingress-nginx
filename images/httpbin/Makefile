@@ -1,4 +1,4 @@
-# Copyright 2020 The Kubernetes Authors.
+# Copyright 2020 The Kubernetes Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,22 +12,35 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Docker image for e2e testing.
+# set default shell
+SHELL=/bin/bash -o pipefail -o errexit
 
-# Use the 0.0 tag for testing, it shouldn't clobber any release builds
-TAG ?= 0.0
+DIR:=$(strip $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST)))))
+INIT_BUILDX=$(DIR)/../../hack/init-buildx.sh
 
-REGISTRY ?= ingress-controller
-DOCKER ?= docker
+TAG ?=v$(shell date +%m%d%Y)-$(shell git rev-parse --short HEAD)
+REGISTRY ?= local
 
-IMGNAME = httpbin
-IMAGE = $(REGISTRY)/$(IMGNAME)
+IMAGE = $(REGISTRY)/e2e-test-httpbin
 
 container:
 	# NOTE(elvinefendi): since Shopify's CI does not have recent docker we can not use buildx here
-	$(DOCKER) build \
+	docker build \
 		--network=host \
 		-t $(IMAGE):$(TAG) rootfs
 
-clean:
-	$(DOCKER) rmi -f $(IMAGE):$(TAG) || true
+# push the cross built image
+push: OUTPUT=--push
+push: build
+
+# enable buildx
+ensure-buildx:
+# this is required for cloudbuild
+ifeq ("$(wildcard $(INIT_BUILDX))","")
+	@curl -sSL https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/hack/init-buildx.sh | bash
+else
+	@exec $(INIT_BUILDX)
+endif
+	@echo "done"
+
+.PHONY: build push ensure-buildx
