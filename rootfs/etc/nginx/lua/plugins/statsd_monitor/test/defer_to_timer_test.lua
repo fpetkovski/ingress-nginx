@@ -1,5 +1,3 @@
-_G._TEST = true
-
 local defer_to_timer = require("plugins.statsd_monitor.defer_to_timer")
 
 describe("defer_to_timer", function()
