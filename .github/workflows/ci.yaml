@@ -3,11 +3,11 @@ name: CI
 on:
   pull_request:
     branches-ignore:
-      - "*"
+      - "**"
 
   push:
     branches-ignore:
-      - "*"
+      - "**"
 
 jobs:
 

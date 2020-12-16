@@ -28,7 +28,7 @@ steps:
   run:
   - PKG=k8s.io/ingress-nginx build/cover.sh
 
-- label: e2e (:kubernetes:v1.14-latest)
+- label: e2e (:kubernetes:v1.15-latest)
   <<: *e2e_defaults
   env:
-    KUBERNETES_VERSION: v1.14-latest
+    KUBERNETES_VERSION: v1.15-latest
