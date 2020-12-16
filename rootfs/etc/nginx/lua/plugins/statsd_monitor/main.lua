@@ -44,7 +44,10 @@ local function send_response_data(upstream_state, client_state)
   local is_websocket
   local http_connection = string.lower(ngx.var.http_connection)
   local http_upgrade = string.lower(ngx.var.http_upgrade)
+  local is_websocket = 0
   if http_connection == "websocket" and http_upgrade == "upgrade" then
+      is_websocket = 1
+  end
     is_websocket = 1
   else
     is_websocket = 0
