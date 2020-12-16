@@ -41,9 +41,16 @@ local function send_response_data(upstream_state, client_state)
     upstream_name=client_state.upstream_name
   })
 
+  local is_websocket
+  if (ngx.var.http_connection == "Upgrade" or ngx.var.http_connection == "upgrade") and (ngx.var.http_upgrade == "Websocket" or ngx.var.http_upgrade == "websocket") then
+    is_websocket = true
+  else
+    is_websocket = false
+  end
   statsd.histogram('nginx.client.request_time', client_state.request_time, {
-    upstream_name=client_state.upstream_name
-  })
+    upstream_name=client_state.upstream_name,
+    is_websocket=is_websocket
+  }) 
 end
 
 function _M.init_worker()
