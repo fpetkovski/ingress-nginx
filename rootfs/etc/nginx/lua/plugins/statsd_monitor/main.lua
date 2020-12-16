@@ -48,10 +48,6 @@ local function send_response_data(upstream_state, client_state)
   if http_connection == "websocket" and http_upgrade == "upgrade" then
       is_websocket = 1
   end
-    is_websocket = 1
-  else
-    is_websocket = 0
-  end
   statsd.histogram('nginx.client.request_time', client_state.request_time, {
     upstream_name=client_state.upstream_name,
     is_websocket=is_websocket
