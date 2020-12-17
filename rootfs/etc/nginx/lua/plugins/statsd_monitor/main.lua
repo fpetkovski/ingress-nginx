@@ -41,7 +41,6 @@ local function send_response_data(upstream_state, client_state)
     upstream_name=client_state.upstream_name
   })
 
-  local is_websocket
   local http_connection = string.lower(ngx.var.http_connection)
   local http_upgrade = string.lower(ngx.var.http_upgrade)
   local is_websocket = 0
