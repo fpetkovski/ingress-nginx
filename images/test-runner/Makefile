@@ -27,7 +27,7 @@ IMAGE = $(REGISTRY)/e2e-test-runner
 export DOCKER_CLI_EXPERIMENTAL=enabled
 
 # build with buildx
-PLATFORMS?=linux/amd64
+PLATFORMS?=linux/amd64,linux/arm64
 OUTPUT=
 PROGRESS=plain
 
@@ -36,18 +36,18 @@ build: ensure-buildx
 		--platform=${PLATFORMS} $(OUTPUT) \
 		--progress=$(PROGRESS) \
 		--pull \
-		--build-arg BASE_IMAGE=us.gcr.io/k8s-artifacts-prod/ingress-nginx/nginx:v20200812-g0673e5e17@sha256:3bafc6840f2477c05eb029580fa8ecf4bd33b0f0765e3cd9cc82ad91f817ccf3 \
-		--build-arg GOLANG_VERSION=1.15 \
+		--build-arg BASE_IMAGE=k8s.gcr.io/ingress-nginx/nginx:v20210104-g2254a9186@sha256:edd1d06bc6892b0dfb42de7d782ceb3c50eec843b09024abf3f95ba23f4feed5 \
+		--build-arg GOLANG_VERSION=1.15.6 \
 		--build-arg ETCD_VERSION=3.4.3-0 \
-		--build-arg K8S_RELEASE=v1.15.7 \
-		--build-arg RESTY_CLI_VERSION=0.25 \
-		--build-arg RESTY_CLI_SHA=7c3d1317d7ddab2030b49610c89e301995d4ae0f815f16466c48144d05ec7bcb \
+		--build-arg K8S_RELEASE=v1.19.4 \
+		--build-arg RESTY_CLI_VERSION=0.27 \
+		--build-arg RESTY_CLI_SHA=e5f4f3128af49ba5c4d039d0554e5ae91bbe05866f60eccfa96d3653274bff90 \
 		--build-arg LUAROCKS_VERSION=3.3.1 \
 		--build-arg LUAROCKS_SHA=837481e408f7c06b59befe7ec194537c657687d624894bca7f79034302141a34 \
 		--build-arg CHART_TESTING_VERSION=3.0.0 \
 		--build-arg YAML_LINT_VERSION=1.13.0 \
 		--build-arg YAMALE_VERSION=1.8.0 \
-		--build-arg HELM_VERSION=v3.2.1 \
+		--build-arg HELM_VERSION=v3.4.2 \
 		-t $(IMAGE):$(TAG) rootfs
 
 # push the cross built image

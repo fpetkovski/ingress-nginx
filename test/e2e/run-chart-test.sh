@@ -47,16 +47,10 @@ export KIND_CLUSTER_NAME=${KIND_CLUSTER_NAME:-ingress-nginx-dev}
 
 export KUBECONFIG="${KUBECONFIG:-$HOME/.kube/kind-config-$KIND_CLUSTER_NAME}"
 
-# Disable execution if running as a Prow job
-if [[ ! -z ${PROW_JOB_ID:-} ]]; then
-  echo "skipping execution..."
-  exit 0
-fi
-
 if [ "${SKIP_CLUSTER_CREATION:-false}" = "false" ]; then
   echo "[dev-env] creating Kubernetes cluster with kind"
 
-  export K8S_VERSION=${K8S_VERSION:-v1.18.4@sha256:d8ff5fc405fc679dd3dd0cccc01543ba4942ed90823817d2e9e2c474a5343c4f}
+  export K8S_VERSION=${K8S_VERSION:-v1.19.4@sha256:796d09e217d93bed01ecf8502633e48fd806fe42f9d02fdd468b81cd4e3bd40b}
 
   kind create cluster \
     --verbosity=${KIND_LOG_LEVEL} \
@@ -75,6 +69,6 @@ docker run --rm --interactive --network host \
     --volume $KUBECONFIG:/root/.kube/config \
     --volume "${DIR}/../../":/workdir \
     --workdir /workdir \
-    aledbf/chart-testing:v3.0.0-rc.4 ct install \
+    quay.io/helmpack/chart-testing:v3.3.1 ct install \
         --charts charts/ingress-nginx \
         --helm-extra-args "--timeout 60s"

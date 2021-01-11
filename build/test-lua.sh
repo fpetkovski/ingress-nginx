@@ -30,7 +30,9 @@ resty \
   --shdict "configuration_data 5M" \
   --shdict "certificate_data 16M" \
   --shdict "certificate_servers 1M" \
+  --shdict "ocsp_response_cache 1M" \
   --shdict "balancer_ewma 1M" \
   --shdict "balancer_ewma_last_touched_at 1M" \
   --shdict "balancer_ewma_locks 512k" \
+  --shdict "global_throttle_cache 5M" \
   ./rootfs/etc/nginx/lua/test/run.lua ${BUSTED_ARGS} ./rootfs/etc/nginx/lua/test/ ./rootfs/etc/nginx/lua/plugins/**/test

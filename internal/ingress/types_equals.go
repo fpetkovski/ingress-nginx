@@ -76,10 +76,6 @@ func (c1 *Configuration) Equal(c2 *Configuration) bool {
 		return false
 	}
 
-	if c1.ControllerPodsCount != c2.ControllerPodsCount {
-		return false
-	}
-
 	return true
 }
 
@@ -383,6 +379,9 @@ func (l1 *Location) Equal(l2 *Location) bool {
 	if !(&l1.RateLimit).Equal(&l2.RateLimit) {
 		return false
 	}
+	if !(&l1.GlobalRateLimit).Equal(&l2.GlobalRateLimit) {
+		return false
+	}
 	if !(&l1.Redirect).Equal(&l2.Redirect) {
 		return false
 	}
@@ -526,6 +525,9 @@ func (l4b1 *L4Backend) Equal(l4b2 *L4Backend) bool {
 		return false
 	}
 	if l4b1.Protocol != l4b2.Protocol {
+		return false
+	}
+	if l4b1.ProxyProtocol != l4b2.ProxyProtocol {
 		return false
 	}
 

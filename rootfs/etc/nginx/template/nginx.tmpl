@@ -16,6 +16,19 @@ pid {{ .PID }};
 load_module /etc/nginx/modules/ngx_http_geoip2_module.so;
 {{ end }}
 
+{{ if $cfg.EnableBrotli }}
+load_module /etc/nginx/modules/ngx_http_brotli_filter_module.so;
+load_module /etc/nginx/modules/ngx_http_brotli_static_module.so;
+{{ end }}
+
+{{ if (shouldLoadInfluxDBModule $servers) }}
+load_module /etc/nginx/modules/ngx_http_influxdb_module.so;
+{{ end }}
+
+{{ if (shouldLoadAuthDigestModule $servers) }}
+load_module /etc/nginx/modules/ngx_http_auth_digest_module.so;
+{{ end }}
+
 {{ if (shouldLoadModSecurityModule $cfg $servers) }}
 load_module /etc/nginx/modules/ngx_http_modsecurity_module.so;
 {{ end }}
@@ -193,6 +206,22 @@ http {
     # Shopify specific ends
 
     {{ range $index, $file := $all.MaxmindEditionFiles }}
+    {{ if eq $file "GeoLite2-Country.mmdb" }}
+    geoip2 /etc/nginx/geoip/GeoLite2-Country.mmdb {
+        $geoip2_country_code source=$remote_addr country iso_code;
+        $geoip2_country_name source=$remote_addr country names en;
+        $geoip2_continent_name source=$remote_addr continent names en;
+    }
+    {{ end }}
+
+    {{ if eq $file "GeoIP2-Country.mmdb" }}
+    geoip2 /etc/nginx/geoip/GeoIP2-Country.mmdb {
+        $geoip2_country_code source=$remote_addr country iso_code;
+        $geoip2_country_name source=$remote_addr country names en;
+        $geoip2_continent_name source=$remote_addr continent names en;
+    }
+    {{ end }}
+
     {{ if eq $file "GeoLite2-City.mmdb" }}
     geoip2 /etc/nginx/geoip/GeoLite2-City.mmdb {
         $geoip2_city_country_code source=$remote_addr country iso_code;
@@ -357,7 +386,7 @@ http {
         default 1;
     }
 
-    {{ if $cfg.DisableAccessLog }}
+    {{ if or $cfg.DisableAccessLog $cfg.DisableHTTPAccessLog }}
     access_log off;
     {{ else }}
     {{ if $cfg.EnableSyslog }}
@@ -406,14 +435,6 @@ http {
         default          "$http_x_forwarded_for, $realip_remote_addr";
         ''               "$realip_remote_addr";
         {{ end}}
-    }
-
-    {{ end }}
-
-    {{ if $cfg.UseForwardedHeaders }}
-    map $http_x_forwarded_proto $full_x_forwarded_proto {
-        default $http_x_forwarded_proto;
-        "" $scheme;
     }
 
     {{ end }}
@@ -581,12 +602,21 @@ http {
         }
         {{ end }}
 
-        {{ if ne $all.ListenPorts.HTTPS 443 }}
-        {{ $redirect_port := (printf ":%v" $all.ListenPorts.HTTPS) }}
-        return {{ $all.Cfg.HTTPRedirectCode }} $scheme://{{ $redirect.To }}{{ $redirect_port }}$request_uri;
-        {{ else }}
-        return {{ $all.Cfg.HTTPRedirectCode }} $scheme://{{ $redirect.To }}$request_uri;
-        {{ end }}
+        set_by_lua_block $redirect_to {
+            local request_uri = ngx.var.request_uri
+            if string.sub(request_uri, -1) == "/" then
+                request_uri = string.sub(request_uri, 1, -2)
+            end
+
+            {{ if ne $all.ListenPorts.HTTPS 443 }}
+            {{ $redirect_port := (printf ":%v" $all.ListenPorts.HTTPS) }}
+            return string.format("%s://%s%s%s", ngx.var.scheme, "{{ $redirect.To }}", "{{ $redirect_port }}", request_uri)
+            {{ else }}
+            return string.format("%s://%s%s", ngx.var.scheme, "{{ $redirect.To }}", request_uri)
+            {{ end }}
+        }
+
+        return {{ $all.Cfg.HTTPRedirectCode }} $redirect_to;
     }
     ## end server {{ $redirect.From }}
     {{ end }}
@@ -595,7 +625,7 @@ http {
 
     ## start server {{ $server.Hostname }}
     server {
-        server_name {{ $server.Hostname }} {{range $server.Aliases }}{{ . }} {{ end }};
+        server_name {{ buildServerName $server.Hostname }} {{range $server.Aliases }}{{ . }} {{ end }};
 
         {{ if gt (len $cfg.BlockUserAgents) 0 }}
         if ($block_ua) {
@@ -729,13 +759,19 @@ stream {
 
     log_format log_stream '{{ $cfg.LogFormatStream }}';
 
-    {{ if $cfg.DisableAccessLog }}
+    {{ if or $cfg.DisableAccessLog $cfg.DisableStreamAccessLog }}
     access_log off;
     {{ else }}
     access_log {{ or $cfg.StreamAccessLogPath $cfg.AccessLogPath }} log_stream {{ $cfg.AccessLogParams }};
     {{ end }}
 
-    error_log  {{ $cfg.ErrorLogPath }};
+    error_log  {{ $cfg.ErrorLogPath }} {{ $cfg.ErrorLogLevel }};
+
+    {{ if $cfg.EnableRealIp }}
+    {{ range $trusted_ip := $cfg.ProxyRealIPCIDR }}
+    set_real_ip_from    {{ $trusted_ip }};
+    {{ end }}
+    {{ end }}
 
     upstream upstream_balancer {
         server 0.0.0.1:1234; # placeholder
@@ -775,6 +811,10 @@ stream {
         {{ end }}
         {{ end }}
         proxy_timeout           {{ $cfg.ProxyStreamTimeout }};
+        proxy_next_upstream     {{ if $cfg.ProxyStreamNextUpstream }}on{{ else }}off{{ end }};
+        proxy_next_upstream_timeout {{ $cfg.ProxyStreamNextUpstreamTimeout }};
+        proxy_next_upstream_tries   {{ $cfg.ProxyStreamNextUpstreamTries }};
+
         proxy_pass              upstream_balancer;
         {{ if $tcpServer.Backend.ProxyProtocol.Encode }}
         proxy_protocol          on;
@@ -803,6 +843,9 @@ stream {
         {{ end }}
         proxy_responses         {{ $cfg.ProxyStreamResponses }};
         proxy_timeout           {{ $cfg.ProxyStreamTimeout }};
+        proxy_next_upstream     {{ if $cfg.ProxyStreamNextUpstream }}on{{ else }}off{{ end }};
+        proxy_next_upstream_timeout {{ $cfg.ProxyStreamNextUpstreamTimeout }};
+        proxy_next_upstream_tries   {{ $cfg.ProxyStreamNextUpstreamTries }};
         proxy_pass              upstream_balancer;
     }
     {{ end }}
@@ -851,6 +894,7 @@ stream {
         {{ if $cors.CorsAllowCredentials }} more_set_headers 'Access-Control-Allow-Credentials: {{ $cors.CorsAllowCredentials }}'; {{ end }}
         more_set_headers 'Access-Control-Allow-Methods: {{ $cors.CorsAllowMethods }}';
         more_set_headers 'Access-Control-Allow-Headers: {{ $cors.CorsAllowHeaders }}';
+        {{ if not (empty $cors.CorsExposeHeaders) }} more_set_headers 'Access-Control-Expose-Headers: {{ $cors.CorsExposeHeaders }}'; {{ end }}
         more_set_headers 'Access-Control-Max-Age: {{ $cors.CorsMaxAge }}';
         more_set_headers 'Content-Type: text/plain charset=UTF-8';
         more_set_headers 'Content-Length: 0';
@@ -859,8 +903,7 @@ stream {
 
         more_set_headers 'Access-Control-Allow-Origin: {{ $cors.CorsAllowOrigin }}';
         {{ if $cors.CorsAllowCredentials }} more_set_headers 'Access-Control-Allow-Credentials: {{ $cors.CorsAllowCredentials }}'; {{ end }}
-        more_set_headers 'Access-Control-Allow-Methods: {{ $cors.CorsAllowMethods }}';
-        more_set_headers 'Access-Control-Allow-Headers: {{ $cors.CorsAllowHeaders }}';
+        {{ if not (empty $cors.CorsExposeHeaders) }} more_set_headers 'Access-Control-Expose-Headers: {{ $cors.CorsExposeHeaders }}'; {{ end }}
 
 {{ end }}
 
@@ -926,6 +969,7 @@ stream {
         {{ end }}
 
         {{ if not (empty $server.ServerSnippet) }}
+        # Custom code snippet configured for host {{ $server.Hostname }}
         {{ $server.ServerSnippet }}
         {{ end }}
 
@@ -957,7 +1001,7 @@ stream {
         location = {{ $authPath }} {
             internal;
 
-            {{ if $all.Cfg.EnableOpentracing }}
+            {{ if (or $all.Cfg.EnableOpentracing $location.Opentracing.Enabled) }}
             opentracing on;
             opentracing_propagate_context;
             {{ end }}
@@ -1061,18 +1105,19 @@ stream {
 
             add_header Set-Cookie $auth_cookie;
 
-            return 302 {{ buildAuthSignURL $externalAuth.SigninURL }};
+            return 302 {{ buildAuthSignURL $externalAuth.SigninURL $externalAuth.SigninURLRedirectParam }};
         }
         {{ end }}
         {{ end }}
 
         location {{ $path }} {
-            {{ $ing := (getIngressInformation $location.Ingress $server.Hostname $location.Path) }}
+            {{ $ing := (getIngressInformation $location.Ingress $server.Hostname $location.IngressPath) }}
             set $namespace      {{ $ing.Namespace | quote}};
             set $ingress_name   {{ $ing.Rule | quote }};
             set $service_name   {{ $ing.Service | quote }};
             set $service_port   {{ $ing.ServicePort | quote }};
-            set $location_path  {{ $location.Path | escapeLiteralDollar | quote }};
+            set $location_path  {{ $ing.Path | escapeLiteralDollar | quote }};
+            set $global_rate_limit_exceeding n;
 
             {{ buildOpentracingForLocation $all.Cfg.EnableOpentracing $location }}
 
@@ -1099,6 +1144,7 @@ stream {
             }
 
             body_filter_by_lua_block {
+                plugins.run()
             }
 
             log_by_lua_block {
@@ -1229,13 +1275,9 @@ stream {
             {{ else }}
             {{ $proxySetHeader }} X-Forwarded-For        $remote_addr;
             {{ end }}
-            {{ if $all.Cfg.UseForwardedHeaders }}
-            {{ $proxySetHeader }} X-Forwarded-Proto      $full_x_forwarded_proto;
-            {{ else }}
-            {{ $proxySetHeader }} X-Forwarded-Proto      $pass_access_scheme;
-            {{ end }}
             {{ $proxySetHeader }} X-Forwarded-Host       $best_http_host;
             {{ $proxySetHeader }} X-Forwarded-Port       $pass_port;
+            {{ $proxySetHeader }} X-Forwarded-Proto      $pass_access_scheme;
             {{ if $all.Cfg.ProxyAddOriginalURIHeader }}
             {{ $proxySetHeader }} X-Original-URI         $request_uri;
             {{ end }}
