@@ -4,12 +4,14 @@ timeout: 1800s
 options:
   substitution_option: ALLOW_LOOSE
 steps:
-  - name: 'gcr.io/k8s-testimages/gcb-docker-gcloud:v20200422-b25d964'
+  - name: 'gcr.io/k8s-testimages/gcb-docker-gcloud:v20201130-750d12f'
     entrypoint: bash
     env:
       - DOCKER_CLI_EXPERIMENTAL=enabled
       - REGISTRY=gcr.io/k8s-staging-ingress-nginx
       - REPO_INFO=https://github.com/kubernetes/ingress-nginx
+      - COMMIT_SHA=$_PULL_BASE_SHA
+      - BUILD_ID=$BUILD_ID
       - HOME=/root
       - USER=root
     args:
@@ -20,3 +22,4 @@ steps:
 substitutions:
   _GIT_TAG: "12345"
   _PULL_BASE_REF: "master"
+  _PULL_BASE_SHA: '12345'

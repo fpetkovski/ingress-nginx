@@ -4,8 +4,9 @@ local configuration = require("configuration")
 local unmocked_ngx = _G.ngx
 local certificate_data = ngx.shared.certificate_data
 local certificate_servers = ngx.shared.certificate_servers
+local ocsp_response_cache = ngx.shared.ocsp_response_cache
 
-function get_backends()
+local function get_backends()
   return {
     {
       name = "my-dummy-backend-1", ["load-balance"] = "sticky",
@@ -29,7 +30,7 @@ function get_backends()
   }
 end
 
-function get_mocked_ngx_env()
+local function get_mocked_ngx_env()
   local _ngx = {
     status = ngx.HTTP_OK,
     var = {},
@@ -184,6 +185,56 @@ describe("Configuration", function()
       assert.same(ngx.status, ngx.HTTP_BAD_REQUEST)
     end)
 
+    it("should not delete ocsp_response_cache if certificate remain the same", function()
+      ngx.shared.certificate_data.get = function(self, uid)
+        return "pemCertKey"
+      end
+
+      mock_ssl_configuration({
+        servers = { ["hostname"] = UUID },
+        certificates = { [UUID] = "pemCertKey" }
+      })
+
+      local s = spy.on(ngx.shared.ocsp_response_cache, "delete")
+      assert.has_no.errors(configuration.handle_servers)
+      assert.spy(s).was_not_called()
+    end)
+
+    it("should not delete ocsp_response_cache if certificate is empty", function()
+      ngx.shared.certificate_data.get = function(self, uid)
+          return nil
+      end
+
+      mock_ssl_configuration({
+        servers = { ["hostname"] = UUID },
+        certificates = { [UUID] = "pemCertKey" }
+      })
+
+      local s = spy.on(ngx.shared.ocsp_response_cache, "delete")
+      assert.has_no.errors(configuration.handle_servers)
+      assert.spy(s).was_not_called()
+    end)
+
+    it("should delete ocsp_response_cache if certificate changed", function()
+      local stored_entries = {
+          [UUID] = "pemCertKey"
+      }
+
+      ngx.shared.certificate_data.get = function(self, uid)
+          return stored_entries[uid]
+      end
+
+      mock_ssl_configuration({
+        servers = { ["hostname"] = UUID },
+        certificates = { [UUID] = "pemCertKey2" }
+      })
+
+      local s = spy.on(ngx.shared.ocsp_response_cache, "delete")
+
+      assert.has_no.errors(configuration.handle_servers)
+      assert.spy(s).was.called_with(ocsp_response_cache, UUID)
+    end)
+
     it("deletes server with empty UID without touching the corresponding certificate", function()
       mock_ssl_configuration({
         servers = { ["hostname"] = UUID },
@@ -230,9 +281,7 @@ describe("Configuration", function()
 
       local s = spy.on(ngx, "log")
       assert.has_no.errors(configuration.handle_servers)
-      assert.spy(s).was_called_with(ngx.ERR,
-      string.format("error setting certificate for %s: error\nerror setting certificate for %s: error\n", UUID, uuid2))
-      assert.same(ngx.status, ngx.HTTP_INTERNAL_SERVER_ERROR)
+      assert.same(ngx.HTTP_INTERNAL_SERVER_ERROR, ngx.status)
     end)
 
     it("logs a warning when entry is forcibly stored", function()

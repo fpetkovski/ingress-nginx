@@ -9,7 +9,7 @@ shared:
 
 containers:
   default:
-    docker: us.gcr.io/k8s-artifacts-prod/ingress-nginx/e2e-test-runner:v20200812-gf6dce060b
+    docker: k8s.gcr.io/ingress-nginx/e2e-test-runner:v20210104-g81a8d5cd8
     workdir: /go/src/k8s.io/ingress-nginx
 
 steps:
@@ -28,7 +28,7 @@ steps:
   run:
   - PKG=k8s.io/ingress-nginx build/cover.sh
 
-- label: e2e (:kubernetes:v1.15-latest)
+- label: e2e (:kubernetes:v1.16-latest)
   <<: *e2e_defaults
   env:
-    KUBERNETES_VERSION: v1.15-latest
+    KUBERNETES_VERSION: v1.16-latest

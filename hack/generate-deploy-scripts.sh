@@ -53,7 +53,7 @@ $(cat ${OUTPUT_FILE})" > ${OUTPUT_FILE}
 
 # Cloud - generic
 OUTPUT_FILE="${DIR}/deploy/static/provider/cloud/deploy.yaml"
-cat << EOF | helm template $RELEASE_NAME ${DIR}/charts/ingress-nginx --namespace $NAMESPACE --namespace $NAMESPACE --values - | $DIR/hack/add-namespace.py $NAMESPACE > ${OUTPUT_FILE}
+cat << EOF | helm template $RELEASE_NAME ${DIR}/charts/ingress-nginx --namespace $NAMESPACE --values - | $DIR/hack/add-namespace.py $NAMESPACE > ${OUTPUT_FILE}
 controller:
   service:
     type: LoadBalancer
@@ -75,10 +75,6 @@ controller:
       service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "tcp"
       service.beta.kubernetes.io/aws-load-balancer-type: nlb
       service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
-      # Ensure the ELB idle timeout is less than nginx keep-alive timeout. By default,
-      # NGINX keep-alive is set to 75s. If using WebSockets, the value will need to be
-      # increased to '3600' to avoid any potential issues.
-      service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout: "60"
 EOF
 
 echo "${NAMESPACE_VAR}
@@ -165,6 +161,23 @@ controller:
     externalTrafficPolicy: Local
     annotations:
       service.beta.kubernetes.io/do-loadbalancer-enable-proxy-protocol: "true"
+  config:
+    use-proxy-protocol: "true"
+
+EOF
+
+# Scaleway
+echo "${NAMESPACE_VAR}
+$(cat ${OUTPUT_FILE})" > ${OUTPUT_FILE}
+
+OUTPUT_FILE="${DIR}/deploy/static/provider/scw/deploy.yaml"
+cat << EOF | helm template $RELEASE_NAME ${DIR}/charts/ingress-nginx --namespace $NAMESPACE --values - | $DIR/hack/add-namespace.py $NAMESPACE > ${OUTPUT_FILE}
+controller:
+  service:
+    type: LoadBalancer
+    externalTrafficPolicy: Local
+    annotations:
+      service.beta.kubernetes.io/scw-loadbalancer-proxy-protocol-v2: "true"
   config:
     use-proxy-protocol: "true"
 

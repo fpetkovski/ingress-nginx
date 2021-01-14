@@ -61,7 +61,7 @@ echo "[dev-env] building image"
 make build image
 docker tag "${REGISTRY}/controller:${TAG}" "${DEV_IMAGE}"
 
-export K8S_VERSION=${K8S_VERSION:-v1.18.4@sha256:d8ff5fc405fc679dd3dd0cccc01543ba4942ed90823817d2e9e2c474a5343c4f}
+export K8S_VERSION=${K8S_VERSION:-v1.19.4@sha256:796d09e217d93bed01ecf8502633e48fd806fe42f9d02fdd468b81cd4e3bd40b}
 
 KIND_CLUSTER_NAME="ingress-nginx-dev"
 
