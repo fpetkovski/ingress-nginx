@@ -67,12 +67,21 @@ function _M.log()
     return nil, rt_err
   end
 
-  local http_connection = string.lower(ngx.var.http_connection)
-  local http_upgrade = string.lower(ngx.var.http_upgrade)
-  local is_websocket = 0
-  if http_connection == "websocket" and http_upgrade == "upgrade" then
-      is_websocket = 1
+  local http_connection = ''
+  if ngx.var.http_connection then
+    http_connection = string.lower(ngx.var.http_connection)
   end
+
+  local http_upgrade = ''
+  if ngx.var.http_upgrade then
+    http_upgrade = string.lower(ngx.var.http_upgrade)
+  end
+
+  local is_websocket = "0"
+  if http_connection == "websocket" and http_upgrade == "upgrade" then
+      is_websocket = "1"
+  end
+
   local err = defer_to_timer.enqueue(send_response_data, {
       status=status,
       addr=addrs,
