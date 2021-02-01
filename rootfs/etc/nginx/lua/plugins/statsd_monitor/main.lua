@@ -78,7 +78,7 @@ function _M.log()
   end
 
   local is_websocket = "0"
-  if http_connection == "upgrade" and http_upgrade == "websocket" then
+  if string.find(http_connection, "upgrade") and string.find(http_upgrade, "websocket") then
       is_websocket = "1"
   end
 
