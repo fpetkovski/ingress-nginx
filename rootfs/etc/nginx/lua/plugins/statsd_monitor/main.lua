@@ -42,7 +42,8 @@ local function send_response_data(upstream_state, client_state)
   })
 
   statsd.histogram('nginx.client.request_time', client_state.request_time, {
-    upstream_name=client_state.upstream_name
+    upstream_name=client_state.upstream_name,
+    is_websocket=client_state.is_websocket
   })
 end
 
@@ -66,6 +67,21 @@ function _M.log()
     return nil, rt_err
   end
 
+  local http_connection = ''
+  if ngx.var.http_connection then
+    http_connection = string.lower(ngx.var.http_connection)
+  end
+
+  local http_upgrade = ''
+  if ngx.var.http_upgrade then
+    http_upgrade = string.lower(ngx.var.http_upgrade)
+  end
+
+  local is_websocket = "0"
+  if string.find(http_connection, "upgrade") and string.find(http_upgrade, "websocket") then
+      is_websocket = "1"
+  end
+
   local err = defer_to_timer.enqueue(send_response_data, {
       status=status,
       addr=addrs,
@@ -73,7 +89,8 @@ function _M.log()
     }, {
       status=ngx.var.status,
       request_time=ngx.var.request_time,
-      upstream_name=ngx.var.proxy_upstream_name
+      upstream_name=ngx.var.proxy_upstream_name,
+      is_websocket=is_websocket
     })
 
   if err then
