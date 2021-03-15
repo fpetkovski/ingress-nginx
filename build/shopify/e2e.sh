@@ -29,8 +29,7 @@ _term() {
 trap _term SIGTERM
 
 # TODO(elvinefendi): bake `make` into k8s-ci machines
-sudo apt-get update && \
-  sudo apt-get install -yq make
+sudo apt-get install -yq make
 
 # Use 1.0.0-dev to make sure we use the latest configuration in the helm template
 export TAG=1.0.0-dev

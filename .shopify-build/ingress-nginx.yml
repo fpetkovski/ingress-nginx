@@ -32,3 +32,13 @@ steps:
   <<: *e2e_defaults
   env:
     KUBERNETES_VERSION: v1.16-latest
+
+- label: e2e (:kubernetes:v1.17-latest)
+  <<: *e2e_defaults
+  env:
+    KUBERNETES_VERSION: v1.17-latest
+
+- label: e2e (:kubernetes:v1.18-latest)
+  <<: *e2e_defaults
+  env:
+    KUBERNETES_VERSION: v1.18-latest
