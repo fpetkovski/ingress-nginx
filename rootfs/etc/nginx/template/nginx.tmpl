@@ -175,8 +175,8 @@ http {
 
     # Shopify specific begins
     # We prefer GeoIP2 databases over GeoLite2 ones,
-    # because they are more accurate: https://support.maxmind.com/geolite-faq/general/what-is-the-difference-between-geoip2-and-geolite2-databases/
-    # For the full list of what databases we downlaod see .shopify-build/shopify-slash-nginx-routing-modules-production-builder.yml
+    # because they are more accurate: https://support.maxmind.com/geolite-faq/general/what-is-the-difference-between-geoip2-and-geolite2/
+    # For the full list of what databases we download see .shopify-build/shopify-slash-nginx-routing-modules-production-builder.yml
 
     # TODO: replace the following GeoLite with GeoIP2
     geoip2 /etc/nginx/geoip/GeoLite2-City.mmdb {
@@ -190,6 +190,8 @@ http {
         $geoip2_time_zone source=$remote_addr location time_zone;
         $geoip2_region_code source=$remote_addr subdivisions 0 iso_code;
         $geoip2_region_name source=$remote_addr subdivisions 0 names en;
+        $geoip2_subregion_code source=$remote_addr subdivisions 1 iso_code;
+        $geoip2_subregion_name source=$remote_addr subdivisions 1 names en;
     }
 
     geoip2 /etc/nginx/geoip/GeoIP2-ISP.mmdb {
@@ -234,6 +236,8 @@ http {
         $geoip2_time_zone source=$remote_addr location time_zone;
         $geoip2_region_code source=$remote_addr subdivisions 0 iso_code;
         $geoip2_region_name source=$remote_addr subdivisions 0 names en;
+        $geoip2_subregion_code source=$remote_addr subdivisions 1 iso_code;
+        $geoip2_subregion_name source=$remote_addr subdivisions 1 names en;
     }
     {{ end }}
 
@@ -249,6 +253,8 @@ http {
         $geoip2_time_zone source=$remote_addr location time_zone;
         $geoip2_region_code source=$remote_addr subdivisions 0 iso_code;
         $geoip2_region_name source=$remote_addr subdivisions 0 names en;
+        $geoip2_subregion_code source=$remote_addr subdivisions 1 iso_code;
+        $geoip2_subregion_name source=$remote_addr subdivisions 1 names en;
     }
     {{ end }}
 
