@@ -106,6 +106,8 @@ type Configuration struct {
 	MaxmindEditionFiles []string
 
 	MonitorMaxBatchSize int
+
+	ShutdownGracePeriod int
 }
 
 // GetPublishService returns the Service used to set the load-balancer status of Ingresses.
@@ -491,6 +493,7 @@ func (n *NGINXController) getConfiguration(ingresses []*ingress.Ingress) (sets.S
 		UDPEndpoints:          n.getStreamServices(n.cfg.UDPConfigMapName, apiv1.ProtocolUDP),
 		PassthroughBackends:   passUpstreams,
 		BackendConfigChecksum: n.store.GetBackendConfiguration().Checksum,
+		DefaultSSLCertificate: n.getDefaultSSLCertificate(),
 	}
 }
 
