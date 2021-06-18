@@ -15,9 +15,14 @@ local _M = {}
 
 function _M.get_nodes(endpoints)
   local nodes = {}
-  local weight = 1
-
   for _, endpoint in pairs(endpoints) do
+    -- Note that normally Kubernetes Endpoint object does
+    -- not have a 'weight' attribute. However there are use cases where
+    -- ingress-nginx's data plane is used without the default control plane.
+    -- In other words, the user might have their own custom Lua middleware
+    -- setting Endpoints with weight,
+    -- so that weighted traffic shifting is applied.
+    local weight = tonumber(endpoint.weight) or 1
     local endpoint_string = endpoint.address .. ":" .. endpoint.port
     nodes[endpoint_string] = weight
   end
