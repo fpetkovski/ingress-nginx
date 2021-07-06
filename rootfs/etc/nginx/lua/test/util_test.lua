@@ -10,6 +10,48 @@ describe("utility", function()
     reset_ngx()
   end)
 
+  describe("get_nodes", function()
+    it("returns nodes with default weight of 1", function()
+      local endpoints = {
+        {
+          address = "10.162.100.77",
+          port = "8080"
+        },
+        {
+          address = "10.162.97.9",
+          port = "8080"
+        },
+      }
+      local expected_nodes = {
+        ["10.162.100.77:8080"] = 1,
+        ["10.162.97.9:8080"] = 1,
+      }
+
+      assert.are.same(expected_nodes, util.get_nodes(endpoints))
+    end)
+
+    it("returns nodes with weights from endpoints", function()
+      local endpoints = {
+        {
+          address = "10.162.100.77",
+          port = "8080",
+          weight = 20,
+        },
+        {
+          address = "10.162.97.9",
+          port = "8080",
+          weight = 80,
+        },
+      }
+      local expected_nodes = {
+        ["10.162.100.77:8080"] = 20,
+        ["10.162.97.9:8080"] = 80,
+      }
+
+      assert.are.same(expected_nodes, util.get_nodes(endpoints))
+    end)
+  end)
+
   describe("ngx_complex_value", function()
 
     local ngx_complex_value = function(data)
