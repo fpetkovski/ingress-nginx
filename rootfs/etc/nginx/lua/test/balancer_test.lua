@@ -76,6 +76,28 @@ describe("Balancer", function()
     reset_ngx()
   end)
 
+  describe("get_peer", function()
+    it("returns nil for non existing backend", function()
+      assert.is_nil(balancer.get_peer("non-exiting-backend"))
+    end)
+
+    it("returns peer for existing backend", function()
+      ngx.shared.configuration_data:set("backends", cjson.encode(backends))
+      balancer.init_worker()
+
+      local expected_peers = { "10.184.7.40:8080", "10.184.97.100:8080", "10.184.98.239:8080" }
+      local actual_peers = {}
+      table.insert(actual_peers, balancer.get_peer("access-router-production-web-80"))
+      table.insert(actual_peers, balancer.get_peer("access-router-production-web-80"))
+      table.insert(actual_peers, balancer.get_peer("access-router-production-web-80"))
+
+      table.sort(expected_peers)
+      table.sort(actual_peers)
+
+      assert.are.same(expected_peers, actual_peers)
+    end)
+  end)
+
   describe("get_implementation()", function()
     it("returns correct implementation for given backend", function()
       for _, backend in pairs(backends) do
