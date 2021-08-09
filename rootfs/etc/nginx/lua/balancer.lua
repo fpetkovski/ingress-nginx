@@ -275,6 +275,17 @@ local function get_balancer()
   return balancer
 end
 
+-- get_peer is an external API, to be consumed by
+-- other ingress-nginx Lua plugins.
+function _M.get_peer(backend_name)
+  local balancer = balancers[backend_name]
+  if not balancer then
+    return nil
+  end
+
+  return balancer:balance()
+end
+
 function _M.init_worker()
   -- when worker starts, sync non ExternalName backends without delay
   sync_backends()
