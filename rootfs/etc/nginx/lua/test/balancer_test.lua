@@ -98,6 +98,32 @@ describe("Balancer", function()
     end)
   end)
 
+  describe("is_backend_present", function()
+    before_each(function()
+      ngx.shared.configuration_data:set("backends", cjson.encode(backends))
+      balancer.init_worker()
+    end)
+
+    after_each(function()
+      ngx.shared.configuration_data:flush_all()
+    end)
+
+    it("returns true for an existing backend", function()
+      assert.is_true(balancer.is_backend_present("access-router-production-web-80"),
+        "expected access-router-production-web-80 to be present")
+    end)
+
+    it("returns false for a backend stored without endpoints", function()
+      assert.is_false(balancer.is_backend_present("my-dummy-app-5"),
+        "expected my-dummy-app-5 not to be present")
+    end)
+
+    it("returns false for a backend that's not stored", function()
+      assert.is_false(balancer.is_backend_present("non-existing-backend"),
+        "expected non-existing-backend not to be present")
+    end)
+  end)
+
   describe("get_implementation()", function()
     it("returns correct implementation for given backend", function()
       for _, backend in pairs(backends) do

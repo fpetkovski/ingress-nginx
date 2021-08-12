@@ -275,8 +275,9 @@ local function get_balancer()
   return balancer
 end
 
--- get_peer is an external API, to be consumed by
--- other ingress-nginx Lua plugins.
+-- get_peer is an external API to be consumed by
+-- other ingress-nginx Lua plugins. It runs load balancer instance for the given
+-- backend and returns the peer.
 function _M.get_peer(backend_name)
   local balancer = balancers[backend_name]
   if not balancer then
@@ -284,6 +285,12 @@ function _M.get_peer(backend_name)
   end
 
   return balancer:balance()
+end
+
+-- is_backend_present is an external API to be consumed by other ingress-nginx Lua plugins.
+-- It is useful to check if there's a backend/balancer exists with the given name.
+function _M.is_backend_present(backend_name)
+  return balancers[backend_name] ~= nil
 end
 
 function _M.init_worker()
