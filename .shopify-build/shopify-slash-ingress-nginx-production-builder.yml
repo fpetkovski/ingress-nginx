@@ -5,6 +5,7 @@ containers:
       command: build/shopify/pipa-main.sh
       timeout: 40m
       env:
+        BUILD_CI_BASE_IMAGE: "0"
         FREE_GEOIP_FILES: "GeoLite2-Country.mmdb,GeoLite2-City.mmdb,GeoLite2-ASN.mmdb"
         PAID_GEOIP_FILES: "GeoIP2-ISP.mmdb,GeoIP2-Anonymous-IP.mmdb,GeoIP.dat"
         # GeoLite2-City and GeoLite2-ASN are required even if unused to keep the use-geoip2 configmap setting set to true
