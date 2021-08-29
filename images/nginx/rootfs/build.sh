@@ -18,14 +18,14 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-export NGINX_VERSION=1.19.6
+export NGINX_VERSION=1.19.9
 export NDK_VERSION=0.3.1
 export SETMISC_VERSION=0.32
 export MORE_HEADERS_VERSION=0.33
 export NGINX_DIGEST_AUTH=cd8641886c873cf543255aeda20d23e4cd603d05
 export NGINX_SUBSTITUTIONS=bc58cb11844bc42735bbaef7085ea86ace46d05b
 export MSGPACK_VERSION=3.2.1
-export LUA_NGX_VERSION=138c1b96423aa26defe00fe64dd5760ef17e5ad8
+export LUA_NGX_VERSION=b721656a9127255003b696b42ccc871c7ec18d59
 export LUA_STREAM_NGX_VERSION=0.0.9
 export LUA_UPSTREAM_VERSION=0.07
 export LUA_CJSON_VERSION=2.1.0.8
@@ -33,11 +33,11 @@ export NGINX_INFLUXDB_VERSION=5b09391cb7b9a889687c0aa67964c06a2d933e8b
 export GEOIP2_VERSION=3.3
 export NGINX_AJP_VERSION=bf6cd93f2098b59260de8d494f0f4b1f11a84627
 
-export LUAJIT_VERSION=2.1-20201027
+export LUAJIT_VERSION=2.1-20210510
 
 export LUA_RESTY_BALANCER=af4508f7aa5560c7d810922c2515b557f9e5d51a
 export LUA_RESTY_CACHE=0.10
-export LUA_RESTY_CORE=0.1.21
+export LUA_RESTY_CORE=0.1.22
 export LUA_RESTY_COOKIE_VERSION=766ad8c15e498850ac77f5e0265f1d3f30dc4027
 export LUA_RESTY_DNS=0.21
 export LUA_RESTY_HTTP=0.15
@@ -112,7 +112,7 @@ mkdir --verbose -p "$BUILD_PATH"
 cd "$BUILD_PATH"
 
 # download, verify and extract the source files
-get_src b11195a02b1d3285ddf2987e02c6b6d28df41bb1b1dd25f33542848ef4fc33b5 \
+get_src 2e35dff06a9826e8aca940e9e8be46b7e4b12c19a48d55bfc2dc28fc9cc7d841 \
         "https://nginx.org/download/nginx-$NGINX_VERSION.tar.gz"
 
 get_src 0e971105e210d272a497567fa2e2c256f4e39b845a5ba80d373e26ba1abfbd85 \
@@ -133,7 +133,7 @@ get_src 618551948ab14cac51d6e4ad00452312c7b09938f59ebff4f93875013be31f2d \
 get_src 464f46744a6be778626d11452c4db3c2d09461080c6db42e358e21af19d542f6 \
         "https://github.com/msgpack/msgpack-c/archive/cpp-$MSGPACK_VERSION.tar.gz"
 
-get_src 7dc05df3d1824b02c6958ff37f9e682b73c1737dcfee93212ca3f6c5bfae08f3 \
+get_src 085a9fb2bf9c4466977595a5fe5156d76f3a2d9a2a81be3cacaff2021773393e \
         "https://github.com/openresty/lua-nginx-module/archive/$LUA_NGX_VERSION.tar.gz"
 
 get_src 6fcf7054f412a19c23c1ac3c0663f42f40bccc907d98c5d1657ae5cab9973ee9 \
@@ -142,7 +142,7 @@ get_src 6fcf7054f412a19c23c1ac3c0663f42f40bccc907d98c5d1657ae5cab9973ee9 \
 get_src 2a69815e4ae01aa8b170941a8e1a10b6f6a9aab699dee485d58f021dd933829a \
         "https://github.com/openresty/lua-upstream-nginx-module/archive/v$LUA_UPSTREAM_VERSION.tar.gz"
 
-get_src f74a0821b079ea1fd63dd8659064356fc3f421ff4b35c17877140d2b2841cc3b \
+get_src 1ee6dad809a5bb22efb45e6dac767f7ce544ad652d353a93d7f26b605f69fe3f \
         "https://github.com/openresty/luajit2/archive/v$LUAJIT_VERSION.tar.gz"
 
 get_src 1af5a5632dc8b00ae103d51b7bf225de3a7f0df82f5c6a401996c080106e600e \
@@ -163,7 +163,7 @@ get_src bfd8c4b6c90aa9dcbe047ac798593a41a3f21edcb71904d50d8ac0e8c77d1132 \
 get_src a21ec0d78a5dc5856df2374890a8a58e51de866b3d5978aceb0109a094367630 \
         "https://github.com/openresty/lua-resty-balancer/archive/$LUA_RESTY_BALANCER.tar.gz"
 
-get_src a377fbce78ba10f3ed3a8b5173ea318f8cf8da9d2ab127bb1e1f263078bf7da0 \
+get_src 4d971f711fad48c097070457c128ca36053835d8a3ba25a937e9991547d55d4d \
         "https://github.com/openresty/lua-resty-core/archive/v$LUA_RESTY_CORE.tar.gz"
 
 get_src bd6bee4ccc6cf3307ab6ca0eea693a921fab9b067ba40ae12a652636da588ff7 \
@@ -250,7 +250,11 @@ cd "$BUILD_PATH/nginx-$NGINX_VERSION"
 # apply nginx patches
 for PATCH in `ls /patches`;do
   echo "Patch: $PATCH"
-  patch -p1 < /patches/$PATCH
+  if [[ "$PATCH" == *.txt ]]; then
+    patch -p0 < /patches/$PATCH
+  else
+    patch -p1 < /patches/$PATCH
+  fi
 done
 
 WITH_FLAGS="--with-debug \
