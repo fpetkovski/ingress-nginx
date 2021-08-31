@@ -41,7 +41,7 @@ export ARCH=amd64
 export REGISTRY=ingress-controller
 # Notice that here we deliberately do not read the tag from buid/shopify/BASE_VERSION to avoid
 # CI failures when we release a new base image.
-export BASE_IMAGE="gcr.io/shopify-docker-images/apps/production/nginx:1.19.6.0"
+export BASE_IMAGE="gcr.io/shopify-docker-images/apps/production/nginx:1.19.9.0"
 
 # Mock file and directory to prevent e2e docker build from failing due to geoip databases copied during production build
 GEOIP_DB_DIR="$PWD/rootfs/geoip"
