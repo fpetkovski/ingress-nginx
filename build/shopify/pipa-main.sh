@@ -22,6 +22,32 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
+#########################################################################################
+
+echo "--- docker build base Nginx image"
+
+BASE_TAG="$(cat build/shopify/BASE_VERSION)"
+BASE_IMAGE_PREFIX="shopify-docker-images/apps/production"
+if [ "${BUILDKITE_BRANCH}" != "master" ] && [ ${BUILD_CI_BASE_IMAGE} == "1" ]; then
+  BASE_TAG=${PIPA_APP_SHA:-latest}
+  BASE_IMAGE_PREFIX="shopify-docker-images/apps/ci"
+fi
+BASE_IMAGE="${PIPA_DOCKER_REGISTRY}/${BASE_IMAGE_PREFIX}/nginx:${BASE_TAG}"
+
+if [ "${BUILDKITE_BRANCH}" == "master" ] || [ ${BUILD_CI_BASE_IMAGE} == "1" ]; then
+  if pipa image exists -r "$PIPA_DOCKER_REGISTRY" -n "${BASE_IMAGE_PREFIX}/nginx" -t "${BASE_TAG}" --remote; then
+    echo "base image $BASE_IMAGE exists"
+  else
+    REGISTRY=${PIPA_DOCKER_REGISTRY}/${BASE_IMAGE_PREFIX} TAG=${BASE_TAG} make -C images/nginx container
+
+    pipa image push -r "${PIPA_DOCKER_REGISTRY}" -n "${BASE_IMAGE_PREFIX}/nginx" -t "${BASE_TAG}"
+  fi
+else
+  echo "skipping base image build"
+fi
+
+#########################################################################################
+
 echo "--- downloading geoip databases"
 IFS=','; free_urls=($FREE_GEOIP_FILES)
 IFS=','; paid_urls=($PAID_GEOIP_FILES)
@@ -34,13 +60,18 @@ for url in "${free_urls[@]}"; do urls+=("gs://shopify-mmdb-free/$url.gz"); done
 for url in "${paid_urls[@]}"; do urls+=("gs://shopify-mmdb-licensed/$url.gz"); done
 for url in "${urls[@]}"; do echo "$url"; done | gsutil -m cp -I "${GEOIP_DB_DIR}"
 
-echo "--- docker build"
-ARCH="amd64"
-TAG=${PIPA_APP_SHA:-latest}
-REGISTRY=${PIPA_DOCKER_REGISTRY}/shopify-docker-images/apps/production ARCH=${ARCH} TAG=${TAG} make build image
+#########################################################################################
 
-INTERMEDIATE_IMAGE_NAME="shopify-docker-images/apps/production/controller"
-IMAGE_NAME="shopify-docker-images/apps/production/ingress-nginx"
+echo "--- docker build controller image"
+TAG=${PIPA_APP_SHA:-latest}
+IMAGE_PREFIX="shopify-docker-images/apps/ci"
+if [ "${BUILDKITE_BRANCH}" == "master" ]; then
+  IMAGE_PREFIX="shopify-docker-images/apps/production"
+fi
+REGISTRY=${PIPA_DOCKER_REGISTRY}/${IMAGE_PREFIX} BASE_IMAGE=${BASE_IMAGE} ARCH=amd64 TAG=${TAG} make build image
+
+INTERMEDIATE_IMAGE_NAME="${IMAGE_PREFIX}/controller"
+IMAGE_NAME="${IMAGE_PREFIX}/ingress-nginx"
 
 docker tag "${PIPA_DOCKER_REGISTRY}/${INTERMEDIATE_IMAGE_NAME}:${TAG}" "${PIPA_DOCKER_REGISTRY}/${IMAGE_NAME}:${TAG}"
 

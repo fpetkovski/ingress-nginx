@@ -29,6 +29,14 @@ IMAGE = $(REGISTRY)/nginx
 # required to enable buildx
 export DOCKER_CLI_EXPERIMENTAL=enabled
 
+.PHONY: container
+container:
+	docker build \
+		--network=host \
+		--pull \
+		--no-cache \
+		-t $(IMAGE):$(TAG) rootfs
+
 # build with buildx
 PLATFORMS?=linux/amd64,linux/arm,linux/arm64,linux/s390x
 OUTPUT=

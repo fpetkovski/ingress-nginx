@@ -29,18 +29,29 @@ _term() {
 trap _term SIGTERM
 
 # TODO(elvinefendi): bake `make` into k8s-ci machines
-sudo apt-get install -yq make
+echo "Installing make"
+while true; do
+  sudo lsof /var/lib/dpkg/lock-frontend > /dev/null && (echo "Waiting for apt/dpkg to finish..."; sleep 10) || break
+done
+sudo -E DEBIAN_FRONTEND=noninteractive apt-get install -y make
 
 # Use 1.0.0-dev to make sure we use the latest configuration in the helm template
 export TAG=1.0.0-dev
 export ARCH=amd64
 export REGISTRY=ingress-controller
+# Notice that here we deliberately do not read the tag from buid/shopify/BASE_VERSION to avoid
+# CI failures when we release a new base image.
+export BASE_IMAGE="gcr.io/shopify-docker-images/apps/production/nginx:1.19.6.0"
 
 # Mock file and directory to prevent e2e docker build from failing due to geoip databases copied during production build
 GEOIP_DB_DIR="$PWD/rootfs/geoip"
-mkdir "${GEOIP_DB_DIR}"
+mkdir -p "${GEOIP_DB_DIR}"
 touch "${GEOIP_DB_DIR}/file.txt"
 tar -czvf "${GEOIP_DB_DIR}/file.gz" "${GEOIP_DB_DIR}/file.txt"
+
+# pull the base image into local repository
+# so that docker ... does not run into GCR auth issue.
+gcloud docker -- pull ${BASE_IMAGE}
 
 echo "[dev-env] building container"
 make build image
