@@ -265,7 +265,7 @@ func TestCheckIngress(t *testing.T) {
 			nginx.store = fakeIngressStore{
 				ingresses: []*ingress.Ingress{},
 				configuration: ngx_config.Configuration{
-					EnableSnippetDirectives: false,
+					AllowSnippetAnnotations: false,
 				},
 			}
 			nginx.command = testNginxTestCommand{
@@ -1829,7 +1829,7 @@ func TestGetBackendServers(t *testing.T) {
 						SelfLink: fmt.Sprintf("/api/v1/namespaces/%s/configmaps/config", ns),
 					},
 					Data: map[string]string{
-						"enable-snippet-directives": "false",
+						"allow-snippet-annotations": "false",
 					},
 				}
 			},

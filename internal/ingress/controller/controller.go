@@ -243,7 +243,7 @@ func (n *NGINXController) CheckIngress(ing *networking.Ingress) error {
 			}
 		}
 
-		if !cfg.EnableSnippetDirectives && strings.HasSuffix(key, "-snippet") {
+		if !cfg.AllowSnippetAnnotations && strings.HasSuffix(key, "-snippet") {
 			return fmt.Errorf("%s annotation cannot be used. Snippet directives are disabled by the Ingress administrator", key)
 		}
 
@@ -545,7 +545,7 @@ func (n *NGINXController) getBackendServers(ingresses []*ingress.Ingress) ([]*in
 		ingKey := k8s.MetaNamespaceKey(ing)
 		anns := ing.ParsedAnnotations
 
-		if !n.store.GetBackendConfiguration().EnableSnippetDirectives {
+		if !n.store.GetBackendConfiguration().AllowSnippetAnnotations {
 			dropSnippetDirectives(anns, ingKey)
 		}
 
@@ -817,7 +817,7 @@ func (n *NGINXController) createUpstreams(data []*ingress.Ingress, du *ingress.B
 	for _, ing := range data {
 		anns := ing.ParsedAnnotations
 
-		if !n.store.GetBackendConfiguration().EnableSnippetDirectives {
+		if !n.store.GetBackendConfiguration().AllowSnippetAnnotations {
 			dropSnippetDirectives(anns, ingKey)
 		}
 
@@ -1096,7 +1096,7 @@ func (n *NGINXController) createServers(data []*ingress.Ingress,
 		ingKey := k8s.MetaNamespaceKey(ing)
 		anns := ing.ParsedAnnotations
 
-		if !n.store.GetBackendConfiguration().EnableSnippetDirectives {
+		if !n.store.GetBackendConfiguration().AllowSnippetAnnotations {
 			dropSnippetDirectives(anns, ingKey)
 		}
 
@@ -1176,7 +1176,7 @@ func (n *NGINXController) createServers(data []*ingress.Ingress,
 		ingKey := k8s.MetaNamespaceKey(ing)
 		anns := ing.ParsedAnnotations
 
-		if !n.store.GetBackendConfiguration().EnableSnippetDirectives {
+		if !n.store.GetBackendConfiguration().AllowSnippetAnnotations {
 			dropSnippetDirectives(anns, ingKey)
 		}
 
