@@ -815,6 +815,7 @@ func (n *NGINXController) createUpstreams(data []*ingress.Ingress, du *ingress.B
 	upstreams[defUpstreamName] = du
 
 	for _, ing := range data {
+		ingKey := k8s.MetaNamespaceKey(ing)
 		anns := ing.ParsedAnnotations
 
 		if !n.store.GetBackendConfiguration().AllowSnippetAnnotations {
