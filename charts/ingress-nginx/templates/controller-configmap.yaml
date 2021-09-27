@@ -9,6 +9,7 @@ metadata:
 {{- end }}
   name: {{ include "ingress-nginx.controller.fullname" . }}
 data:
+  allow-snippet-annotations: "{{ .Values.controller.allowSnippetAnnotations }}"
 {{- if .Values.controller.addHeaders }}
   add-headers: {{ .Release.Namespace }}/{{ include "ingress-nginx.fullname" . }}-custom-add-headers
 {{- end }}
