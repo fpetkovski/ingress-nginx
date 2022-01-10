@@ -1,0 +1,8 @@
+name: ingress-nginx
+
+type: go
+
+up:
+  - go:
+      version: 1.17
+      modules: true
