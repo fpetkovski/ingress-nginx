@@ -43,8 +43,6 @@ RUN apk update \
 # otherwise we could just do `COPY --chown=www-data:www-data . /`
 COPY etc /etc
 RUN chown -R www-data.www-data /etc
-COPY ingress-controller /ingress-controller
-RUN chown -R www-data.www-data /ingress-controller
 
 COPY bin/${TARGETARCH}/dbg /
 RUN chown -R www-data.www-data /dbg
