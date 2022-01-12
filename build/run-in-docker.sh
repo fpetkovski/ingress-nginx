@@ -72,6 +72,6 @@ else
     -v "/var/run/docker.sock:/var/run/docker.sock"      \
     -v "${INGRESS_VOLUME}:/etc/ingress-controller/"     \
     -w "/go/src/${PKG}"                                 \
-    -u $(id -u ${USER}):$(id -g ${USER})                \
+    -u root				                \
     ${E2E_IMAGE} /bin/bash -c "${FLAGS}"
 fi
