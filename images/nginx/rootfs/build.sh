@@ -385,11 +385,6 @@ WITH_MODULES=" \
   --add-dynamic-module=$BUILD_PATH/ngx_http_geoip2_module-${GEOIP2_VERSION} \
   --add-dynamic-module=$BUILD_PATH/ngx_brotli"
 
-if [ $USE_OPENTELEMETRY = true ]; then
-  WITH_MODULES+=" \
-    --add-dynamic-module=$BUILD_PATH/opentelemetry-cpp-contrib-$OPENTELEMETRY_CONTRIB_COMMIT/instrumentation/nginx"
-fi
-
 ./configure \
   --prefix=/usr/local/nginx \
   --conf-path=/etc/nginx/nginx.conf \
