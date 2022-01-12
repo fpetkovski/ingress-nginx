@@ -9,7 +9,7 @@ shared:
 
 containers:
   default:
-    docker: k8s.gcr.io/ingress-nginx/e2e-test-runner:v20210104-g81a8d5cd8
+    docker: k8s.gcr.io/ingress-nginx/e2e-test-runner:v20220110-gfd820db46@sha256:273f7d9b1b2297cd96b4d51600e45d932186a1cc79d00d179dfb43654112fe8f
     workdir: /go/src/k8s.io/ingress-nginx
 
 steps:
