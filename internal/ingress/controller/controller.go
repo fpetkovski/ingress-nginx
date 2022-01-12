@@ -571,30 +571,6 @@ func dropSnippetDirectives(anns *annotations.Ingress, ingKey string) {
 	}
 }
 
-func dropSnippetDirectives(anns *annotations.Ingress, ingKey string) {
-	if anns != nil {
-		if anns.ConfigurationSnippet != "" {
-			klog.V(3).Infof("Ingress %q tried to use configuration-snippet and the annotation is disabled by the admin. Removing the annotation", ingKey)
-			anns.ConfigurationSnippet = ""
-		}
-		if anns.ServerSnippet != "" {
-			klog.V(3).Infof("Ingress %q tried to use server-snippet and the annotation is disabled by the admin. Removing the annotation", ingKey)
-			anns.ServerSnippet = ""
-		}
-
-		if anns.ModSecurity.Snippet != "" {
-			klog.V(3).Infof("Ingress %q tried to use modsecurity-snippet and the annotation is disabled by the admin. Removing the annotation", ingKey)
-			anns.ModSecurity.Snippet = ""
-		}
-
-		if anns.ExternalAuth.AuthSnippet != "" {
-			klog.V(3).Infof("Ingress %q tried to use auth-snippet and the annotation is disabled by the admin. Removing the annotation", ingKey)
-			anns.ExternalAuth.AuthSnippet = ""
-		}
-
-	}
-}
-
 // getBackendServers returns a list of Upstream and Server to be used by the
 // backend.  An upstream can be used in multiple servers if the namespace,
 // service name and port are the same.
