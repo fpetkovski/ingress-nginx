@@ -32,7 +32,6 @@ import (
 	// tests to run
 	_ "k8s.io/ingress-nginx/test/e2e/admission"
 	_ "k8s.io/ingress-nginx/test/e2e/annotations"
-	_ "k8s.io/ingress-nginx/test/e2e/annotations/modsecurity"
 	_ "k8s.io/ingress-nginx/test/e2e/dbg"
 	_ "k8s.io/ingress-nginx/test/e2e/defaultbackend"
 	_ "k8s.io/ingress-nginx/test/e2e/gracefulshutdown"
@@ -43,7 +42,6 @@ import (
 	_ "k8s.io/ingress-nginx/test/e2e/security"
 	_ "k8s.io/ingress-nginx/test/e2e/servicebackend"
 	_ "k8s.io/ingress-nginx/test/e2e/settings"
-	_ "k8s.io/ingress-nginx/test/e2e/settings/modsecurity"
 	_ "k8s.io/ingress-nginx/test/e2e/settings/ocsp"
 	_ "k8s.io/ingress-nginx/test/e2e/ssl"
 	_ "k8s.io/ingress-nginx/test/e2e/status"
