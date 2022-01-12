@@ -23,7 +23,6 @@ local ngx = ngx
 -- it will take <the delay until controller POSTed the backend object to the
 -- Nginx endpoint> + BACKENDS_SYNC_INTERVAL
 local BACKENDS_SYNC_INTERVAL = 1
-local BACKENDS_FORCE_SYNC_INTERVAL = 30
 
 local DEFAULT_LB_ALG = "round_robin"
 local IMPLEMENTATIONS = {
@@ -35,6 +34,9 @@ local IMPLEMENTATIONS = {
   ewma = ewma,
 }
 
+local PROHIBITED_LOCALHOST_PORT = configuration.prohibited_localhost_port or '10246'
+local PROHIBITED_PEER_PATTERN = "^127.*:" .. PROHIBITED_LOCALHOST_PORT .. "$"
+
 local _M = {}
 local balancers = {}
 local backends_with_external_name = {}
@@ -45,7 +47,7 @@ local function get_implementation(backend)
 
   if backend["sessionAffinityConfig"] and
      backend["sessionAffinityConfig"]["name"] == "cookie" then
-    if backend["sessionAffinityConfig"]["mode"] == 'persistent' then
+    if backend["sessionAffinityConfig"]["mode"] == "persistent" then
       name = "sticky_persistent"
     else
       name = "sticky_balanced"
@@ -143,10 +145,7 @@ end
 
 local function sync_backends()
   local raw_backends_last_synced_at = configuration.get_raw_backends_last_synced_at()
-  ngx.update_time()
-  local current_timestamp = ngx.time()
-  if current_timestamp - backends_last_synced_at < BACKENDS_FORCE_SYNC_INTERVAL
-      and raw_backends_last_synced_at <= backends_last_synced_at then
+  if raw_backends_last_synced_at <= backends_last_synced_at then
     return
   end
 
@@ -183,6 +182,11 @@ local function sync_backends()
 end
 
 local function route_to_alternative_balancer(balancer)
+  if balancer.is_affinitized(balancer) then
+    -- If request is already affinitized to a primary balancer, keep the primary balancer.
+    return false
+  end
+
   if not balancer.alternative_backends then
     return false
   end
@@ -201,6 +205,13 @@ local function route_to_alternative_balancer(balancer)
     return false
   end
 
+  if alternative_balancer.is_affinitized(alternative_balancer) then
+    -- If request is affinitized to an alternative balancer, instruct caller to
+    -- switch to alternative.
+    return true
+  end
+
+  -- Use traffic shaping policy, if request didn't have affinity set.
   local traffic_shaping_policy =  alternative_balancer.traffic_shaping_policy
   if not traffic_shaping_policy then
     ngx.log(ngx.ERR, "traffic shaping policy is not set for balancer ",
@@ -244,11 +255,19 @@ local function route_to_alternative_balancer(balancer)
     end
   end
 
-  if math.random(100) <= traffic_shaping_policy.weight then
+  local weightTotal = 100
+  if traffic_shaping_policy.weightTotal ~= nil and traffic_shaping_policy.weightTotal > 100 then
+    weightTotal = traffic_shaping_policy.weightTotal
+  end
+  if math.random(weightTotal) <= traffic_shaping_policy.weight then
     return true
   end
 
   return false
+end
+
+local function get_balancer_by_upstream_name(upstream_name)
+  return balancers[upstream_name]
 end
 
 local function get_balancer()
@@ -260,7 +279,7 @@ local function get_balancer()
 
   local balancer = balancers[backend_name]
   if not balancer then
-    return
+    return nil
   end
 
   if route_to_alternative_balancer(balancer) then
@@ -335,6 +354,11 @@ function _M.balance()
     return
   end
 
+  if peer:match(PROHIBITED_PEER_PATTERN) then
+    ngx.log(ngx.ERR, "attempted to proxy to self, balancer: ", balancer.name, ", peer: ", peer)
+    return
+  end
+
   ngx_balancer.set_more_tries(1)
 
   local ok, err = ngx_balancer.set_current_peer(peer)
@@ -362,6 +386,7 @@ setmetatable(_M, {__index = {
   sync_backend = sync_backend,
   route_to_alternative_balancer = route_to_alternative_balancer,
   get_balancer = get_balancer,
+  get_balancer_by_upstream_name = get_balancer_by_upstream_name,
 }})
 
 return _M

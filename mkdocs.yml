@@ -2,6 +2,7 @@ site_name: NGINX Ingress Controller
 repo_name: "kubernetes/ingress-nginx"
 repo_url: https://github.com/kubernetes/ingress-nginx
 site_url: https://kubernetes.github.io/ingress-nginx
+edit_uri: edit/main/docs/
 
 # Extensions
 markdown_extensions:
@@ -72,7 +73,6 @@ nav:
       - How it works: "how-it-works.md"
       - Troubleshooting: "troubleshooting.md"
       - kubectl plugin: "kubectl-plugin.md"
-      - Development: "development.md"
   - Deployment:
       - Installation Guide: "deploy/index.md"
       - Bare-metal considerations: "deploy/baremetal.md"
@@ -125,3 +125,6 @@ nav:
       - Static IPs: "examples/static-ip/README.md"
       - TLS termination: "examples/tls-termination/README.md"
       - Pod Security Policy (PSP): "examples/psp/README.md"
+  - Developer Guide:
+      - Getting Started: "developer-guide/getting-started.md"
+      - Code Overview: "developer-guide/code-overview.md"
