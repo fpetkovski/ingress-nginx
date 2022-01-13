@@ -39,17 +39,11 @@ RUN apk update \
     diffutils \
   && rm -rf /var/cache/apk/*
 
-# TODO(elvinefendi): our docker version does not support --chown
-# otherwise we could just do `COPY --chown=www-data:www-data . /`
-COPY etc /etc
-RUN chown -R www-data.www-data /etc
+COPY --chown=www-data:www-data etc /etc
 
-COPY bin/${TARGETARCH}/dbg /
-RUN chown -R www-data.www-data /dbg
-COPY bin/${TARGETARCH}/nginx-ingress-controller /
-RUN chown -R www-data.www-data /nginx-ingress-controller
-COPY bin/${TARGETARCH}/wait-shutdown /
-RUN chown -R www-data.www-data /wait-shutdown
+COPY --chown=www-data:www-data bin/${TARGETARCH}/dbg /
+COPY --chown=www-data:www-data bin/${TARGETARCH}/nginx-ingress-controller /
+COPY --chown=www-data:www-data bin/${TARGETARCH}/wait-shutdown /
 
 # Fix permission during the build to avoid issues at runtime
 # with volumes (custom templates)
