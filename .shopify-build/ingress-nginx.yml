@@ -17,6 +17,8 @@ steps:
   timeout: 5m
   run:
   - make static-check
+  env:
+    GOMODCACHE: /go/src/${PKG}/.modcache
 
 - label: Lua Unit Test
   timeout: 5m
