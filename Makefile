@@ -69,6 +69,7 @@ image: clean-image ## Build image for a particular arch.
 		--build-arg TARGETARCH="$(ARCH)" \
 		--build-arg COMMIT_SHA="$(COMMIT_SHA)" \
 		--build-arg BUILD_ID="$(BUILD_ID)" \
+		--platform $(ARCH) \
 		-t $(REGISTRY)/controller:$(TAG) rootfs
 
 .PHONY: clean-image
