@@ -13,4 +13,4 @@ up:
       meet: |
         FREE_GEOIP_FILES="GeoLite2-City.mmdb,GeoLite2-ASN.mmdb" PAID_GEOIP_FILES="GeoIP2-ISP.mmdb,GeoIP2-Anonymous-IP.mmdb,GeoIP.dat" build/shopify/geoip.sh
 env:
-  BASE_IMAGE: gcr.io/shopify-docker-images/apps/production/nginx:1.19.9.0
+  BASE_IMAGE: gcr.io/shopify-docker-images/apps/production/nginx:1.19.9.1
