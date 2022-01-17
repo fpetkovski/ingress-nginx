@@ -19,7 +19,7 @@ set -o nounset
 
 SCRIPT_ROOT=$(dirname ${BASH_SOURCE})/..
 CODEGEN_VERSION=$(grep 'k8s.io/code-generator' go.sum | awk '{print $2}' | sed 's/\/go.mod//g' | tail -1)
-CODEGEN_PKG=$(echo `go env GOPATH`"/pkg/mod/k8s.io/code-generator@${CODEGEN_VERSION}")
+CODEGEN_PKG="${GOMODCACHE}/k8s.io/code-generator@${CODEGEN_VERSION}"
 
 if [[ ! -d ${CODEGEN_PKG} ]]; then
   echo "${CODEGEN_PKG} is missing. Running 'go mod download'."
@@ -41,4 +41,4 @@ ${CODEGEN_PKG}/generate-groups.sh "deepcopy" \
   k8s.io/ingress-nginx/internal k8s.io/ingress-nginx/internal \
   .:ingress \
   --output-base "$(dirname ${BASH_SOURCE})/../../.." \
-  --go-header-file ${SCRIPT_ROOT}/hack/boilerplate/boilerplate.go.txt
+  --go-header-file ${SCRIPT_ROOT}/hack/boilerplate/boilerplate.generated.go.txt

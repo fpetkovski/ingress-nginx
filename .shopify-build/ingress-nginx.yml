@@ -1,15 +1,8 @@
 # Based on https://github.com/kubernetes/test-infra/blob/master/config/jobs/kubernetes/sig-network/ingress-nginx.yaml
 
-shared:
-  e2e_defaults: &e2e_defaults
-    timeout: 60m
-    run: build/shopify/e2e.sh
-    agents:
-      queue: k8s-ci
-
 containers:
   default:
-    docker: k8s.gcr.io/ingress-nginx/e2e-test-runner:v20210104-g81a8d5cd8
+    docker: k8s.gcr.io/ingress-nginx/e2e-test-runner:v20220110-gfd820db46
     workdir: /go/src/k8s.io/ingress-nginx
 
 steps:
@@ -17,6 +10,8 @@ steps:
   timeout: 5m
   run:
   - make static-check
+  env:
+    GOMODCACHE: /go/src/${PKG}/.modcache
 
 - label: Lua Unit Test
   timeout: 5m
@@ -27,8 +22,3 @@ steps:
   timeout: 15m
   run:
   - PKG=k8s.io/ingress-nginx build/cover.sh
-
-- label: e2e (:kubernetes:v1.18-latest)
-  <<: *e2e_defaults
-  env:
-    KUBERNETES_VERSION: v1.18-latest
