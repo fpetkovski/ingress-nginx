@@ -77,7 +77,7 @@ are created in the iptables NAT table and the node with the selected IP address 
 the ports configured in the LoadBalancer Service:
 
 ```console
-$ curl -D- http://203.0.113.3 -H 'Host: myapp.example.com'
+$ curl -D- http://203.0.113.10 -H 'Host: myapp.example.com'
 HTTP/1.1 200 OK
 Server: nginx/1.15.2
 ```
@@ -250,7 +250,7 @@ for generating redirect URLs that take into account the URL used by external cli
     ```
 
 [install-baremetal]: ./index.md#bare-metal
-[nodeport-def]: https://kubernetes.io/docs/concepts/services-networking/service/#nodeport
+[nodeport-def]: https://kubernetes.io/docs/concepts/services-networking/service/#type-nodeport
 [nodeport-nat]: https://kubernetes.io/docs/tutorials/services/source-ip/#source-ip-for-services-with-type-nodeport
 [pod-assign]: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
 [preserve-ip]: https://github.com/kubernetes/ingress-nginx/blob/nginx-0.19.0/deploy/provider/aws/service-nlb.yaml#L12-L14

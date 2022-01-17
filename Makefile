@@ -51,13 +51,28 @@ endif
 
 REGISTRY ?= gcr.io/k8s-staging-ingress-nginx
 
-BASE_IMAGE ?= gcr.io/shopify-docker-images/apps/production/nginx:1.19.9.0
+BASE_IMAGE ?= k8s.gcr.io/ingress-nginx/nginx:v20210926-g5662db450@sha256:1ef404b5e8741fe49605a1f40c3fdd8ef657aecdb9526ea979d1672eeabd0cd9
 
 GOARCH=$(ARCH)
 
 help:  ## Display this help
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z0-9_-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
+ifeq ($(ARCH), arm64)
+.PHONY: image
+image: clean-image ## Build image for a particular arch.
+	echo "Building docker image ($(ARCH))..."
+	@docker build \
+		--network=host \
+		--no-cache \
+		--build-arg BASE_IMAGE="$(BASE_IMAGE)" \
+		--build-arg VERSION="$(TAG)" \
+		--build-arg TARGETARCH="$(ARCH)" \
+		--build-arg COMMIT_SHA="$(COMMIT_SHA)" \
+		--build-arg BUILD_ID="$(BUILD_ID)" \
+		--platform $(ARCH) \
+		-t $(REGISTRY)/controller:$(TAG) rootfs
+else
 .PHONY: image
 image: clean-image ## Build image for a particular arch.
 	echo "Building docker image ($(ARCH))..."
@@ -70,6 +85,7 @@ image: clean-image ## Build image for a particular arch.
 		--build-arg COMMIT_SHA="$(COMMIT_SHA)" \
 		--build-arg BUILD_ID="$(BUILD_ID)" \
 		-t $(REGISTRY)/controller:$(TAG) rootfs
+endif
 
 .PHONY: clean-image
 clean-image: ## Removes local image
@@ -134,12 +150,6 @@ e2e-test-binary:  ## Build binary for e2e tests.
 print-e2e-suite: e2e-test-binary ## Prints information about the suite of e2e tests.
 	@build/run-in-docker.sh \
 		hack/print-e2e-suite.sh
-
-.PHONY: cover
-cover:  ## Run go coverage unit tests.
-	@build/cover.sh
-	echo "Uploading coverage results..."
-	@curl -s https://codecov.io/bash | bash
 
 .PHONY: vet
 vet:

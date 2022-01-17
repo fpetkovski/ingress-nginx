@@ -39,19 +39,11 @@ RUN apk update \
     diffutils \
   && rm -rf /var/cache/apk/*
 
-# TODO(elvinefendi): our docker version does not support --chown
-# otherwise we could just do `COPY --chown=www-data:www-data . /`
-COPY etc /etc
-RUN chown -R www-data.www-data /etc
-COPY ingress-controller /ingress-controller
-RUN chown -R www-data.www-data /ingress-controller
+COPY --chown=www-data:www-data etc /etc
 
-COPY bin/${TARGETARCH}/dbg /
-RUN chown -R www-data.www-data /dbg
-COPY bin/${TARGETARCH}/nginx-ingress-controller /
-RUN chown -R www-data.www-data /nginx-ingress-controller
-COPY bin/${TARGETARCH}/wait-shutdown /
-RUN chown -R www-data.www-data /wait-shutdown
+COPY --chown=www-data:www-data bin/${TARGETARCH}/dbg /
+COPY --chown=www-data:www-data bin/${TARGETARCH}/nginx-ingress-controller /
+COPY --chown=www-data:www-data bin/${TARGETARCH}/wait-shutdown /
 
 # Fix permission during the build to avoid issues at runtime
 # with volumes (custom templates)
@@ -78,6 +70,8 @@ RUN apk add --no-cache libcap \
   && setcap -v cap_net_bind_service=+ep /nginx-ingress-controller \
   && setcap    cap_net_bind_service=+ep /usr/local/nginx/sbin/nginx \
   && setcap -v cap_net_bind_service=+ep /usr/local/nginx/sbin/nginx \
+  && setcap    cap_net_bind_service=+ep /usr/bin/dumb-init \
+  && setcap -v cap_net_bind_service=+ep /usr/bin/dumb-init \
   && apk del libcap
 
 USER www-data

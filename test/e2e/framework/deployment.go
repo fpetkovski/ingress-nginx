@@ -37,6 +37,9 @@ const SlowEchoService = "slow-echo"
 // HTTPBinService name of the deployment for the httpbin app
 const HTTPBinService = "httpbin"
 
+// NginxBaseImage use for testing
+const NginxBaseImage = "k8s.gcr.io/ingress-nginx/nginx:v20210926-g5662db450@sha256:1ef404b5e8741fe49605a1f40c3fdd8ef657aecdb9526ea979d1672eeabd0cd9"
+
 // NewEchoDeployment creates a new single replica deployment of the echoserver image in a particular namespace
 func (f *Framework) NewEchoDeployment() {
 	f.NewEchoDeploymentWithReplicas(1)
@@ -52,7 +55,15 @@ func (f *Framework) NewEchoDeploymentWithReplicas(replicas int) {
 // replicas is configurable and
 // name is configurable
 func (f *Framework) NewEchoDeploymentWithNameAndReplicas(name string, replicas int) {
-	deployment := newDeployment(name, f.Namespace, "k8s.gcr.io/ingress-nginx/e2e-test-echo@sha256:b13e44f7bb6852b90633957e743e4a2b34f32f1694da556a9131b43950b8b2b1", 80, int32(replicas),
+	f.newEchoDeployment(f.Namespace, name, replicas)
+}
+
+func (f *Framework) NewEchoDeploymentWithNamespaceAndReplicas(namespace string, replicas int) {
+	f.newEchoDeployment(namespace, EchoService, replicas)
+}
+
+func (f *Framework) newEchoDeployment(namespace, name string, replicas int) {
+	deployment := newDeployment(name, namespace, "k8s.gcr.io/ingress-nginx/e2e-test-echo@sha256:131ece0637b29231470cfaa04690c2966a2e0b147d3c9df080a0857b78982410", 80, int32(replicas),
 		nil,
 		[]corev1.VolumeMount{},
 		[]corev1.Volume{},
@@ -63,7 +74,7 @@ func (f *Framework) NewEchoDeploymentWithNameAndReplicas(name string, replicas i
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: f.Namespace,
+			Namespace: namespace,
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
@@ -82,7 +93,7 @@ func (f *Framework) NewEchoDeploymentWithNameAndReplicas(name string, replicas i
 
 	f.EnsureService(service)
 
-	err := WaitForEndpoints(f.KubeClientSet, DefaultTimeout, name, f.Namespace, replicas)
+	err := WaitForEndpoints(f.KubeClientSet, DefaultTimeout, name, namespace, replicas)
 	assert.Nil(ginkgo.GinkgoT(), err, "waiting for endpoints to become ready")
 }
 
@@ -139,7 +150,7 @@ func (f *Framework) NGINXWithConfigDeployment(name string, cfg string) {
 	}, metav1.CreateOptions{})
 	assert.Nil(ginkgo.GinkgoT(), err, "creating configmap")
 
-	deployment := newDeployment(name, f.Namespace, "k8s.gcr.io/ingress-nginx/nginx:v20210324-g8baef769d@sha256:fcfa3e9d1f8ec3141efedbf77cf659640f452a9c22165c78006ea462b84d06f6", 80, 1,
+	deployment := newDeployment(name, f.Namespace, NginxBaseImage, 80, 1,
 		nil,
 		[]corev1.VolumeMount{
 			{

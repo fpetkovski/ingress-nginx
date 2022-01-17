@@ -30,7 +30,7 @@ type: Opaque
 
 ```console
 echo "
-apiVersion: networking.k8s.io/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: ingress-with-auth
@@ -42,14 +42,18 @@ metadata:
     # message to display with an appropriate context why the authentication is required
     nginx.ingress.kubernetes.io/auth-realm: 'Authentication Required - foo'
 spec:
+  ingressClassName: nginx
   rules:
   - host: foo.bar.com
     http:
       paths:
       - path: /
+        pathType: Prefix
         backend:
-          serviceName: http-svc
-          servicePort: 80
+          service: 
+            name: http-svc
+            port: 
+              number: 80
 " | kubectl create -f -
 ```
 
