@@ -11,4 +11,4 @@ up:
       met?: ls rootfs/geoip/GeoLite2-Country.mmdb.gz &> /dev/null
       meet: mkdir rootfs/geoip && gsutil cp gs://shopify-mmdb-free/GeoLite2-Country.mmdb.gz rootfs/geoip/
 env:
-  BASE_IMAGE: gcr.io/shopify-docker-images/apps/production/nginx:1.19.9.0
+  BASE_IMAGE: gcr.io/shopify-docker-images/apps/production/nginx:1.19.9.1
