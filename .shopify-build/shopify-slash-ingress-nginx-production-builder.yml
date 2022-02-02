@@ -1,21 +1,26 @@
 containers:
+  base_nginx:
+    environment: production
+    application: nginx
+    dockerfile:
+      dir: images/nginx/rootfs
+      build_timeout: 40m
+      tag_using_path: images/nginx/rootfs/VERSION
   production:
     environment: production
-    build:
-      command: build/shopify/pipa-main.sh
-      timeout: 40m
-      env:
-        BUILD_CI_BASE_IMAGE: "0"
+    dockerfile:
+      build_timeout: 40m
+      build_args:
+        BASE_IMAGE: gcr.io/shopify-docker-images/apps/production/nginx:1.19.9.1
+        TARGETARCH: amd64
+        VERSION: $SHOPIFY_BUILD_COMMIT
+        COMMIT_SHA: $SHOPIFY_BUILD_COMMIT
         FREE_GEOIP_FILES: "GeoLite2-City.mmdb,GeoLite2-ASN.mmdb"
         PAID_GEOIP_FILES: "GeoIP2-ISP.mmdb,GeoIP2-Anonymous-IP.mmdb,GeoIP.dat"
         # GeoLite2-City and GeoLite2-ASN are required even if unused to keep the use-geoip2 configmap setting set to true
         # https://kubernetes.github.io/ingress-nginx/user-guide/nginx-configuration/configmap/#use-geoip2
 
 steps:
-- build: production
+- build: base_nginx
 - wait
-- label: ':admission_tickets: Binary Authorization Checks'
-  agents:
-    queue: pipa-production
-  command: pipa vouch
-  timeout_in_minutes: 5
+- build: production
