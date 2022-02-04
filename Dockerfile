@@ -1,24 +1,26 @@
+######################################################################
+#                     SHOPIFY-SPECIFIC DOCKERFILE                    #
+######################################################################
+
 ARG BASE_IMAGE
 
+# This first stage replaces a call to `make build`. If build/build.sh or build/run-in-docker.sh changes, this might need to be updated
 FROM k8s.gcr.io/ingress-nginx/e2e-test-runner:v20220110-gfd820db46@sha256:273f7d9b1b2297cd96b4d51600e45d932186a1cc79d00d179dfb43654112fe8f as go_builder
 
-# ARCH=$(which go >/dev/null 2>&1 && go env GOARCH)
-# REPO_INFO=$(git config --get remote.origin.url)
-# TAG=$(cat TAG)
-
-ARG ARCH
-ARG TAG
+ARG TARGETARCH
+ARG VERSION
 ARG COMMIT_SHA
 
 COPY . /
 
 RUN PKG=k8s.io/ingress-nginx \
-    ARCH=${ARCH} \
+    ARCH=${TARGETARCH} \
     COMMIT_SHA=${COMMIT_SHA} \
     REPO_INFO=https://github.com/Shopify/ingress-nginx.git \
-    TAG=${TAG} \
+    TAG=${VERSION} \
     /build/build.sh
 
+# This second stage is Shopify-specific setup, and should not conflict with upstream
 FROM gcr.io/google.com/cloudsdktool/cloud-sdk:371.0.0 as geoip_builder
 
 ARG FREE_GEOIP_FILES
@@ -32,12 +34,13 @@ RUN --mount=type=secret,id=gcscredentials,required=true \
     PAID_GEOIP_FILES=${PAID_GEOIP_FILES} \
     /geoip.sh
 
-FROM ${BASE_IMAGE}
 
-ARG ARCH
+######################################################################
+# Below is a slightly modified copy of rootfs/Dockerfile for Shopify #
+# Build support, needed since #117. This file should be kept up to   #
+# date with rootfs/Dockerfile if it is changed upstream              #
+######################################################################
 
-COPY --from=go_builder /go/bin/${ARCH} bin/${ARCH}
-COPY --from=geoip_builder geoip geoip
 
 # Copyright 2015 The Kubernetes Authors. All rights reserved.
 #
@@ -52,8 +55,6 @@ COPY --from=geoip_builder geoip geoip
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-ARG BASE_IMAGE
 
 FROM ${BASE_IMAGE}
 
@@ -80,11 +81,9 @@ RUN apk update \
     diffutils \
   && rm -rf /var/cache/apk/*
 
-COPY --chown=www-data:www-data etc /etc
+COPY --chown=www-data:www-data rootfs/etc /etc
 
-COPY --chown=www-data:www-data bin/${TARGETARCH}/dbg /
-COPY --chown=www-data:www-data bin/${TARGETARCH}/nginx-ingress-controller /
-COPY --chown=www-data:www-data bin/${TARGETARCH}/wait-shutdown /
+COPY --chown=www-data:www-data --from=go_builder /go/rootfs/bin/${TARGETARCH}/* /
 
 # Fix permission during the build to avoid issues at runtime
 # with volumes (custom templates)
@@ -101,7 +100,7 @@ RUN bash -xeu -c ' \
     chown -R www-data.www-data ${dir}; \
   done'
 
-COPY geoip/*.gz /etc/nginx/geoip/
+COPY --from=geoip_builder geoip/*.gz /etc/nginx/geoip/
 RUN gunzip -fk /etc/nginx/geoip/*.gz \
   && rm -rf /etc/nginx/geoip/*.gz \
   && chown -R www-data.www-data /etc/nginx/geoip
