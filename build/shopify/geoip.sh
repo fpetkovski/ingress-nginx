@@ -27,7 +27,7 @@ IFS=','; free_urls=($FREE_GEOIP_FILES)
 IFS=','; paid_urls=($PAID_GEOIP_FILES)
 urls=()
 
-GEOIP_DB_DIR="$PWD/rootfs/geoip"
+GEOIP_DB_DIR="geoip"
 mkdir "${GEOIP_DB_DIR}"
 
 for url in "${free_urls[@]}"; do urls+=("gs://shopify-mmdb-free/$url.gz"); done
