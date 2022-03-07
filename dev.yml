@@ -7,8 +7,12 @@ up:
       version: 1.17
       modules: true
   - custom:
+      name: Create GeoIP directory
+      met?: ls rootfs/geoip &> /dev/null
+      meet: mkdir rootfs/geoip
+  - custom:
       name: Configure GeoIP database files
       met?: ls rootfs/geoip/GeoLite2-Country.mmdb.gz &> /dev/null
-      meet: mkdir rootfs/geoip && gsutil cp gs://shopify-mmdb-free/GeoLite2-Country.mmdb.gz rootfs/geoip/
+      meet: gsutil cp gs://shopify-mmdb-free/GeoLite2-Country.mmdb.gz rootfs/geoip/
 env:
   BASE_IMAGE: gcr.io/shopify-docker-images/apps/production/nginx:1.19.9.1
