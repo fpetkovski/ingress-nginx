@@ -7,6 +7,12 @@
 # nameOverride:
 # fullnameOverride:
 
+## Labels to apply to all resources
+##
+commonLabels: {}
+# scmhash: abc123
+# myLabel: aakkmd
+
 controller:
   name: controller
   image:
@@ -15,8 +21,8 @@ controller:
     ## for backwards compatibility consider setting the full image url via the repository value below
     ## use *either* current default registry/image or repository format or installing chart by providing the values.yaml will fail
     ## repository:
-    tag: "v1.1.1"
-    digest: sha256:0bc88eb15f9e7f84e8e56c14fa5735aaa488b840983f87bd79b1054190e660de
+    tag: "v1.1.2"
+    digest: sha256:28b11ce69e57843de44e3db6413e98d09de0f6688e33d4bd384002a44f78405c
     pullPolicy: IfNotPresent
     # www-data -> uid 101
     runAsUser: 101
@@ -28,7 +34,7 @@ controller:
   # -- Configures the controller container name
   containerName: controller
 
-  # -- Configures the ports the nginx-controller listens on
+  # -- Configures the ports that the nginx-controller listens on
   containerPort:
     http: 80
     https: 443
@@ -36,7 +42,7 @@ controller:
   # -- Will add custom configuration options to Nginx https://kubernetes.github.io/ingress-nginx/user-guide/nginx-configuration/configmap/
   config: {}
 
-  # -- Annotations to be added to the controller config configuration configmap
+  # -- Annotations to be added to the controller config configuration configmap.
   configAnnotations: {}
 
   # -- Will add custom headers before sending traffic to backends according to https://github.com/kubernetes/ingress-nginx/tree/main/docs/examples/customization/custom-headers
@@ -65,7 +71,7 @@ controller:
   # Defaults to false
   watchIngressWithoutClass: false
 
-  # -- Process IngressClass per name (additionally as per spec.controller)
+  # -- Process IngressClass per name (additionally as per spec.controller).
   ingressClassByName: false
 
   # -- This configuration defines if Ingress Controller should allow users to set
@@ -109,6 +115,10 @@ controller:
     # configuration for the controller. This is optional if the controller
     # does not require extra parameters.
     parameters: {}
+
+  # -- For backwards compatibility with ingress.class annotation, use ingressClass.
+  # Algorithm is as follows, first ingressClassName is considered, if not present, controller looks for ingress.class annotation
+  ingressClass: nginx
 
   # -- Labels to add to the pod container metadata
   podLabels: {}
@@ -519,6 +529,10 @@ controller:
       ## Ref: https://kubernetes.io/docs/tutorials/services/source-ip/#source-ip-for-services-with-typeloadbalancer
       # externalTrafficPolicy: ""
 
+  # shareProcessNamespace enables process namespace sharing within the pod.
+  # This can be used for example to signal log rotation using `kill -USR1` from a sidecar.
+  shareProcessNamespace: false
+
   # -- Additional containers to be added to the controller pod.
   # See https://github.com/lemonldap-ng-controller/lemonldap-ng-controller as example.
   extraContainers: []
@@ -558,6 +572,15 @@ controller:
   # - name: init-myservice
   #   image: busybox
   #   command: ['sh', '-c', 'until nslookup myservice; do echo waiting for myservice; sleep 2; done;']
+
+  extraModules: []
+  ## Modules, which are mounted into the core nginx image
+  # - name: opentelemetry
+  #   image: busybox
+  #
+  # The image must contain a `/usr/local/bin/init_module.sh` executable, which
+  # will be executed as initContainers, to move its config files within the
+  # mounted volume.
 
   admissionWebhooks:
     annotations: {}
@@ -622,6 +645,7 @@ controller:
       # -- Labels to be added to patch job resources
       labels: {}
       runAsUser: 2000
+      fsGroup: 2000
 
   metrics:
     port: 10254
@@ -873,6 +897,8 @@ serviceAccount:
   create: true
   name: ""
   automountServiceAccountToken: true
+  # -- Annotations for the controller service account
+  annotations: {}
 
 # -- Optional array of imagePullSecrets containing private registry credentials
 ## Ref: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
