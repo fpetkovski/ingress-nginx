@@ -17,7 +17,7 @@ RUN PKG=k8s.io/ingress-nginx \
     ARCH=${TARGETARCH} \
     COMMIT_SHA=${COMMIT_SHA} \
     REPO_INFO=https://github.com/Shopify/ingress-nginx.git \
-    TAG=${VERSION} \
+    TAG=${COMMIT_SHA} \
     /build/build.sh
 
 # This second stage is Shopify-specific setup, and should not conflict with upstream
