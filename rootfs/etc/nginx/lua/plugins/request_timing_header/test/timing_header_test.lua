@@ -54,12 +54,12 @@ describe('DC Header Updates', function()
 
     request_timing_header.rewrite()
 
-    assert.equal(ngx.var[X_SHOPIFY_REQUEST_TIMING_HEADER_LC], 'global-proxy-cloudflare-production;desc="gcp-us-east1";t=nil')
+    assert.equal(ngx.var[X_SHOPIFY_REQUEST_TIMING_HEADER_LC], 'global-proxy-cloudflare-production;desc=gcp-us-east1;t=nil')
   end)
 
   it('prepends timing data to existing X-Shopify-Request-Timing header', function()
     mock_ngx({
-      var = {[X_SHOPIFY_REQUEST_TIMING_HEADER_LC] = 'cf;t=1234.12345, global-proxy-cloudflare-production;desc="gcp-us-east1";t=nil'},
+      var = {[X_SHOPIFY_REQUEST_TIMING_HEADER_LC] = 'cf;t=1234.12345, global-proxy-cloudflare-production;desc=gcp-us-east1;t=nil'},
     })
     mock_location_and_namespace('gcp-us-central1', 'ingress-nginx-production')
 
@@ -67,6 +67,6 @@ describe('DC Header Updates', function()
 
     request_timing_header.rewrite()
 
-    assert.equal(ngx.var[X_SHOPIFY_REQUEST_TIMING_HEADER_LC], 'cf;t=1234.12345, global-proxy-cloudflare-production;desc="gcp-us-east1";t=nil, ingress-nginx-production;desc="gcp-us-central1";t=nil')
+    assert.equal(ngx.var[X_SHOPIFY_REQUEST_TIMING_HEADER_LC], 'cf;t=1234.12345, global-proxy-cloudflare-production;desc=gcp-us-east1;t=nil, ingress-nginx-production;desc=gcp-us-central1;t=nil')
   end)
 end)

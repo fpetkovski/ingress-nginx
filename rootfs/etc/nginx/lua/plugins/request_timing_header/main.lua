@@ -21,7 +21,7 @@ end
 
 local function format_request_header(pod_namespace, kube_location)
   return string.format(
-      '%s;desc="%s";t=%s',
+      '%s;desc=%s;t=%s',
       pod_namespace,
       kube_location,
       ngx.var.msec
