@@ -120,4 +120,6 @@ RUN pip install "yamllint==$YAML_LINT_VERSION"
 ARG YAMALE_VERSION
 RUN pip install "yamale==$YAMALE_VERSION"
 
+ENTRYPOINT ["/usr/bin/dumb-init", "--"]
+
 WORKDIR $GOPATH

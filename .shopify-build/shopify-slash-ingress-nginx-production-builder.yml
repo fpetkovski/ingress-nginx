@@ -4,16 +4,18 @@ containers:
     application: nginx
     dockerfile:
       dir: images/nginx/rootfs
-      build_timeout: 40m
+      platform: linux/arm64,linux/amd64
+      build_timeout: 200m
       tag_using_path: images/nginx/rootfs/VERSION
   e2e:
     environment: ci
     application: nginx-e2e-test-runner
     dockerfile:
       dir: images/test-runner/rootfs
+      platform: linux/arm64,linux/amd64
       build_timeout: 40m
       build_args:
-        BASE_IMAGE: gcr.io/shopify-docker-images/apps/production/nginx:1.19.10.1
+        BASE_IMAGE: gcr.io/shopify-docker-images/apps/production/nginx:d1183ccaadb864b1ea81efcb4fb763982d8d2b0f
         GOLANG_VERSION: 1.17.6
         ETCD_VERSION: 3.4.3-0
         GOLANG_VERSION: 1.17.6
@@ -21,8 +23,8 @@ containers:
         K8S_RELEASE: v1.21.3
         RESTY_CLI_VERSION: "0.27"
         RESTY_CLI_SHA: e5f4f3128af49ba5c4d039d0554e5ae91bbe05866f60eccfa96d3653274bff90
-        LUAROCKS_VERSION: 3.3.1
-        LUAROCKS_SHA: 837481e408f7c06b59befe7ec194537c657687d624894bca7f79034302141a34
+        LUAROCKS_VERSION: 3.8.0
+        LUAROCKS_SHA: ab6612ca9ab87c6984871d2712d05525775e8b50172701a0a1cabddf76de2be7
         CHART_TESTING_VERSION: 3.0.0
         YAML_LINT_VERSION: 1.13.0
         YAMALE_VERSION: 1.8.0
