@@ -19,7 +19,7 @@ if not POD_NAMESPACE then
   error('POD_NAMESPACE env variable is not available')
 end
 
-local function format_request_header(pod_namespace, kube_location)
+local function generate_header_value(pod_namespace, kube_location)
   return string.format(
       '%s;desc=%s;t=%s',
       pod_namespace,
@@ -30,9 +30,9 @@ end
 
 local function build_chain(prev)
   if prev == nil then
-    return format_request_header(POD_NAMESPACE, KUBE_LOCATION)
+    return generate_header_value(POD_NAMESPACE, KUBE_LOCATION)
   else
-    return prev .. ', ' .. format_request_header(POD_NAMESPACE, KUBE_LOCATION)
+    return prev .. ', ' .. generate_header_value(POD_NAMESPACE, KUBE_LOCATION)
   end
 end
 

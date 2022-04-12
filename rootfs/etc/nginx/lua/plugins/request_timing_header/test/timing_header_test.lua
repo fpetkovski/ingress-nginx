@@ -32,8 +32,6 @@ end
 describe('DC Header Updates', function()
   before_each(function()
     mock_ngx({
-      ctx = {},
-      header = {},
       var = {},
       req = {
         set_header = function(key, value)
