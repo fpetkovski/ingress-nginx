@@ -37,7 +37,7 @@ containers:
         VERSION: $SHOPIFY_BUILD_COMMIT
         COMMIT_SHA: $SHOPIFY_BUILD_COMMIT
         FREE_GEOIP_FILES: "GeoLite2-City.mmdb,GeoLite2-ASN.mmdb"
-        PAID_GEOIP_FILES: "GeoIP2-ISP.mmdb,GeoIP2-Anonymous-IP.mmdb,GeoIP.dat"
+        PAID_GEOIP_FILES: "GeoIP2-City.mmdb,GeoIP2-ISP.mmdb,GeoIP2-Anonymous-IP.mmdb,GeoIP.dat"
         # GeoLite2-City and GeoLite2-ASN are required even if unused to keep the use-geoip2 configmap setting set to true
         # https://kubernetes.github.io/ingress-nginx/user-guide/nginx-configuration/configmap/#use-geoip2
 
