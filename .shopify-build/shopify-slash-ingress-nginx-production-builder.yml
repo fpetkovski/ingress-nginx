@@ -16,9 +16,7 @@ containers:
       build_timeout: 40m
       build_args:
         BASE_IMAGE: gcr.io/shopify-docker-images/apps/production/nginx:1.19.10.3
-        GOLANG_VERSION: 1.17.6
-        ETCD_VERSION: 3.4.3-0
-        GOLANG_VERSION: 1.17.6
+        GOLANG_VERSION: 1.18.2
         ETCD_VERSION: 3.4.3-0
         K8S_RELEASE: v1.21.3
         RESTY_CLI_VERSION: "0.27"
