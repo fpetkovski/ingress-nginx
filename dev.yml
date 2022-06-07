@@ -14,5 +14,26 @@ up:
       name: Configure GeoIP database files
       met?: ls rootfs/geoip/GeoLite2-Country.mmdb.gz &> /dev/null
       meet: gsutil cp gs://shopify-mmdb-free/GeoLite2-Country.mmdb.gz rootfs/geoip/
+  - custom:
+      name: Build dev environment
+      met?: docker ps | grep ingress-nginx-dev-control-plane &> /dev/null
+      meet: make dev-env
 env:
   BASE_IMAGE: gcr.io/shopify-docker-images/apps/production/nginx:1.19.10.4
+
+commands:
+  lint:
+    desc: 'Run lua tests'
+    run: build/run-in-docker.sh hack/verify-lualint.sh
+  test-lua:
+    desc: 'Run lua tests'
+    run: build/run-in-docker.sh make lua-test
+  test-go:
+    desc: 'Run go tests'
+    run: build/run-in-docker.sh make test
+  e2e-test:
+    desc: 'Run e2e tests'
+    run: make kind-e2e-test
+  static-check:
+    desc: 'Run static checks'
+    run: build/run-in-docker.sh make static-check
