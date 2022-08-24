@@ -23,7 +23,7 @@ RUN apk update \
   && apk upgrade \
   && /chroot.sh
 
-FROM alpine:3.14.6
+FROM alpine:3.16.0
 
 ARG TARGETARCH
 ARG VERSION
@@ -80,7 +80,11 @@ RUN bash -xeu -c ' \
   for dir in "${writeDirs[@]}"; do \
     mkdir -p ${dir}; \
     chown -R www-data.www-data ${dir}; \
-  done'
+  done' \
+  # LD_LIBRARY_PATH does not work so below is needed for  opentelemetry/other modules
+  # Put libs of newer modules under `/modules_mount/<other>/lib` and add that path below
+  # Could get complicated arch specific paths become a need
+  && echo "/lib:/usr/lib:/usr/local/lib:/modules_mount/otel/lib" > /etc/ld-musl-x86_64.path
 
 RUN apk add --no-cache libcap \
   && setcap    cap_sys_chroot,cap_net_bind_service=+ep /nginx-ingress-controller \
@@ -100,7 +104,14 @@ RUN  ln -sf /chroot/etc/nginx /etc/nginx \
   && touch /chroot/var/log/nginx/access.log \
   && chown www-data:www-data /chroot/var/log/nginx/access.log \
   && echo "" > /chroot/etc/resolv.conf \
-  && chown -R www-data.www-data /chroot/var/log/nginx /chroot/etc/resolv.conf
+  && chown -R www-data.www-data /chroot/var/log/nginx /chroot/etc/resolv.conf \
+  && mknod -m 0666 /chroot/dev/null c 1 3 \
+  && mknod -m 0666 /chroot/dev/random c 1 8 \
+  && mknod -m 0666 /chroot/dev/urandom c 1 9 \
+  && mknod -m 0666 /chroot/dev/full c 1 7 \
+  && mknod -m 0666 /chroot/dev/ptmx c 5 2 \
+  && mknod -m 0666 /chroot/dev/zero c 1 5 \
+  && mknod -m 0666 /chroot/dev/tty c 5 0
 
 USER www-data
 

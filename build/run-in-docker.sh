@@ -14,7 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-if [ -n "$DEBUG" ]; then
+DEBUG=${DEBUG:-"false"}
+if [ "$DEBUG" == "true" ]; then
   set -x
 fi
 
@@ -63,6 +64,15 @@ else
   PLATFORM_FLAG=
 fi
 
+USER=${USER:-nobody}
+
+MAC_OS="${MAC_OS:-}"
+if [[ ${MAC_OS} == "Darwin" ]]; then
+	MAC_DOCKER_FLAGS=""
+else
+	MAC_DOCKER_FLAGS="-u $(id -u ${USER}):$(id -g ${USER})" #idk why mac/git fails on the gobuild if these are presented to dockerrun.sh script
+fi
+
 echo "..printing env & other vars to stdout"
 echo "HOSTNAME=`hostname`"
 uname -a
@@ -75,20 +85,21 @@ if [[ "$DOCKER_IN_DOCKER_ENABLED" == "true" ]]; then
   echo "FLAGS=$FLAGS"
   go env
   set -x
-  go install -mod=mod github.com/onsi/ginkgo/ginkgo@v1.16.4 
+  go install -mod=mod github.com/onsi/ginkgo/ginkgo@v1.16.4
   find / -type f -name ginkgo 2>/dev/null
   which ginkgo
   /bin/bash -c "${FLAGS}"
   set +x
 else
-  echo "..reached DIND check ELSE block, inside run-in-docker.sh"
+  echo "Reached DIND check ELSE block, inside run-in-docker.sh"
   docker run                                            \
     ${PLATFORM_FLAG} ${PLATFORM}                        \
     --tty                                               \
     --rm                                                \
     ${DOCKER_OPTS}                                      \
+    -e DEBUG=${DEBUG}                                   \
     -e GOCACHE="/go/src/${PKG}/.cache"                  \
-    -e GOMODCACHE="/go/src/${PKG}/.modcache"                  \
+    -e GOMODCACHE="/go/src/${PKG}/.modcache"            \
     -e DOCKER_IN_DOCKER_ENABLED="true"                  \
     -v "${HOME}/.kube:${HOME}/.kube"                    \
     -v "${KUBE_ROOT}:/go/src/${PKG}"                    \
@@ -97,5 +108,6 @@ else
     -v "${INGRESS_VOLUME}:/etc/ingress-controller/"     \
     -w "/go/src/${PKG}"                                 \
     -u root				                \
+    ${MAC_DOCKER_FLAGS}                                 \
     ${E2E_IMAGE} /bin/bash -c "${FLAGS}"
 fi

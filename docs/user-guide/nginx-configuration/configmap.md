@@ -211,6 +211,7 @@ The following table shows a configuration option's name, type, and the default v
 |[global-rate-limit-status-code](#global-rate-limit)|int|429|
 |[service-upstream](#service-upstream)|bool|"false"|
 |[ssl-reject-handshake](#ssl-reject-handshake)|bool|"false"|
+|[debug-connections](#debug-connections)|[]string|"127.0.0.1,1.1.1.1/24"|
 
 ## add-headers
 
@@ -1226,6 +1227,11 @@ Enables caching for global auth requests. Specify a lookup key for auth response
 
 Set a caching time for auth responses based on their response codes, e.g. `200 202 30m`. See [proxy_cache_valid](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_cache_valid) for details. You may specify multiple, comma-separated values: `200 202 10m, 401 5m`. defaults to `200 202 401 5m`.
 
+## global-auth-always-set-cookie
+
+Always set a cookie returned by auth request. By default, the cookie will be set only if an upstream reports with the code 200, 201, 204, 206, 301, 302, 303, 304, 307, or 308.
+_**default:**_ false
+
 ## no-auth-locations
 
 A comma-separated list of locations that should not get authenticated.
@@ -1295,3 +1301,10 @@ _**default:**_ "false"
 
 _References:_
 [https://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_reject_handshake](https://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_reject_handshake)
+
+## debug-connections
+Enables debugging log for selected client connections.
+_**default:**_ ""
+
+_References:_
+[http://nginx.org/en/docs/ngx_core_module.html#debug_connection](http://nginx.org/en/docs/ngx_core_module.html#debug_connection)

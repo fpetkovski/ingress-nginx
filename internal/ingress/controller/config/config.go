@@ -768,6 +768,11 @@ type Configuration struct {
 	// GlobalRateLimitStatucCode determines the HTTP status code to return
 	// when limit is exceeding during global rate limiting.
 	GlobalRateLimitStatucCode int `json:"global-rate-limit-status-code"`
+
+	// DebugConnections Enables debugging log for selected client connections
+	// http://nginx.org/en/docs/ngx_core_module.html#debug_connection
+	// Default: ""
+	DebugConnections []string `json:"debug-connections"`
 }
 
 // NewDefault returns the default nginx configuration
@@ -782,7 +787,7 @@ func NewDefault() Configuration {
 	defNginxStatusIpv4Whitelist = append(defNginxStatusIpv4Whitelist, "127.0.0.1")
 	defNginxStatusIpv6Whitelist = append(defNginxStatusIpv6Whitelist, "::1")
 	defProxyDeadlineDuration := time.Duration(5) * time.Second
-	defGlobalExternalAuth := GlobalExternalAuth{"", "", "", "", "", append(defResponseHeaders, ""), "", "", "", []string{}, map[string]string{}}
+	defGlobalExternalAuth := GlobalExternalAuth{"", "", "", "", "", append(defResponseHeaders, ""), "", "", "", []string{}, map[string]string{}, false}
 
 	cfg := Configuration{
 
@@ -932,6 +937,7 @@ func NewDefault() Configuration {
 		GlobalRateLimitMemcachedMaxIdleTimeout: 10000,
 		GlobalRateLimitMemcachedPoolSize:       50,
 		GlobalRateLimitStatucCode:              429,
+		DebugConnections:                       []string{},
 	}
 
 	if klog.V(5).Enabled() {
@@ -995,4 +1001,5 @@ type GlobalExternalAuth struct {
 	AuthCacheKey           string            `json:"authCacheKey"`
 	AuthCacheDuration      []string          `json:"authCacheDuration"`
 	ProxySetHeaders        map[string]string `json:"proxySetHeaders,omitempty"`
+	AlwaysSetCookie        bool              `json:"alwaysSetCookie,omitempty"`
 }
