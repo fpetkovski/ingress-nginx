@@ -24,8 +24,8 @@ containers:
         LUAROCKS_VERSION: 3.8.0
         LUAROCKS_SHA: ab6612ca9ab87c6984871d2712d05525775e8b50172701a0a1cabddf76de2be7
         CHART_TESTING_VERSION: 3.0.0
-        YAML_LINT_VERSION: 1.13.0
-        YAMALE_VERSION: 1.8.0
+        YAML_LINT_VERSION: 1.27.1
+        YAMALE_VERSION: 4.0.4
         HELM_VERSION: v3.4.2
   production:
     environment: production
