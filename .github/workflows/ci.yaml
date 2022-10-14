@@ -18,7 +18,7 @@ jobs:
     permissions:
       contents: read  # for dorny/paths-filter to fetch a list of changed files
       pull-requests: read  # for dorny/paths-filter to read pull requests
-    runs-on: ubuntu-latest
+    runs-on: shopify-ubuntu-latest
     outputs:
       go: ${{ steps.filter.outputs.go }}
       charts: ${{ steps.filter.outputs.charts }}
@@ -46,7 +46,7 @@ jobs:
 
 
   security:
-    runs-on: ubuntu-latest
+    runs-on: shopify-ubuntu-latest
     steps:
 
       - name: Checkout
@@ -62,7 +62,7 @@ jobs:
 
   build:
     name: Build
-    runs-on: ubuntu-latest
+    runs-on: shopify-ubuntu-latest
     needs: changes
 
     steps:
@@ -121,7 +121,7 @@ jobs:
 
   helm:
     name: Helm chart
-    runs-on: ubuntu-latest
+    runs-on: shopify-ubuntu-latest
     needs:
       - changes
       - build
@@ -199,7 +199,7 @@ jobs:
 
   kubernetes:
     name: Kubernetes
-    runs-on: ubuntu-latest
+    runs-on: shopify-ubuntu-latest
     needs:
       - changes
       - build
@@ -256,7 +256,7 @@ jobs:
 
   kubernetes-chroot:
     name: Kubernetes chroot
-    runs-on: ubuntu-latest
+    runs-on: shopify-ubuntu-latest
     needs:
       - changes
       - build
@@ -316,7 +316,7 @@ jobs:
     permissions:
       contents: read  # for dorny/paths-filter to fetch a list of changed files
       pull-requests: read  # for dorny/paths-filter to read pull requests
-    runs-on: ubuntu-latest
+    runs-on: shopify-ubuntu-latest
     env:
       PLATFORMS: linux/amd64,linux/arm64
     steps:
@@ -383,7 +383,7 @@ jobs:
     permissions:
       contents: read  # for dorny/paths-filter to fetch a list of changed files
       pull-requests: read  # for dorny/paths-filter to read pull requests
-    runs-on: ubuntu-latest
+    runs-on: shopify-ubuntu-latest
     env:
       PLATFORMS: linux/amd64
     steps:
