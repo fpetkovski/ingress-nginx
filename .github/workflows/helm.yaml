@@ -14,7 +14,7 @@ jobs:
     permissions:
       contents: read  # for dorny/paths-filter to fetch a list of changed files
       pull-requests: read  # for dorny/paths-filter to read pull requests
-    runs-on: ubuntu-latest
+    runs-on: shopify-ubuntu-latest
     if: |
       (github.repository == 'kubernetes/ingress-nginx')
     outputs:
@@ -37,7 +37,7 @@ jobs:
 
   chart:
     name: Release Chart
-    runs-on: ubuntu-latest
+    runs-on: shopify-ubuntu-latest
 
     permissions:
       contents: write # needed to write releases
