@@ -32,6 +32,8 @@ resty \
   --shdict "certificate_servers 1M" \
   --shdict "ocsp_response_cache 1M" \
   --shdict "balancer_ewma 1M" \
+  --shdict "quota_tracker 1M" \
+  --shdict "high_throughput_tracker 1M" \
   --shdict "balancer_ewma_last_touched_at 1M" \
   --shdict "balancer_ewma_locks 512k" \
   --shdict "global_throttle_cache 5M" \

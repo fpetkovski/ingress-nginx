@@ -1,0 +1,12 @@
+describe('high_throughput_tenants.util', function()
+  it("parses processing", function()
+    local util = require("plugins.high_throughput_tenants.util")
+    assert.are.equal(26, util.parse_server_timing_processing("processing;dur=26, db;dur=13"))
+    assert.are.equal(26.1, util.parse_server_timing_processing("processing;dur=26.1, db;dur=13"))
+    assert.are.equal(26.1, util.parse_server_timing_processing("processing;dur=26.1"))
+    assert.are.equal(26.1, util.parse_server_timing_processing("db;dur=13, processing;dur=26.1"))
+
+    assert.are.equal(nil, util.parse_server_timing_processing(""))
+    assert.are.equal(nil, util.parse_server_timing_processing("db;dur=13"))
+  end)
+end)
