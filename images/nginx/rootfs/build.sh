@@ -101,6 +101,13 @@ export LUA_RESTY_GLOBAL_THROTTLE_VERSION=0.2.0
 # Check for recent changes: https://github.com/iresty/opentracing-openresty/compare/v0.1...master
 export LUA_RESTY_OPENTRACING_VERSION=0.1
 
+# Check for recent changes: https://github.com/starwing/lua-protobuf/compare/0.3.4...master
+export LUA_PROTOBUF_VERSION=0.3.4
+
+# Check for recent changes: https://github.com/yangxikun/opentelemetry-lua/compare/0.2.1...master
+# Update tags in plugins/opentelemetry/statsd.lua when updating this.
+export LUA_OPENTELEMETRY_VERSION=0.2.1
+
 export BUILD_PATH=/tmp/build
 
 ARCH=$(uname -m)
@@ -471,6 +478,16 @@ make install
 
 cd "$BUILD_PATH/opentracing-openresty-$LUA_RESTY_OPENTRACING_VERSION"
 install -d $LUA_LIB_DIR/opentracing && install opentracing/*.lua $LUA_LIB_DIR/opentracing
+
+cd "$BUILD_PATH/lua-protobuf-$LUA_PROTOBUF_VERSION" \
+        && gcc -O2 -shared -fPIC -I "/usr/local/include/luajit-2.1" pb.c -o pb.so \
+        && install pb.so $LUAJIT_LIB/lua \
+        && install protoc.lua $LUAJIT_LIB/lua
+
+cd "$BUILD_PATH/opentelemetry-lua-$LUA_OPENTELEMETRY_VERSION" \
+        && install -d $LUA_LIB_DIR/opentelemetry \
+        && cd ./lib/opentelemetry \
+        && find . -type f -exec install -Dm 755 "{}" "$LUA_LIB_DIR/opentelemetry/{}" \;
 
 # mimalloc
 cd "$BUILD_PATH"
