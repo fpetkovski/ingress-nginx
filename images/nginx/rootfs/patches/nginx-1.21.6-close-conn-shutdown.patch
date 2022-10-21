@@ -1,0 +1,36 @@
+From 22d4ff08bbe764997d157690e422d1077f543908 Mon Sep 17 00:00:00 2001
+From: Maxim Dounin <mdounin@mdounin.ru>
+Date: Tue, 11 Jan 2022 02:23:49 +0300
+Subject: [PATCH] Avoid sending "Connection: keep-alive" when shutting down.
+
+When a worker process is shutting down, keepalive is not used: this is checked
+before the ngx_http_set_keepalive() call in ngx_http_finalize_connection().
+Yet the "Connection: keep-alive" header was still sent, even if we know that
+the worker process is shutting down, potentially resulting in additional
+requests being sent to the connection which is going to be closed anyway.
+While clients are expected to be able to handle asynchronous close events
+(see ticket #1022), it is certainly possible to send the "Connection: close"
+header instead, informing the client that the connection is going to be closed
+and potentially saving some unneeded work.
+
+With this change, we additionally check for worker process shutdown just
+before sending response headers, and disable keepalive accordingly.
+---
+ src/http/ngx_http_header_filter_module.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/src/http/ngx_http_header_filter_module.c b/src/http/ngx_http_header_filter_module.c
+index 9b89405904..76f6e9629b 100644
+--- a/src/http/ngx_http_header_filter_module.c
++++ b/src/http/ngx_http_header_filter_module.c
+@@ -197,6 +197,10 @@ ngx_http_header_filter(ngx_http_request_t *r)
+         }
+     }
+ 
++    if (r->keepalive && (ngx_terminate || ngx_exiting)) {
++        r->keepalive = 0;
++    }
++
+     len = sizeof("HTTP/1.x ") - 1 + sizeof(CRLF) - 1
+           /* the end of the header */
+           + sizeof(CRLF) - 1;
