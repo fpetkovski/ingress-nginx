@@ -38,7 +38,7 @@ function _M.init(names)
   end
 end
 
-function _M.run()
+function _M.run(config)
   local phase = ngx.get_phase()
 
   for _, plugin in ipairs(plugins) do
@@ -49,7 +49,7 @@ function _M.run()
       -- probably yes, at least prohibit plugin from accessing env vars etc
       -- but since the plugins are going to be installed by ingress-nginx
       -- operator they can be assumed to be safe also
-      local ok, err = pcall(plugin[phase])
+      local ok, err = pcall(plugin[phase], config)
       if not ok then
         ngx_log(ERR, string_format("error while running plugin \"%s\" in phase \"%s\": %s",
             plugin.name, phase, err))

@@ -212,6 +212,17 @@ The following table shows a configuration option's name, type, and the default v
 |[service-upstream](#service-upstream)|bool|"false"|
 |[ssl-reject-handshake](#ssl-reject-handshake)|bool|"false"|
 |[debug-connections](#debug-connections)|[]string|"127.0.0.1,1.1.1.1/24"|
+|[plugin-opentelemetry-exporter-timeout](#plugin-opentelemetry-exporter-timeout)|int|5
+|[plugin-opentelemetry-exporter-otlp-endpoint](#plugin-opentelemetry-exporter-otlp-endpoint)|string|opentelemetry-collector:4318
+|[plugin-opentelemetry-bsp-max-queue-size](#plugin-opentelemetry-bsp-max-queue-size)|int|2048
+|[plugin-opentelemetry-bsp-max-export-batch-size](#plugin-opentelemetry-bsp-max-export-batch-size)|int|512
+|[plugin-opentelemetry-bsp-inactive-timeout](#plugin-opentelemetry-bsp-inactive-timeout)|int|2
+|[plugin-opentelemetry-bsp-export-timeout](#plugin-opentelemetry-bsp-export-timeout)|bool|"false"
+|[plugin-opentelemetry-exporter-otlp-headers](#plugin-opentelemetry-exporter-otlp-headers)|string|""
+|[plugin-opentelemetry-bsp-inactive-timeout](#plugin-opentelemetry-bsp-inactive-timeout)|int|2
+|[plugin-opentelemetry-bsp-drop-on-queue-full](#plugin-opentelemetry-bsp-drop-on-queue-full)|bool|true
+|[plugin-opentelemetry-shopify-verbosity-sampler-percentage](#plugin-opentelemetry-shopify-verbosity-sampler-percentage)|float32|0.0
+|[plugin-opentelemetry-service](#plugin-opentelemetry-service)|string|"nginx"
 
 ## add-headers
 
@@ -1308,3 +1319,57 @@ _**default:**_ ""
 
 _References:_
 [http://nginx.org/en/docs/ngx_core_module.html#debug_connection](http://nginx.org/en/docs/ngx_core_module.html#debug_connection)
+
+## plugin-open-telemetry
+
+### plugin-opentelemetry-exporter-timeout
+
+Sets timeout on opentelemetry-lua's HTTP client, which is used to export spans.
+In seconds.
+
+### plugin-opentelemetry-exporter-otlp-endpoint
+
+Sets endpoint to which OpenTelemetry exporter will send spans. Do not include
+`https://` prefix or `/v1/traces` path as part of the endpoint
+— opentelemetry-lua adds this automatically.
+
+### plugin-opentelemetry-bsp-max-queue-size
+
+Sets maximum queue size before batch span processor starts to drop spans.
+
+### plugin-opentelemetry-bsp-max-export-batch-size
+
+Sets maximum size of batches to be exported by batch span processor (must be
+less than plugin-opentelemetry-bsp-max-queue-size and > 0).
+
+### plugin-opentelemetry-bsp-export-timeout
+
+Timeout on opentelemetry-lua's HTTP client, which is used to export spans. In seconds.
+
+### plugin-opentelemetry-exporter-otlp-headers
+
+String that is parsed into headers to be sent on every otlp exporter request.
+For details on the format, see
+https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/protocol/exporter.md#specifying-headers-via-environment-variables.
+
+### plugin-opentelemetry-bsp-inactive-timeout
+
+The time that the batch span processor takes between batches of spans. In
+seconds.
+
+### plugin-opentelemetry-bsp-drop-on-queue-full
+
+Determines whether the batch span processor should throw away spans when the
+queue is full. Boolean.
+
+### plugin-opentelemetry-shopify-verbosity-sampler-percentage
+
+A float between 0 and 1 representing the percentage of requests for which we generate verbose spans. 1 generates verbose spans for all requests, 0.5 generates verbose spans for half of requests, and so on.
+
+### plugin-opentelemetry-service
+
+String representing the service for which nginx will emit spans (e.g. "production").
+
+### plugin-opentelemetry-environment
+
+String denoting the environment in which plugin is running.

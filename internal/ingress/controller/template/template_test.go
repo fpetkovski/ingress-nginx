@@ -33,7 +33,6 @@ import (
 	apiv1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"k8s.io/ingress-nginx/internal/ingress"
 	"k8s.io/ingress-nginx/internal/ingress/annotations/authreq"
 	"k8s.io/ingress-nginx/internal/ingress/annotations/influxdb"
@@ -1100,6 +1099,46 @@ func TestBuildUpstreamName(t *testing.T) {
 		pp := buildUpstreamName(loc)
 		if !strings.EqualFold(expected, pp) {
 			t.Errorf("%s: expected \n'%v'\nbut returned \n'%v'", k, expected, pp)
+		}
+	}
+}
+
+func TestBuildPluginConfigForLua(t *testing.T) {
+	type testCase struct {
+		otlpHeaders string
+		expected    string
+	}
+	cases := []testCase{
+		{"hi=mom;", `{
+	plugin_open_telemetry_bsp_drop_on_queue_full = true,
+	plugin_open_telemetry_bsp_inactive_timeout = 2,
+	plugin_open_telemetry_bsp_max_export_batch_size = 512,
+	plugin_open_telemetry_bsp_max_queue_size = 2048,
+	plugin_open_telemetry_environment = "production",
+	plugin_open_telemetry_exporter_otlp_endpoint = "opentelemetry-collector:4318",
+	plugin_open_telemetry_exporter_otlp_headers = "hi=mom;",
+	plugin_open_telemetry_exporter_timeout = 5,
+	plugin_open_telemetry_service = "nginx",
+	plugin_open_telemetry_shopify_verbosity_sampler_percentage = 0
+}`}, {"", `{
+	plugin_open_telemetry_bsp_drop_on_queue_full = true,
+	plugin_open_telemetry_bsp_inactive_timeout = 2,
+	plugin_open_telemetry_bsp_max_export_batch_size = 512,
+	plugin_open_telemetry_bsp_max_queue_size = 2048,
+	plugin_open_telemetry_environment = "production",
+	plugin_open_telemetry_exporter_otlp_endpoint = "opentelemetry-collector:4318",
+	plugin_open_telemetry_exporter_otlp_headers = "",
+	plugin_open_telemetry_exporter_timeout = 5,
+	plugin_open_telemetry_service = "nginx",
+	plugin_open_telemetry_shopify_verbosity_sampler_percentage = 0
+}`},
+	}
+	for i := 0; i < len(cases); i++ {
+		cfg := config.NewDefault()
+		cfg.PluginOpenTelemetryExporterOtlpHeaders = cases[i].otlpHeaders
+		result := buildPluginConfigForLua(cfg)
+		if result != cases[i].expected {
+			t.Errorf("Expected '%v' but returned '%v'", cases[i].expected, result)
 		}
 	}
 }

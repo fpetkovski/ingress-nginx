@@ -773,6 +773,59 @@ type Configuration struct {
 	// http://nginx.org/en/docs/ngx_core_module.html#debug_connection
 	// Default: ""
 	DebugConnections []string `json:"debug-connections"`
+
+	////////////////////////////////////////////////////////////////////////////
+	// Start OpenTelemetry configuration
+	////////////////////////////////////////////////////////////////////////////
+
+	// PluginOpenTelemetryExporterOtlpEndpoint sets endpoint to which
+	// OpenTelemetry exporter will send spans. Do not include http:// prefix or
+	// /v1/traces path as part of the endpoint — opentelemetry-lua adds this
+	// automatically
+	PluginOpenTelemetryExporterOtlpEndpoint string `json:"plugin-opentelemetry-exporter-otlp-endpoint"`
+
+	// PluginOpenTelemetryBspExporterTimeout sets timeout on opentelemetry-lua's
+	// HTTP client, which is used to export spans. In seconds.
+	PluginOpenTelemetryExporterTimeout int `json:"plugin-opentelemetry-exporter-timeout"`
+
+	// PluginOpenTelemetryBspMaxQueueSize sets maximum queue size before batch
+	// span processor starts to drop spans.
+	PluginOpenTelemetryBspMaxQueueSize int `json:"plugin-opentelemetry-bsp-max-queue-size"`
+
+	// PluginOpenTelemetryBspInactiveTimeout is the delay that the batch span
+	// processor takes between batches of spans. In seconds.
+	PluginOpenTelemetryBspInactiveTimeout int `json:"plugin-opentelemetry-bsp-inactive-timeout"`
+
+	// PluginOpenTelemetryBspDropOnQueueFull determines whether the batch span
+	// processor should throw away spans when the queue is full
+	PluginOpenTelemetryBspDropOnQueueFull bool `json:"plugin-opentelemetry-bsp-drop-on-queue-full"`
+
+	// PluginOpenTelemetryBspMaxExportBatchSize sets maximum size of each batch
+	// that will be sent to collector by batch span processor. Must be less than
+	// PluginOpenTelemetryBspMaxQueueSize and > 0.
+	PluginOpenTelemetryBspMaxExportBatchSize int `json:"plugin-opentelemetry-bsp-max-export-batch-size"`
+
+	// PluginOpenTelemetryExporterOtlpHeaders is a string that is parsed into
+	// headers to be sent on every otlp exporter request. For details on the
+	// format, see https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/protocol/exporter.md#specifying-headers-via-environment-variables
+	PluginOpenTelemetryExporterOtlpHeaders string `json:"plugin-opentelemetry-exporter-otlp-headers"`
+
+	// PluginOpenTelemetryShopifyVerbositySamplerPercentage is a float between 0
+	// and 1 representing the percentage of requests for which we generate
+	// verbose spans
+	PluginOpenTelemetryShopifyVerbositySamplerPercentage float32 `json:"plugin-opentelemetry-shopify-verbosity-sampler-percentage"`
+
+	// PluginOpenTelemetryService is a string representing the name of the
+	// service for which spans will be generated
+	PluginOpenTelemetryService string `json:"plugin-opentelemetry-service"`
+
+	// PluginOpenTelemetryEnvironment denotes the environment in which nginx is
+	// running (e.g. "production").
+	PluginOpenTelemetryEnvironment string `json:"plugin-opentelemetry-environment"`
+
+	////////////////////////////////////////////////////////////////////////////
+	// End OpenTelemetry configuration
+	////////////////////////////////////////////////////////////////////////////
 }
 
 // NewDefault returns the default nginx configuration
@@ -900,44 +953,54 @@ func NewDefault() Configuration {
 			ProxyMaxTempFileSize:     "1024m",
 			ServiceUpstream:          false,
 		},
-		UpstreamKeepaliveConnections:           320,
-		UpstreamKeepaliveTime:                  "1h",
-		UpstreamKeepaliveTimeout:               60,
-		UpstreamKeepaliveRequests:              10000,
-		LimitConnZoneVariable:                  defaultLimitConnZoneVariable,
-		BindAddressIpv4:                        defBindAddress,
-		BindAddressIpv6:                        defBindAddress,
-		OpentracingTrustIncomingSpan:           true,
-		ZipkinCollectorPort:                    9411,
-		ZipkinServiceName:                      "nginx",
-		ZipkinSampleRate:                       1.0,
-		JaegerCollectorPort:                    6831,
-		JaegerPropagationFormat:                "jaeger",
-		JaegerServiceName:                      "nginx",
-		JaegerSamplerType:                      "const",
-		JaegerSamplerParam:                     "1",
-		JaegerSamplerPort:                      5778,
-		JaegerSamplerHost:                      "http://127.0.0.1",
-		DatadogServiceName:                     "nginx",
-		DatadogEnvironment:                     "prod",
-		DatadogCollectorPort:                   8126,
-		DatadogOperationNameOverride:           "nginx.handle",
-		DatadogSampleRate:                      1.0,
-		DatadogPrioritySampling:                true,
-		LimitReqStatusCode:                     503,
-		LimitConnStatusCode:                    503,
-		SyslogPort:                             514,
-		NoTLSRedirectLocations:                 "/.well-known/acme-challenge",
-		NoAuthLocations:                        "/.well-known/acme-challenge",
-		GlobalExternalAuth:                     defGlobalExternalAuth,
-		ProxySSLLocationOnly:                   false,
-		DefaultType:                            "text/html",
-		GlobalRateLimitMemcachedPort:           11211,
-		GlobalRateLimitMemcachedConnectTimeout: 50,
-		GlobalRateLimitMemcachedMaxIdleTimeout: 10000,
-		GlobalRateLimitMemcachedPoolSize:       50,
-		GlobalRateLimitStatucCode:              429,
-		DebugConnections:                       []string{},
+		UpstreamKeepaliveConnections:                         320,
+		UpstreamKeepaliveTime:                                "1h",
+		UpstreamKeepaliveTimeout:                             60,
+		UpstreamKeepaliveRequests:                            10000,
+		LimitConnZoneVariable:                                defaultLimitConnZoneVariable,
+		BindAddressIpv4:                                      defBindAddress,
+		BindAddressIpv6:                                      defBindAddress,
+		OpentracingTrustIncomingSpan:                         true,
+		ZipkinCollectorPort:                                  9411,
+		ZipkinServiceName:                                    "nginx",
+		ZipkinSampleRate:                                     1.0,
+		JaegerCollectorPort:                                  6831,
+		JaegerPropagationFormat:                              "jaeger",
+		JaegerServiceName:                                    "nginx",
+		JaegerSamplerType:                                    "const",
+		JaegerSamplerParam:                                   "1",
+		JaegerSamplerPort:                                    5778,
+		JaegerSamplerHost:                                    "http://127.0.0.1",
+		DatadogServiceName:                                   "nginx",
+		DatadogEnvironment:                                   "prod",
+		DatadogCollectorPort:                                 8126,
+		DatadogOperationNameOverride:                         "nginx.handle",
+		DatadogSampleRate:                                    1.0,
+		DatadogPrioritySampling:                              true,
+		LimitReqStatusCode:                                   503,
+		LimitConnStatusCode:                                  503,
+		SyslogPort:                                           514,
+		NoTLSRedirectLocations:                               "/.well-known/acme-challenge",
+		NoAuthLocations:                                      "/.well-known/acme-challenge",
+		GlobalExternalAuth:                                   defGlobalExternalAuth,
+		ProxySSLLocationOnly:                                 false,
+		DefaultType:                                          "text/html",
+		GlobalRateLimitMemcachedPort:                         11211,
+		GlobalRateLimitMemcachedConnectTimeout:               50,
+		GlobalRateLimitMemcachedMaxIdleTimeout:               10000,
+		GlobalRateLimitMemcachedPoolSize:                     50,
+		GlobalRateLimitStatucCode:                            429,
+		PluginOpenTelemetryExporterTimeout:                   5,
+		PluginOpenTelemetryExporterOtlpEndpoint:              "opentelemetry-collector:4318",
+		PluginOpenTelemetryBspMaxQueueSize:                   2048,
+		PluginOpenTelemetryBspMaxExportBatchSize:             512,
+		PluginOpenTelemetryExporterOtlpHeaders:               "",
+		PluginOpenTelemetryBspInactiveTimeout:                2,
+		PluginOpenTelemetryBspDropOnQueueFull:                true,
+		PluginOpenTelemetryShopifyVerbositySamplerPercentage: 0.0,
+		PluginOpenTelemetryService:                           "nginx",
+		PluginOpenTelemetryEnvironment:                       "production",
+		DebugConnections:                                     []string{},
 	}
 
 	if klog.V(5).Enabled() {

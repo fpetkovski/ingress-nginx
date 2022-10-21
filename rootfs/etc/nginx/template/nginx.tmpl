@@ -131,7 +131,7 @@ http {
         monitor.init_worker({{ $all.MonitorMaxBatchSize }})
         {{ end }}
 
-        plugins.run()
+        plugins.run({{ buildPluginConfigForLua $all.Cfg }})
     }
 
     {{/* Enable the real_ip module only if we use either X-Forwarded headers or Proxy Protocol. */}}
@@ -1201,7 +1201,7 @@ stream {
             rewrite_by_lua_block {
                 lua_ingress.rewrite({{ locationConfigForLua $location $all }})
                 balancer.rewrite()
-                plugins.run()
+                plugins.run({{ buildPluginConfigForLua $all.Cfg }})
             }
 
             # be careful with `access_by_lua_block` and `satisfy any` directives as satisfy any
@@ -1212,11 +1212,11 @@ stream {
 
             header_filter_by_lua_block {
                 lua_ingress.header()
-                plugins.run()
+                plugins.run({{ buildPluginConfigForLua $all.Cfg }})
             }
 
             body_filter_by_lua_block {
-                plugins.run()
+                plugins.run({{ buildPluginConfigForLua $all.Cfg }})
             }
 
             log_by_lua_block {
@@ -1225,7 +1225,7 @@ stream {
                 monitor.call()
                 {{ end }}
 
-                plugins.run()
+                plugins.run({{ buildPluginConfigForLua $all.Cfg }})
             }
 
             {{ if not $location.Logs.Access }}

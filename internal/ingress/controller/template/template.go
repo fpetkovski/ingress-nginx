@@ -281,6 +281,7 @@ var (
 		"shouldLoadInfluxDBModule":           shouldLoadInfluxDBModule,
 		"buildServerName":                    buildServerName,
 		"buildCorsOriginRegex":               buildCorsOriginRegex,
+		"buildPluginConfigForLua":            buildPluginConfigForLua,
 	}
 )
 
@@ -414,6 +415,43 @@ func configForLua(input interface{}) string {
 		all.Cfg.GlobalRateLimitMemcachedPoolSize,
 		all.Cfg.GlobalRateLimitStatucCode,
 	)
+}
+
+func buildPluginConfigForLua(input interface{}) string {
+	all, ok := input.(config.Configuration)
+	if !ok {
+		klog.Errorf("expected a 'config.Configuration' type but %T was given", input)
+		return "{}"
+	}
+
+	matchFirstCap := regexp.MustCompile("(.)([A-Z][a-z]+)")
+	matchAllCap := regexp.MustCompile("([a-z0-9])([A-Z])")
+	cfgVals := reflect.ValueOf(all)
+	cfgTypes := reflect.Indirect(cfgVals)
+
+	var pairs = make([]string, 0)
+	for i := 0; i < cfgVals.NumField(); i++ {
+		fieldName := cfgTypes.Type().Field(i).Name
+
+		if strings.HasPrefix(fieldName, "Plugin") && fieldName != "Plugins" {
+			luaTableField := matchFirstCap.ReplaceAllString(fieldName, "${1}_${2}")
+			luaTableField = matchAllCap.ReplaceAllString(luaTableField, "${1}_${2}")
+			luaTableField = strings.ToLower(luaTableField)
+
+			if _, ok := cfgVals.Field(i).Interface().(string); ok {
+				if cfgVals.Field(i).Interface() == "" {
+					pairs = append(pairs, luaTableField+" = "+"\"\"")
+				} else {
+					pairs = append(pairs, luaTableField+" = "+quote(cfgVals.Field(i).Interface()))
+				}
+			} else {
+				pairs = append(pairs, luaTableField+" = "+fmt.Sprintf("%v", cfgVals.Field(i).Interface()))
+			}
+		}
+	}
+
+	sort.Strings(pairs)
+	return "{\n\t" + strings.Join(pairs, ",\n\t") + "\n}"
 }
 
 // locationConfigForLua formats some location specific configuration into Lua table represented as string
