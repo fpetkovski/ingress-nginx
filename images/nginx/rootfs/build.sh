@@ -280,6 +280,13 @@ get_src 0fb790e394510e73fdba1492e576aaec0b8ee9ef08e3e821ce253a07719cf7ea \
 get_src 6010720c12e763e4cd7c9108a3139754efd884f40f9cb05aafe304430c271873 \
     "https://github.com/iresty/opentracing-openresty/archive/refs/tags/v$LUA_RESTY_OPENTRACING_VERSION.tar.gz"
 
+get_src cb27d08c888aca5ff8ab4c72fd9ccdd85dbe0d69b2850a6e0e9751ed9de613f3 \
+    "https://github.com/starwing/lua-protobuf/archive/refs/tags/$LUA_PROTOBUF_VERSION.tar.gz"
+
+get_src b0ce4d3bd8449efd5bb0f24ccc7183b10e02cbaab7b90d90f7ca0d591077b388 \
+    "https://github.com/yangxikun/opentelemetry-lua/archive/refs/tags/v$LUA_OPENTELEMETRY_VERSION.tar.gz"
+
+
 # Install luajit from openresty fork
 export LUAJIT_LIB=/usr/local/lib
 export LUA_LIB_DIR="$LUAJIT_LIB/lua"
