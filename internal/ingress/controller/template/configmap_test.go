@@ -168,6 +168,44 @@ func TestMergeConfigMapToStruct(t *testing.T) {
 	if diff := pretty.Compare(to, def); diff != "" {
 		t.Errorf("unexpected diff: (-got +want)\n%s", diff)
 	}
+
+	def = config.NewDefault()
+	def.LuaSharedDicts = defaultLuaSharedDicts
+	def.DisableIpv6DNS = true
+	def.PluginOpenTelemetryExporterOtlpEndpoint = "https://abc.com:4318"
+	def.PluginOpenTelemetryBspMaxQueueSize = 100
+	def.PluginOpenTelemetryBspMaxExportBatchSize = 1000
+	def.PluginOpenTelemetryExporterOtlpHeaders = "Hi=Everybody;"
+	def.PluginOpenTelemetryBspInactiveTimeout = 1
+	def.PluginOpenTelemetryBspDropOnQueueFull = true
+	def.PluginOpenTelemetryShopifyVerbositySamplerPercentage = 1.0
+	def.PluginOpenTelemetryService = "test-service"
+	def.PluginOpenTelemetryEnvironment = "production"
+
+	hash, err = hashstructure.Hash(def, &hashstructure.HashOptions{
+		TagName: "json",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error obtaining hash: %v", err)
+	}
+	def.Checksum = fmt.Sprintf("%v", hash)
+
+	to = ReadConfig(map[string]string{
+		"plugin-opentelemetry-exporter-otlp-endpoint":               "https://abc.com:4318",
+		"plugin-opentelemetry-bsp-max-queue-size":                   "100",
+		"plugin-opentelemetry-bsp-max-export-batch-size":            "1000",
+		"plugin-opentelemetry-bsp-export-timeout":                   "10000",
+		"plugin-opentelemetry-exporter-otlp-headers":                "Hi=Everybody;",
+		"plugin-opentelemetry-bsp-inactive-timeout":                 "1",
+		"plugin-opentelemetry-drop-on-queue-full":                   "true",
+		"plugin-opentelemetry-shopify-verbosity-sampler-percentage": "1.0",
+		"plugin-opentelemetry-service":                              "test-service",
+		"plugin-opentelemetry-environment":                          "production",
+	})
+
+	if diff := pretty.Compare(to, def); diff != "" {
+		t.Errorf("unexpected diff: (-got +want)\n%s", diff)
+	}
 }
 
 func TestGlobalExternalAuthURLParsing(t *testing.T) {
