@@ -21,7 +21,9 @@ FROM registry.k8s.io/etcd:${ETCD_VERSION} as etcd
 
 FROM ${BASE_IMAGE}
 
-RUN [ ! -e /etc/nsswitch.conf ] && echo 'hosts: files dns' > /etc/nsswitch.conf
+# Shopify specific: we comment this line out because the way we build this image
+# does not allow us to write to `/etc/`.
+# RUN [ ! -e /etc/nsswitch.conf ] && echo 'hosts: files dns' > /etc/nsswitch.conf
 
 COPY --from=GO   /usr/local/go /usr/local/go
 COPY --from=etcd /usr/local/bin/etcd /usr/local/bin/etcd
