@@ -39,7 +39,7 @@ function cleanup {
 trap cleanup EXIT
 
 
-E2E_IMAGE=${E2E_IMAGE:-gcr.io/shopify-docker-images/apps/ci/nginx-e2e-test-runner:7082e79ad3d3ed1dc616474268c65166849da1df}
+E2E_IMAGE=${E2E_IMAGE:-gcr.io/shopify-docker-images/apps/ci/nginx-e2e-test-runner:5077cd603f84918d300ff85b2bebf41e321a6f30}
 
 DOCKER_OPTS=${DOCKER_OPTS:-}
 DOCKER_IN_DOCKER_ENABLED=${DOCKER_IN_DOCKER_ENABLED:-}
