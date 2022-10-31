@@ -5,7 +5,14 @@
 [![GitHub license](https://img.shields.io/github/license/kubernetes/ingress-nginx.svg)](https://github.com/kubernetes/ingress-nginx/blob/main/LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/kubernetes/ingress-nginx.svg)](https://github.com/kubernetes/ingress-nginx/stargazers)
 [![GitHub stars](https://img.shields.io/badge/contributions-welcome-orange.svg)](https://github.com/kubernetes/ingress-nginx/blob/main/CONTRIBUTING.md)
-[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fkubernetes%2Fingress-nginx.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fkubernetes%2Fingress-nginx?ref=badge_shield)
+
+### Community Update
+
+We will discuss the results of our Community Survey, progress on the stabilization project, and ideas going
+forward with the project at [Kubecon NA 2022 in Detroit](https://events.linuxfoundation.org/kubecon-cloudnativecon-north-america/). Come join us and let us hear what you'd like to see in the
+future for ingress-nginx.
+
+https://kccncna2022.sched.com/event/18lgl?iframe=no
 
 ## Overview
 
@@ -31,6 +38,8 @@ For detailed changes on the `ingress-nginx` helm chart, please check the followi
 
 | Ingress-NGINX version | k8s supported version        | Alpine Version | Nginx Version |
 |-----------------------|------------------------------|----------------|---------------|
+| v1.4.0                | 1.25, 1.24, 1.23, 1.22       | 3.16.2         | 1.19.10†      |
+| v1.3.1                | 1.24, 1.23, 1.22, 1.21, 1.20 | 3.16.2         | 1.19.10†      |
 | v1.3.0                | 1.24, 1.23, 1.22, 1.21, 1.20 | 3.16.0         | 1.19.10†      |
 | v1.2.1                | 1.23, 1.22, 1.21, 1.20, 1.19 | 3.14.6         | 1.19.10†      |
 | v1.1.3                | 1.23, 1.22, 1.21, 1.20, 1.19 | 3.14.4         | 1.19.10†      |
@@ -43,12 +52,7 @@ For detailed changes on the `ingress-nginx` helm chart, please check the followi
 | v1.0.2                | 1.22, 1.21, 1.20, 1.19       | 3.14.2         | 1.19.9†       |
 | v1.0.1                | 1.22, 1.21, 1.20, 1.19       | 3.14.2         | 1.19.9†       |
 | v1.0.0                | 1.22, 1.21, 1.20, 1.19       | 3.13.5         | 1.20.1        |
-| v0.51.0               | 1.21, 1.20, 1.19             | 3.14.4         | 1.19.10†       |
-| v0.49.3               | 1.21, 1.20, 1.19             | 3.14.2         | 1.19.9†       |
-| v0.49.2               | 1.21, 1.20, 1.19             | 3.14.2         | 1.19.9†       |
-| v0.49.1               | 1.21, 1.20, 1.19             | 3.14.2         | 1.19.9†       |
-| v0.49.0               | 1.21, 1.20, 1.19             | 3.13.5         | 1.20.1        |
-| v0.48.1               | 1.21, 1.20, 1.19             | 3.13.5         | 1.20.1        |
+
 
 † _This build is [patched against CVE-2021-23017](https://github.com/openresty/openresty/commit/4b5ec7edd78616f544abc194308e0cf4b788725b#diff-42ef841dc27fe0b5aa2d06bd31308bb63a59cdcddcbcddd917248349d22020a3)._
 
@@ -70,7 +74,7 @@ Thanks for taking the time to join our community and start contributing!
 
 - **Support**: Join the [#ingress-nginx-users](https://kubernetes.slack.com/messages/CANQGM8BA/) channel inside the [Kubernetes Slack](http://slack.kubernetes.io/) to ask questions or get support from the maintainers and other users.
   
-  - The [github issues](https://github.com/kubernetes/ingress-nginx/issues) in the repository are **exclusively** for bug reports and feature requests.
+  - The [GitHub issues](https://github.com/kubernetes/ingress-nginx/issues) in the repository are **exclusively** for bug reports and feature requests.
 
 - **Discuss**: Tweet using the `#IngressNginx` hashtag.
 
