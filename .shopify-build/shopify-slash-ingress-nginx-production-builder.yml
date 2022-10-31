@@ -15,8 +15,8 @@ containers:
       platform: linux/arm64,linux/amd64
       build_timeout: 40m
       build_args:
-        BASE_IMAGE: gcr.io/shopify-docker-images/apps/production/nginx:1.19.10.6
-        GOLANG_VERSION: 1.18.2
+        BASE_IMAGE: gcr.io/shopify-docker-images/apps/production/nginx:1.21.6.0
+        GOLANG_VERSION: 1.19.2
         ETCD_VERSION: 3.4.3-0
         K8S_RELEASE: v1.21.3
         RESTY_CLI_VERSION: "0.27"
@@ -32,7 +32,7 @@ containers:
     dockerfile:
       build_timeout: 40m
       build_args:
-        BASE_IMAGE: gcr.io/shopify-docker-images/apps/production/nginx:1.19.10.6
+        BASE_IMAGE: gcr.io/shopify-docker-images/apps/production/nginx:1.21.6.0
         TARGETARCH: amd64
         VERSION: $SHOPIFY_BUILD_COMMIT
         COMMIT_SHA: $SHOPIFY_BUILD_COMMIT

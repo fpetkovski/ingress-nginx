@@ -19,7 +19,7 @@ up:
       met?: docker ps | grep ingress-nginx-dev-control-plane &> /dev/null
       meet: make dev-env
 env:
-  BASE_IMAGE: gcr.io/shopify-docker-images/apps/production/nginx:1.19.10.6
+  BASE_IMAGE: gcr.io/shopify-docker-images/apps/production/nginx:1.21.6.0
 
 commands:
   lint:

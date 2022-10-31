@@ -39,7 +39,7 @@ function cleanup {
 trap cleanup EXIT
 
 
-E2E_IMAGE=${E2E_IMAGE:-gcr.io/shopify-docker-images/apps/ci/nginx-e2e-test-runner:7082e79ad3d3ed1dc616474268c65166849da1df}
+E2E_IMAGE=${E2E_IMAGE:-gcr.io/shopify-docker-images/apps/ci/nginx-e2e-test-runner:5077cd603f84918d300ff85b2bebf41e321a6f30}
 
 DOCKER_OPTS=${DOCKER_OPTS:-}
 DOCKER_IN_DOCKER_ENABLED=${DOCKER_IN_DOCKER_ENABLED:-}
@@ -66,13 +66,6 @@ fi
 
 USER=${USER:-nobody}
 
-MAC_OS="${MAC_OS:-}"
-if [[ ${MAC_OS} == "Darwin" ]]; then
-	MAC_DOCKER_FLAGS=""
-else
-	MAC_DOCKER_FLAGS="-u $(id -u ${USER}):$(id -g ${USER})" #idk why mac/git fails on the gobuild if these are presented to dockerrun.sh script
-fi
-
 echo "..printing env & other vars to stdout"
 echo "HOSTNAME=`hostname`"
 uname -a
@@ -85,7 +78,7 @@ if [[ "$DOCKER_IN_DOCKER_ENABLED" == "true" ]]; then
   echo "FLAGS=$FLAGS"
   go env
   set -x
-  go install -mod=mod github.com/onsi/ginkgo/ginkgo@v1.16.4
+  go install -mod=mod github.com/onsi/ginkgo/v2/ginkgo@v2.1.4
   find / -type f -name ginkgo 2>/dev/null
   which ginkgo
   /bin/bash -c "${FLAGS}"
