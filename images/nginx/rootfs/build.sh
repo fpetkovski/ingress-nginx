@@ -98,9 +98,6 @@ export LUA_RESTY_IPMATCHER_VERSION=211e0d2eb8bbb558b79368f89948a0bafdc23654
 # Check for recent changes: https://github.com/ElvinEfendi/lua-resty-global-throttle/compare/v0.2.0...main
 export LUA_RESTY_GLOBAL_THROTTLE_VERSION=0.2.0
 
-# Check for recent changes: https://github.com/iresty/opentracing-openresty/compare/v0.1...master
-export LUA_RESTY_OPENTRACING_VERSION=0.1
-
 # Check for recent changes: https://github.com/starwing/lua-protobuf/compare/0.3.4...master
 export LUA_PROTOBUF_VERSION=0.3.4
 
@@ -276,9 +273,6 @@ get_src b8dbd502751140993a852381bcd8e98a402454596bd91838c1e51268d42db261 \
 
 get_src 0fb790e394510e73fdba1492e576aaec0b8ee9ef08e3e821ce253a07719cf7ea \
         "https://github.com/ElvinEfendi/lua-resty-global-throttle/archive/v$LUA_RESTY_GLOBAL_THROTTLE_VERSION.tar.gz"
-
-get_src 6010720c12e763e4cd7c9108a3139754efd884f40f9cb05aafe304430c271873 \
-    "https://github.com/iresty/opentracing-openresty/archive/refs/tags/v$LUA_RESTY_OPENTRACING_VERSION.tar.gz"
 
 get_src cb27d08c888aca5ff8ab4c72fd9ccdd85dbe0d69b2850a6e0e9751ed9de613f3 \
     "https://github.com/starwing/lua-protobuf/archive/refs/tags/$LUA_PROTOBUF_VERSION.tar.gz"
@@ -482,9 +476,6 @@ INST_LUADIR=/usr/local/lib/lua make install
 
 cd "$BUILD_PATH/lua-resty-global-throttle-$LUA_RESTY_GLOBAL_THROTTLE_VERSION"
 make install
-
-cd "$BUILD_PATH/opentracing-openresty-$LUA_RESTY_OPENTRACING_VERSION"
-install -d $LUA_LIB_DIR/opentracing && install opentracing/*.lua $LUA_LIB_DIR/opentracing
 
 cd "$BUILD_PATH/lua-protobuf-$LUA_PROTOBUF_VERSION" \
         && gcc -O2 -shared -fPIC -I "/usr/local/include/luajit-2.1" pb.c -o pb.so \
