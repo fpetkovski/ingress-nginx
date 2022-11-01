@@ -4,7 +4,6 @@ containers:
     application: nginx
     dockerfile:
       dir: images/nginx/rootfs
-      platform: linux/arm64,linux/amd64
       build_timeout: 400m
       tag_using_path: images/nginx/rootfs/VERSION
   e2e:
@@ -12,7 +11,6 @@ containers:
     application: nginx-e2e-test-runner
     dockerfile:
       dir: images/test-runner/rootfs
-      platform: linux/arm64,linux/amd64
       build_timeout: 40m
       build_args:
         BASE_IMAGE: gcr.io/shopify-docker-images/apps/production/nginx:1.21.6.0
