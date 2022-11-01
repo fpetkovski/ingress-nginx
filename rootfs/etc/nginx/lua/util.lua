@@ -97,6 +97,14 @@ local function normalize_endpoints(endpoints)
   return normalized_endpoints
 end
 
+function _M.reverse_table(t)
+  local b = {}
+  for k, v in ipairs(t) do
+    b[v] = k
+  end
+  return b
+end
+
 -- diff_endpoints compares old and new
 -- and as a first argument returns what endpoints are in new
 -- but are not in old, and as a second argument it returns
@@ -184,5 +192,24 @@ local function replace_special_char(str, a, b)
   return string.gsub(str, "%" .. a, b)
 end
 _M.replace_special_char = replace_special_char
+
+function _M.dump_table(t)
+  if not t then
+    return "nil table"
+  end
+
+  local out = ""
+  for k, v in pairs(t) do
+    if (type(v) == "table") then
+      out = out .. string.format("[%s] - %s,", k, _M.dump_table(v))
+    else
+      out = out .. string.format("[%s] - %s,", k, v)
+    end
+  end
+  if out == "" then
+    out = "<empty>"
+  end
+  return out
+end
 
 return _M
