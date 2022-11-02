@@ -1110,10 +1110,12 @@ func TestBuildPluginConfigForLua(t *testing.T) {
 	}
 	cases := []testCase{
 		{"hi=mom;", `{
+	plugin_open_telemetry_bsp_batch_timeout = 3,
 	plugin_open_telemetry_bsp_drop_on_queue_full = true,
 	plugin_open_telemetry_bsp_inactive_timeout = 2,
 	plugin_open_telemetry_bsp_max_export_batch_size = 512,
 	plugin_open_telemetry_bsp_max_queue_size = 2048,
+	plugin_open_telemetry_enabled = false,
 	plugin_open_telemetry_environment = "production",
 	plugin_open_telemetry_exporter_otlp_endpoint = "opentelemetry-collector:4318",
 	plugin_open_telemetry_exporter_otlp_headers = "hi=mom;",
@@ -1121,10 +1123,12 @@ func TestBuildPluginConfigForLua(t *testing.T) {
 	plugin_open_telemetry_service = "nginx",
 	plugin_open_telemetry_shopify_verbosity_sampler_percentage = 0
 }`}, {"", `{
+	plugin_open_telemetry_bsp_batch_timeout = 3,
 	plugin_open_telemetry_bsp_drop_on_queue_full = true,
 	plugin_open_telemetry_bsp_inactive_timeout = 2,
 	plugin_open_telemetry_bsp_max_export_batch_size = 512,
 	plugin_open_telemetry_bsp_max_queue_size = 2048,
+	plugin_open_telemetry_enabled = false,
 	plugin_open_telemetry_environment = "production",
 	plugin_open_telemetry_exporter_otlp_endpoint = "opentelemetry-collector:4318",
 	plugin_open_telemetry_exporter_otlp_headers = "",

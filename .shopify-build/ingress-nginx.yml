@@ -2,7 +2,7 @@
 
 containers:
   default:
-    docker: gcr.io/shopify-docker-images/apps/ci/nginx-e2e-test-runner:db069d180fdab17f9bc5b57e124bff88e4842cc6
+    docker: gcr.io/shopify-docker-images/apps/ci/nginx-e2e-test-runner:6b5e3c6ad0887701429997695048314a209dcb31
     workdir: /go/src/k8s.io/ingress-nginx
 
 steps:
@@ -15,6 +15,9 @@ steps:
 
 - label: Lua Unit Test
   timeout: 5m
+  env:
+    STATSD_HOST: localhost
+    STATSD_PORT: "8125"
   run:
   - make lua-test
 

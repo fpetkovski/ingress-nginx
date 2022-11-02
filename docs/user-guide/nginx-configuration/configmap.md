@@ -213,6 +213,7 @@ The following table shows a configuration option's name, type, and the default v
 |[service-upstream](#service-upstream)|bool|"false"|
 |[ssl-reject-handshake](#ssl-reject-handshake)|bool|"false"|
 |[debug-connections](#debug-connections)|[]string|"127.0.0.1,1.1.1.1/24"|
+|[plugin-opentelemetry-enabled](#plugin-opentelemetry-enabled)|bool|false
 |[plugin-opentelemetry-exporter-timeout](#plugin-opentelemetry-exporter-timeout)|int|5
 |[plugin-opentelemetry-exporter-otlp-endpoint](#plugin-opentelemetry-exporter-otlp-endpoint)|string|opentelemetry-collector:4318
 |[plugin-opentelemetry-bsp-max-queue-size](#plugin-opentelemetry-bsp-max-queue-size)|int|2048
@@ -222,6 +223,7 @@ The following table shows a configuration option's name, type, and the default v
 |[plugin-opentelemetry-exporter-otlp-headers](#plugin-opentelemetry-exporter-otlp-headers)|string|""
 |[plugin-opentelemetry-bsp-inactive-timeout](#plugin-opentelemetry-bsp-inactive-timeout)|int|2
 |[plugin-opentelemetry-bsp-drop-on-queue-full](#plugin-opentelemetry-bsp-drop-on-queue-full)|bool|true
+|[plugin-opentelemetry-bsp-batch-timeout](#plugin-opentelemetry-bsp-timeout)|int|3
 |[plugin-opentelemetry-shopify-verbosity-sampler-percentage](#plugin-opentelemetry-shopify-verbosity-sampler-percentage)|float32|0.0
 |[plugin-opentelemetry-service](#plugin-opentelemetry-service)|string|"nginx"
 
@@ -1327,6 +1329,12 @@ _References:_
 
 ## plugin-open-telemetry
 
+### plugin-opentelemetry-enabled
+
+When set to false, forces the plugin to no-op. Used to disable the plugin in
+context where its loading is not determined by configmap (e.g.
+nginx-routing-modules).
+
 ### plugin-opentelemetry-exporter-timeout
 
 Sets timeout on opentelemetry-lua's HTTP client, which is used to export spans.
@@ -1366,6 +1374,10 @@ seconds.
 
 Determines whether the batch span processor should throw away spans when the
 queue is full. Boolean.
+
+### plugin-opentelemetry-bsp-batch-timeout
+
+Maximum duration in which you can construct a batch. In seconds.
 
 ### plugin-opentelemetry-shopify-verbosity-sampler-percentage
 
