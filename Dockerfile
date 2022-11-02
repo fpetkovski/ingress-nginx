@@ -21,15 +21,14 @@ RUN PKG=k8s.io/ingress-nginx \
     /build/build.sh
 
 # This second stage is Shopify-specific setup, and should not conflict with upstream
-FROM gcr.io/google.com/cloudsdktool/cloud-sdk:371.0.0 as geoip_builder
+FROM gcr.io/google.com/cloudsdktool/cloud-sdk as geoip_builder
 
 ARG FREE_GEOIP_FILES
 ARG PAID_GEOIP_FILES
 
 COPY build/shopify/geoip.sh /
 
-RUN --mount=type=secret,id=gcscredentials,required=true \
-    gcloud auth activate-service-account --key-file=/run/secrets/gcscredentials && \
+RUN --mount=type=secret,id=gcs_access_token,required=true \
     FREE_GEOIP_FILES=${FREE_GEOIP_FILES} \
     PAID_GEOIP_FILES=${PAID_GEOIP_FILES} \
     /geoip.sh
