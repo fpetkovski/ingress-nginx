@@ -2,7 +2,7 @@
 local main = require("plugins.hello_world.main")
 
 -- The unit tests are run within a timer phase in a headless Nginx process.
--- Since `set_header` and `ngx.var.http_` API are disabled in this phase we have to stub it 
+-- Since `set_header` and `ngx.var.http_` API are disabled in this phase we have to stub it
 -- to avoid `API disabled in the current context` error.
 
 describe("main", function()
@@ -12,6 +12,7 @@ describe("main", function()
       stub(ngx.req, "set_header")
       main.rewrite()
       assert.stub(ngx.req.set_header).was_called_with("x-hello-world", "1")
+      ngx.req:revert()
     end)
 
     it("does not set x-hello-world header to 1 when user agent is not hello", function()
@@ -19,6 +20,7 @@ describe("main", function()
       stub(ngx.req, "set_header")
       main.rewrite()
       assert.stub(ngx.req.set_header).was_not_called_with("x-hello-world", "1")
+      ngx.req:revert()
     end)
   end)
 end)
