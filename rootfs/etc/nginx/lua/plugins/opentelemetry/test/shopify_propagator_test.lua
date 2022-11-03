@@ -10,6 +10,7 @@ local function set_context_storage()
 end
 
 local function reset_ngx_req()
+    ngx.req.set_header:revert()
     if (type(ngx.req.set_header) ~= "function" and ngx.req.set_header["revert"]) then
         ngx.req.set_header:revert()
     end
