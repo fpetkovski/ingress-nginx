@@ -126,8 +126,9 @@ function _M.request_is_traced()
 
   local headers = ngx.req.get_headers()
   if headers["x-cloud-trace-context"] and headers["x-shopify-trace-context"] then
-    ngx_ctx["shopify_headers_present"] = true
-    return true
+    local sampled = string.match(headers["x-shopify-trace-context"], ";o=1") ~= nil
+    ngx_ctx["shopify_headers_present"] = sampled
+    return sampled
   else
     ngx_ctx["shopify_headers_present"] = false
     return false

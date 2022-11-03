@@ -32,6 +32,34 @@ describe("make_propagation_header_metric_tags", function()
     end)
 end)
 
+describe("request_is_traced", function()
+    it("returns true when both headers are present and o=1", function()
+        ngx.ctx["shopify_headers_present"] = nil
+        stub(ngx.req, "get_headers", function()
+            return {
+                ["x-shopify-trace-context"] = "B2993819A27935B8EF8295DFFC6DC44B/13421691958286113626;o=1",
+                ["x-cloud-trace-context"] = "B2993819A27935B8EF8295DFFC6DC44B/13421691958286113626;o=1"
+            }
+        end)
+        assert.is_true(main.request_is_traced())
+        assert.is_true(ngx.ctx["shopify_headers_present"])
+        ngx.req.get_headers:revert()
+    end)
+
+    it("returns false when both headers are present and o=0", function()
+        ngx.ctx["shopify_headers_present"] = nil
+        stub(ngx.req, "get_headers", function()
+            return {
+                ["x-shopify-trace-context"] = "B2993819A27935B8EF8295DFFC6DC44B/13421691958286113626;o=0",
+                ["x-cloud-trace-context"] = "B2993819A27935B8EF8295DFFC6DC44B/13421691958286113626;o=0"
+            }
+        end)
+        assert.is_false(main.request_is_traced())
+        assert.is_false(ngx.ctx["shopify_headers_present"])
+        ngx.req.get_headers:revert()
+    end)
+end)
+
 describe("parse_upstream_addr", function()
     it("returns table with addr and port when it contains a single colon", function()
         local input = "foo:8080"
