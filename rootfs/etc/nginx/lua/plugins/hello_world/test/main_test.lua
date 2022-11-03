@@ -2,7 +2,7 @@
 local main = require("plugins.hello_world.main")
 
 -- The unit tests are run within a timer phase in a headless Nginx process.
--- Since `set_header` and `ngx.var.http_` API are disabled in this phase we have to stub it 
+-- Since `set_header` and `ngx.var.http_` API are disabled in this phase we have to stub it
 -- to avoid `API disabled in the current context` error.
 
 describe("main", function()

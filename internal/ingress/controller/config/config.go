@@ -782,6 +782,11 @@ type Configuration struct {
 	// Start OpenTelemetry configuration
 	////////////////////////////////////////////////////////////////////////////
 
+	// PluginOpenTelemetryExporterEnabled when set to false, forces the plugin
+	// to no-op. Used to disable the plugin in context where its loading is not
+	// determined by configmap (e.g. nginx-routing-modules).
+	PluginOpenTelemetryEnabled bool `json:"plugin-opentelemetry-enabled"`
+
 	// PluginOpenTelemetryExporterOtlpEndpoint sets endpoint to which
 	// OpenTelemetry exporter will send spans. Do not include http:// prefix or
 	// /v1/traces path as part of the endpoint — opentelemetry-lua adds this
@@ -808,6 +813,10 @@ type Configuration struct {
 	// that will be sent to collector by batch span processor. Must be less than
 	// PluginOpenTelemetryBspMaxQueueSize and > 0.
 	PluginOpenTelemetryBspMaxExportBatchSize int `json:"plugin-opentelemetry-bsp-max-export-batch-size"`
+
+	// PluginOpenTelemetryBspBatchTimeout is the maximum duration in which you
+	// can construct a batch. In seconds.
+	PluginOpenTelemetryBspBatchTimeout int `json:"plugin-opentelemetry-bsp-batch-timeout"`
 
 	// PluginOpenTelemetryExporterOtlpHeaders is a string that is parsed into
 	// headers to be sent on every otlp exporter request. For details on the
@@ -994,10 +1003,12 @@ func NewDefault() Configuration {
 		GlobalRateLimitMemcachedMaxIdleTimeout:               10000,
 		GlobalRateLimitMemcachedPoolSize:                     50,
 		GlobalRateLimitStatucCode:                            429,
+		PluginOpenTelemetryEnabled:                           false,
 		PluginOpenTelemetryExporterTimeout:                   5,
 		PluginOpenTelemetryExporterOtlpEndpoint:              "opentelemetry-collector:4318",
 		PluginOpenTelemetryBspMaxQueueSize:                   2048,
 		PluginOpenTelemetryBspMaxExportBatchSize:             512,
+		PluginOpenTelemetryBspBatchTimeout:                   3,
 		PluginOpenTelemetryExporterOtlpHeaders:               "",
 		PluginOpenTelemetryBspInactiveTimeout:                2,
 		PluginOpenTelemetryBspDropOnQueueFull:                true,
