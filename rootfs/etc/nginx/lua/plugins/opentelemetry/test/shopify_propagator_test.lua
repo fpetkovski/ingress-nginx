@@ -9,8 +9,12 @@ local function set_context_storage()
     otel_global.set_context_storage({})
 end
 
+-- This function shouldn't need to be so protective, but here we are.
 local function reset_ngx_req()
-    ngx.req.set_header:revert()
+    if not ngx.req.set_header or not ngx.req.get_headers then
+        return
+    end
+
     if (type(ngx.req.set_header) ~= "function" and ngx.req.set_header["revert"]) then
         ngx.req.set_header:revert()
     end
