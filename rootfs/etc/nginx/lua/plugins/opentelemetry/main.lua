@@ -204,6 +204,17 @@ function _M.init_worker(config)
   end
 end
 
+-- This is a hack, but we're replacing the verbosity sampler with deferred sampling anyway. If the proxy_span_ctx is
+-- not sampled, then the request is not verbosity sampled. In that situation, we want to propagate the context of the
+-- outermost span, which is always included.
+function _M.propagation_context(request_span_ctx, proxy_span_ctx)
+  if proxy_span_ctx:span_context():is_sampled() then
+    return proxy_span_ctx
+  else
+    return request_span_ctx
+  end
+end
+
 function _M.rewrite()
   if not _M.plugin_enabled() then
     return
@@ -256,14 +267,9 @@ function _M.rewrite()
     attributes = proxy_attributes,
   })
 
-  -- This is a hack, but we're replacing the verbosity sampler with deferred sampling anyway. If the proxy_span_ctx is
-  -- not sampled, then the request is not verbosity sampled. In that situation, we want to propagate the context of the
-  -- outermost span, which is always included.
-  if proxy_span_ctx:span_context():is_sampled() then
-    composite_propagator:inject(proxy_span_ctx, ngx.req)
-  else
-    composite_propagator:inject(request_span_ctx, ngx.req)
-  end
+  composite_propagator:inject(
+    _M.propagation_context(request_span_ctx, proxy_span_ctx),
+    ngx.req)
 
   ngx.ctx["opentelemetry"] = {
     request_span_ctx = request_span_ctx,
