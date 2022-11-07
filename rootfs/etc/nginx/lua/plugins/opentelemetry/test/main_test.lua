@@ -1,4 +1,26 @@
-local main = require("plugins.opentelemetry.main")
+local main         = require("plugins.opentelemetry.main")
+local context      = require("opentelemetry.context")
+local span_context = require("opentelemetry.trace.span_context")
+
+describe("propagation_context", function()
+    it("returns request context when proxy context is not sampled", function()
+        local sampled            = 0
+        local proxy_span_context = span_context.new("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "aaaaaaaaaaaaaaaa", sampled, "",
+            false)
+        local proxy_ctx          = context:with_span_context(proxy_span_context)
+        local request_ctx        = context.new()
+        assert.are.same(request_ctx, main.propagation_context(request_ctx, proxy_ctx))
+    end)
+
+    it("returns proxy context when proxy context is sampled", function()
+        local sampled            = 1
+        local proxy_span_context = span_context.new("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "aaaaaaaaaaaaaaaa", sampled, "",
+            false)
+        local proxy_ctx          = context:with_span_context(proxy_span_context)
+        local request_ctx        = context.new()
+        assert.are.same(proxy_ctx, main.propagation_context(request_ctx, proxy_ctx))
+    end)
+end)
 
 describe("make_propagation_header_metric_tags", function()
     it("returns trace_id_present = false if no propagation headers present", function()
