@@ -256,8 +256,14 @@ function _M.rewrite()
     attributes = proxy_attributes,
   })
 
-  -- Inject trace context into the headers of proxy HTTP request
-  composite_propagator:inject(proxy_span_ctx, ngx.req)
+  -- This is a hack, but we're replacing the verbosity sampler with deferred sampling anyway. If the proxy_span_ctx is
+  -- not sampled, then the request is not verbosity sampled. In that situation, we want to propagate the context of the
+  -- outermost span, which is always included.
+  if proxy_span_ctx:span_context():is_sampled() then
+    composite_propagator:inject(proxy_span_ctx, ngx.req)
+  else
+    composite_propagator:inject(request_span_ctx, ngx.req)
+  end
 
   ngx.ctx["opentelemetry"] = {
     request_span_ctx = request_span_ctx,
