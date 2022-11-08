@@ -10,7 +10,8 @@ describe("shopify codec", function()
       { '000000000000ffff', '65535' },
       { '00000000ffffffff', '4294967295' },
       { '00000007ffffffff', '34359738367' },
-      { 'ffffffffffffffff', '18446744073709551615' }
+      { 'ffffffffffffffff', '18446744073709551615' },
+      { 'e74ba77c2bf52f77', '16666598997769924471' }
     }
 
     for _, v in ipairs(test_cases) do
@@ -32,7 +33,8 @@ describe("shopify codec", function()
       { 'ffff', '65535' },
       { 'ffffffff', '4294967295' },
       { '00000007ffffffff', '34359738367' },
-      { 'ffffffffffffffff', '18446744073709551615' }
+      { 'ffffffffffffffff', '18446744073709551615' },
+      { 'e74ba77c2bf52f77', '16666598997769924471' }
     }
     for _, v in ipairs(test_cases) do
       assert.are.same(v[2], utils.hex_to_decimal_string(v[1]))

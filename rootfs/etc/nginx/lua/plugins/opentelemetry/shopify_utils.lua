@@ -54,7 +54,7 @@ local function hex_to_decimal_string(input)
 
   local bytes = ffi_new("number_conversion")
 
-  local low = tonumber(input:sub(8), 16)
+  local low = tonumber(input:sub(9), 16)
   local high = tonumber(input:sub(1, 8), 16)
   if low == nil or high == nil then
     return nil, "input " .. tostring(input) .. " is an invalid hex"
