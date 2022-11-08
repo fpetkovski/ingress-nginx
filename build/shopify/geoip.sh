@@ -14,7 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+if ! [ -z "$DEBUG" ]; then
 	set -x
+fi
 
 set -o errexit
 set -o nounset
@@ -30,4 +32,4 @@ mkdir "${GEOIP_DB_DIR}"
 
 for url in "${free_urls[@]}"; do urls+=("gs://shopify-mmdb-free/$url.gz"); done
 for url in "${paid_urls[@]}"; do urls+=("gs://shopify-mmdb-licensed/$url.gz"); done
-for url in "${urls[@]}"; do echo "$url"; done | gcloud storage cp -I "${GEOIP_DB_DIR}" --access-token-file=/run/secrets/gcs_access_token
+for url in "${urls[@]}"; do echo "$url"; done | gsutil -m cp -I "${GEOIP_DB_DIR}"
