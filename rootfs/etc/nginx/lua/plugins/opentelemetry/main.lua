@@ -117,7 +117,7 @@ function _M.request_is_bypassed(proxy_upstream_name)
     return true
   end
 
-  for us, _v in pairs(_M.plugin_open_telemetry_bypassed_upstreams) do
+  for us, _ in pairs(_M.plugin_open_telemetry_bypassed_upstreams) do
     if string.match(proxy_upstream_name, us) then
       return true
     end
