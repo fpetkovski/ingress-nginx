@@ -214,6 +214,7 @@ The following table shows a configuration option's name, type, and the default v
 |[ssl-reject-handshake](#ssl-reject-handshake)|bool|"false"|
 |[debug-connections](#debug-connections)|[]string|"127.0.0.1,1.1.1.1/24"|
 |[plugin-opentelemetry-bypassed-upstreams](#plugin-opentelemetry-bypassed-upstreams)|string|"all"
+|[plugin-opentelemetry-deferred-sampling-upstreams](#plugin-opentelemetry-deferred-sampling-upstreams)|string|""
 |[plugin-opentelemetry-exporter-timeout](#plugin-opentelemetry-exporter-timeout)|int|5
 |[plugin-opentelemetry-exporter-otlp-endpoint](#plugin-opentelemetry-exporter-otlp-endpoint)|string|opentelemetry-collector:4318
 |[plugin-opentelemetry-bsp-max-queue-size](#plugin-opentelemetry-bsp-max-queue-size)|int|2048
@@ -1332,6 +1333,10 @@ _References:_
 ### plugin-opentelemetry-bypassed-upstreams
 
 Comma-separated list of upstreams that should be bypassed by the opentelemetry-plugin. When set to "all", all upstreams are bypassed. Each list item should be an alphanumeric string. If $proxy_upstream_name contains the string, then plugin will not run for that request.
+
+### plugin-opentelemetry-deferred-sampling-upstreams
+
+Comma-separated list of upstreams that should use deferred sampling. Each list item should be an alphanumeric string. If $proxy_upstream_name contains the string, then plugin will use deferred sampling for that request.
 
 ### plugin-opentelemetry-exporter-timeout
 

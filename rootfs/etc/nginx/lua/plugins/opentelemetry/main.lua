@@ -188,6 +188,7 @@ end
 
 function _M.init_worker(config)
   _M.plugin_open_telemetry_bypassed_upstreams = _M.parse_upstream_list(config.plugin_open_telemetry_bypassed_upstreams)
+  _M.plugin_open_telemetry_deferred_sampling_upstreams = _M.parse_upstream_list(config.plugin_open_telemetry_deferred_sampling_upstreams)
   _M.plugin_open_telemetry_exporter_otlp_endpoint = config.plugin_open_telemetry_exporter_otlp_endpoint
   _M.plugin_open_telemetry_exporter_otlp_headers = shopify_utils.w3c_baggage_to_table(config.plugin_open_telemetry_exporter_otlp_headers)
   _M.plugin_open_telemetry_exporter_timeout = config.plugin_open_telemetry_exporter_timeout
