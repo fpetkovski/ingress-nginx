@@ -33,7 +33,7 @@ describe('high_throughput_tenants middleware', function()
       ngx.shared.high_throughput_tracker:set(k..":_total:-1:count", 100)
       ngx.shared.high_throughput_tracker:set(k..":123:-1:count", 100 * r)
       ngx.shared.high_throughput_tracker:set(k..":_total:0:count", 100)
-      ngx.shared.high_throughput_tracker:set(k..":123:0:count", 1 * r)
+      ngx.shared.high_throughput_tracker:set(k..":123:0:count", 100 * r)
     end
 
     local headers = {}
@@ -52,40 +52,28 @@ describe('high_throughput_tenants middleware', function()
       headers = {}
     end)
 
-    it("sets the header to true when both quotas exceed the limit", function()
-      set_quotas("t", 0.5)
-      set_quotas("c", 0.5)
-
-      high_throughput_tenants.rewrite()
-
-      assert.are.same({["X-High-Throughput-Tenant"] = "true"}, headers)
-    end)
-
-    it("sets the header to true when time quota exceed the limit", function()
+    it("sets the header to time share when it's bigger", function()
       set_quotas("t", 0.5)
       set_quotas("c", 0.1)
 
       high_throughput_tenants.rewrite()
 
-      assert.are.same({["X-High-Throughput-Tenant"] = "true"}, headers)
+      assert.are.same("0.50", headers["X-High-Throughput-Tenant"])
     end)
 
-    it("sets the header to true when count quota exceed the limit", function()
+    it("sets the header to count share when it's bigger", function()
       set_quotas("t", 0.1)
       set_quotas("c", 0.5)
 
       high_throughput_tenants.rewrite()
 
-      assert.are.same({["X-High-Throughput-Tenant"] = "true"}, headers)
+      assert.are.same("0.50", headers["X-High-Throughput-Tenant"])
     end)
 
-    it("header is blank when no quota exceed the limit", function()
-      set_quotas("t", 0.1)
-      set_quotas("c", 0.1)
-
+    it("sets header to zero", function()
       high_throughput_tenants.rewrite()
 
-      assert.are.same({}, headers)
+      assert.are.same("0.00", headers["X-High-Throughput-Tenant"])
     end)
   end)
 

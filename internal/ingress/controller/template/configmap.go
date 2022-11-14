@@ -91,7 +91,7 @@ var (
 		"certificate_servers":           5120,
 		"ocsp_response_cache":           5120, // keep this same as certificate_servers
 		"global_throttle_cache":         10240,
-		"high_throughput_tracker":       1024,
+		"high_throughput_tracker":       10240,
 	}
 	defaultGlobalAuthRedirectParam = "rd"
 )
