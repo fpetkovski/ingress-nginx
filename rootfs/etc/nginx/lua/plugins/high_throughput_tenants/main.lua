@@ -1,10 +1,12 @@
 local ngx = ngx
 local math = math
 local tonumber = tonumber
+local string_format = string.format
 
 local X_HIGH_THROUGHPUT_HEADER = 'X-High-Throughput-Tenant'
+local X_HIGH_THROUGHPUT_HEADER_ALIAS = 'X-Tenant-Traffic-Share'
 local SHARED_DICT_NAME = 'high_throughput_tracker'
-local MIN_REQUEST_PERCENTAGE = 0.2
+
 local SERVER_TIMING_HEADER = "Server-Timing"
 
 local quota_tracker = require("plugins.high_throughput_tenants.quota_tracker")
@@ -46,11 +48,9 @@ function _M.rewrite()
   local count_tracker = get_count_tracker()
   local count_share = count_tracker:share(tenant)
 
-  local share = math.max(time_share, count_share)
-
-  if share > MIN_REQUEST_PERCENTAGE then
-    ngx.req.set_header(X_HIGH_THROUGHPUT_HEADER, 'true')
-  end
+  local share = string_format("%.2f", math.max(time_share, count_share))
+  ngx.req.set_header(X_HIGH_THROUGHPUT_HEADER, share)
+  ngx.req.set_header(X_HIGH_THROUGHPUT_HEADER_ALIAS, share)
 end
 
 function _M.log()
