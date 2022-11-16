@@ -38,6 +38,25 @@ local new_context = require("opentelemetry.context").new
 
 local _M = {}
 
+-- This is from https://gist.github.com/h1k3r/089d43771bdf811eefe8.
+-- Why not just use ngx.var to get this value? We need the hostname before it's
+-- available in ngx.var, so we need to run /bin/hostname inside the container.
+-- Since it's doing i/o, we should only use this function during worker
+-- initialization. ApiSix uses a variant of this strategy. I think we might be
+-- better off just setting an env var on the pod and reading it.
+function _M.get_hostname()
+  local f = io.popen("/bin/hostname")
+
+  if f ~= nil then
+    local h = f:read("*a") or ""
+    h = string.gsub(h, "[\n]", "")
+    f:close()
+    return h
+  else
+    return "unknown"
+  end
+end
+
 
 local function make_tracer_provider(sampler)
   local exporter = otlp_exporter_new(exporter_client_new(
@@ -64,7 +83,7 @@ local function make_tracer_provider(sampler)
   end
 
   local resource_attrs = {
-    attr.string("hostname", shopify_utils.get_hostname()),
+    attr.string("hostname", _M.get_hostname()),
     attr.string("service.name", _M.plugin_open_telemetry_service),
     attr.string("deployment.environment", _M.plugin_open_telemetry_environment)
   }
