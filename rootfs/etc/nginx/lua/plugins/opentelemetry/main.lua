@@ -12,6 +12,10 @@ local unpack   = unpack
 
 local OPENTELEMETRY_PLUGIN_VERSION = "0.2.1"
 
+-- This file monkey-patches the upstream tracer implementation so that the
+-- verbosity sampler works.
+require("plugins.opentelemetry.tracer_patch")
+
 local shopify_utils = require("plugins.opentelemetry.shopify_utils")
 local otel_utils = require("opentelemetry.util")
 local otel_global = require("opentelemetry.global")
@@ -56,7 +60,6 @@ function _M.get_hostname()
     return "unknown"
   end
 end
-
 
 local function make_tracer_provider(sampler)
   local exporter = otlp_exporter_new(exporter_client_new(
