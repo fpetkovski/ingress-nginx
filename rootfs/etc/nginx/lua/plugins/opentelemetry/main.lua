@@ -158,19 +158,11 @@ end
 -- @return boolean
 --------------------------------------------------------------------------------
 function _M.request_has_tracing_headers()
-  local ngx_ctx = ngx.ctx
-
-  if ngx_ctx["shopify_headers_present"] ~= nil then
-    return ngx_ctx["shopify_headers_present"]
-  end
-
   local headers = ngx.req.get_headers()
   if headers["x-cloud-trace-context"] and headers["x-shopify-trace-context"] then
     local sampled = string.match(headers["x-shopify-trace-context"], ";o=1") ~= nil
-    ngx_ctx["shopify_headers_present"] = sampled
     return sampled
   else
-    ngx_ctx["shopify_headers_present"] = false
     return false
   end
 end
