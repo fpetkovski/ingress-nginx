@@ -26,26 +26,6 @@ main.plugin_open_telemetry_bsp_max_queue_size                   = 2048
 main.plugin_open_telemetry_traces_sampler                       = "ShopifyVerbositySampler"
 main.plugin_open_telemetry_traces_sampler_arg                   = "0.5"
 
-describe("propagation_context", function()
-    it("returns request context when proxy context is not sampled", function()
-        local sampled            = 0
-        local proxy_span_context = span_context.new("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "aaaaaaaaaaaaaaaa", sampled, "",
-            false)
-        local proxy_ctx          = context:with_span_context(proxy_span_context)
-        local request_ctx        = context.new()
-        assert.are.same(request_ctx, main.propagation_context(request_ctx, proxy_ctx))
-    end)
-
-    it("returns proxy context when proxy context is sampled", function()
-        local sampled            = 1
-        local proxy_span_context = span_context.new("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "aaaaaaaaaaaaaaaa", sampled, "",
-            false)
-        local proxy_ctx          = context:with_span_context(proxy_span_context)
-        local request_ctx        = context.new()
-        assert.are.same(proxy_ctx, main.propagation_context(request_ctx, proxy_ctx))
-    end)
-end)
-
 describe("should_force_sample_buffered_spans", function()
     it("returns false if initial sampling decision was record_and_sample", function()
         local ngx_resp = make_ngx_resp(
