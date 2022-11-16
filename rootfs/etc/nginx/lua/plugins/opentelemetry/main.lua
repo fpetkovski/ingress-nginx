@@ -3,6 +3,7 @@ local error    = error
 local ipairs   = ipairs
 local ngx      = ngx
 local ngx_var  = ngx.var
+local io       = io
 local pairs    = pairs
 local pcall    = pcall
 local table    = table
