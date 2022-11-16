@@ -7,12 +7,14 @@
 -- See: https://w3c.github.io/trace-context/#traceresponse-header and
 -- https://w3c.github.io/trace-context/#load-balancer-deferred-sampling
 --------------------------------------------------------------------------------
-local span_context_new = require("opentelemetry.trace.span_context").new
-local response_header_getter_new = require("plugins.opentelemetry.response_header_getter").new
-local response_header_setter_new = require("plugins.opentelemetry.response_header_setter").new
+local span_context_new             = require("opentelemetry.trace.span_context").new
+local response_header_getter_new   = require("plugins.opentelemetry.response_header_getter").new
+local response_header_setter_new   = require("plugins.opentelemetry.response_header_setter").new
 -- Replace with otel utils when https://github.com/yangxikun/opentelemetry-lua/pull/46 has been merged
-local util = require("plugins.opentelemetry.shopify_utils")
-local traceresponse_header = "traceresponse"
+local util                         = require("plugins.opentelemetry.shopify_utils")
+local table                        = table
+local setmetatable                 = setmetatable
+local traceresponse_header         = "traceresponse"
 local traceresponse_header_version = "00"
 
 local _M = {

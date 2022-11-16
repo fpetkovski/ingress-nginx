@@ -1,3 +1,5 @@
+local setmetatable = setmetatable
+
 local _M = {
 }
 

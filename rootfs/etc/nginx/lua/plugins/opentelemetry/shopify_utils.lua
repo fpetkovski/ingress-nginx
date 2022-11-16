@@ -4,6 +4,7 @@ local tostring = tostring
 local ngx      = ngx
 local pairs    = pairs
 local string   = string
+local table    = table
 local tonumber = tonumber
 
 ffi.cdef [[
