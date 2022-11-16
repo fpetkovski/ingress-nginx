@@ -1,3 +1,8 @@
+--------------------------------------------------------------------------------
+-- Sampler for use in deferred sampling. If parent context is sampled, then
+-- record_and_sample; otherwise record_only. main.lua will update spans'
+-- sampling decision after the proxied-to service has responded.
+--------------------------------------------------------------------------------
 local result = require("opentelemetry.trace.sampling.result")
 
 local _M = {}
@@ -15,7 +20,7 @@ function _M.new()
     return setmetatable({}, mt)
 end
 
-function _M.should_sample(_self, params)
+function _M.should_sample(_, params)
     -- This should_sample method is built to expect params.parent_ctx to be a
     -- span_context (not a full context object). Once
     -- https://github.com/yangxikun/opentelemetry-lua/issues/48 has been merged,
