@@ -2,7 +2,6 @@
 local ffi      = require('ffi')
 local tostring = tostring
 local ngx      = ngx
-local io       = io
 local pairs    = pairs
 local string   = string
 local tonumber = tonumber
