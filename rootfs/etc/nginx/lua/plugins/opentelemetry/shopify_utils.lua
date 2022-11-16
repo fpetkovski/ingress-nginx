@@ -1,9 +1,10 @@
 -- Much of this file was adapted from https://github.com/Shopify/nginx-routing-modules/pull/2745/files
-local ffi = require('ffi')
+local ffi      = require('ffi')
 local tostring = tostring
-local ngx = ngx
-local pairs = pairs
-local string = string
+local ngx      = ngx
+local io       = io
+local pairs    = pairs
+local string   = string
 local tonumber = tonumber
 
 ffi.cdef [[
@@ -141,6 +142,23 @@ function _M.w3c_baggage_to_table(str)
   local t = {}
   for k, v in string.gmatch(str, "(%w+)=(%w+)") do
     t[k] = v
+  end
+  return t
+end
+
+-- Remove once https://github.com/yangxikun/opentelemetry-lua/pull/46 is released
+function _M.trim(s)
+  return s:match '^%s*(.*%S)' or ''
+end
+
+-- Remove once https://github.com/yangxikun/opentelemetry-lua/pull/46 is released
+function _M.split(inputstr, sep)
+  if sep == nil then
+    sep = "%s"
+  end
+  local t = {}
+  for str in string.gmatch(inputstr, "([^" .. sep .. "]+)") do
+    table.insert(t, str)
   end
   return t
 end

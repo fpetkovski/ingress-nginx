@@ -14,6 +14,8 @@ local span_context_new   = require("opentelemetry.trace.span_context").new
 local empty_span_context = span_context_new()
 
 local _M = {
+    INVALID_TRACE_ID = "00000000000000000000000000000000",
+    INVALID_SPAN_ID = "0000000000000000"
 }
 
 local mt = {
@@ -24,8 +26,6 @@ local SHOPIFY_HEADER_REGEXP = '^(\\w{32})(/(\\d+))?(;o=(\\d+))?'
 local GKE_HEADER_KEY = "x-cloud-trace-context"
 local SHOPIFY_HEADER_KEY = "x-shopify-trace-context"
 local TRACESTATE_HEADER_KEY = "tracestate"
-local INVALID_TRACE_ID = "00000000000000000000000000000000"
-local INVALID_SPAN_ID = "0000000000000000"
 
 function _M.new()
     return setmetatable(
@@ -57,12 +57,12 @@ function _M:inject(context, carrier, setter)
         end
     end
 
-    if span_id == INVALID_SPAN_ID then
+    if span_id == _M.INVALID_SPAN_ID then
         ngx.log(ngx.WARN, "invalid span_id: " .. span_id)
         return
     end
 
-    if span_context.trace_id == INVALID_TRACE_ID then
+    if span_context.trace_id == _M.INVALID_TRACE_ID then
         ngx.log(ngx.WARN, "invalid trace_id: " .. span_context.trace_id)
         return
     end
@@ -114,12 +114,12 @@ function _M:extract(context, carrier, getter)
     local raw_span_id = captures[3]
     local raw_sampled = captures[5]
 
-    if raw_span_id == INVALID_SPAN_ID then
+    if raw_span_id == _M.INVALID_SPAN_ID then
         ngx.log(ngx.WARN, "propagator extract - invalid span id found: " .. raw_span_id)
         return context:with_span_context(empty_span_context)
     end
 
-    if trace_id == INVALID_TRACE_ID then
+    if trace_id == _M.INVALID_TRACE_ID then
         ngx.log(ngx.WARN, "propagator extract - invalid trace id found: " .. trace_id)
         return context:with_span_context(empty_span_context)
     end
