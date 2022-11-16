@@ -112,6 +112,20 @@ local function create_tracer()
   )
 end
 
+function _M.request_is_bypassed(proxy_upstream_name)
+  if _M.plugin_open_telemetry_bypassed_upstreams["all"] then
+    return true
+  end
+
+  for us, _ in pairs(_M.plugin_open_telemetry_bypassed_upstreams) do
+    if string.match(proxy_upstream_name, us) then
+      return true
+    end
+  end
+
+  return false
+end
+
 --------------------------------------------------------------------------------
 -- At present, we only want to run tracing code if Shopify headers are present.
 -- We use tracing_enabled to figure out whether or not to run tracing code so
@@ -133,16 +147,23 @@ function _M.request_is_traced()
     ngx_ctx["shopify_headers_present"] = false
     return false
   end
-
 end
 
 --------------------------------------------------------------------------------
--- Some deployments of ingress-nginx do not let you toggle plugins with a
--- configmap (e.g. nginx-routing-modules). This function exists to give those
--- deployments a kill switch.
+-- Parses a comma-separated list of upstream names into a table
+--
+-- @param upstream_list_str A comma-separated list of upstream names to bypass
 --------------------------------------------------------------------------------
-function _M.plugin_enabled()
-  return _M.plugin_open_telemetry_enabled
+function _M.parse_upstream_list(upstream_list_str)
+  if not upstream_list_str then
+    return { all = true }
+  end
+
+  local list = { }
+  for us in string.gmatch(upstream_list_str, "(%w+)") do
+    list[us] = true
+  end
+  return list
 end
 
 --------------------------------------------------------------------------------
@@ -166,10 +187,7 @@ function _M.make_propagation_header_metric_tags(ngx_headers, upstream_name)
 end
 
 function _M.init_worker(config)
-  _M.plugin_open_telemetry_enabled = config.plugin_open_telemetry_enabled
-  if not _M.plugin_enabled() then
-    return
-  end
+  _M.plugin_open_telemetry_bypassed_upstreams = _M.parse_upstream_list(config.plugin_open_telemetry_bypassed_upstreams)
   _M.plugin_open_telemetry_exporter_otlp_endpoint = config.plugin_open_telemetry_exporter_otlp_endpoint
   _M.plugin_open_telemetry_exporter_otlp_headers = shopify_utils.w3c_baggage_to_table(config.plugin_open_telemetry_exporter_otlp_headers)
   _M.plugin_open_telemetry_exporter_timeout = config.plugin_open_telemetry_exporter_timeout
@@ -216,7 +234,7 @@ function _M.propagation_context(request_span_ctx, proxy_span_ctx)
 end
 
 function _M.rewrite()
-  if not _M.plugin_enabled() then
+  if _M.request_is_bypassed(ngx.var.proxy_upstream_name) then
     return
   end
 
@@ -297,7 +315,7 @@ function _M.parse_upstream_addr(input)
 end
 
 function _M.header_filter()
-  if not _M.plugin_enabled() or not _M.request_is_traced() then
+  if _M.request_is_bypassed(ngx.var.proxy_upstream_name) or not _M.request_is_traced() then
     return
   end
 
@@ -347,9 +365,10 @@ function _M.header_filter()
 end
 
 function _M.log()
-  if not _M.plugin_enabled() or not _M.request_is_traced() then
+  if _M.request_is_bypassed(ngx.var.proxy_upstream_name) or not _M.request_is_traced() then
     return
   end
+
   local log_start = otel_utils.gettimeofday_ms()
   local ngx_ctx = ngx.ctx
   if not ngx_ctx["opentelemetry"] then

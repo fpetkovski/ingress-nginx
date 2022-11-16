@@ -17,12 +17,24 @@ removed.
 This plugin's behavior can be configured using ingress-nginx's configmap. See
 [`configmap.md`](docs/user-guide/nginx-configuration/configmap.md) for details.
 
-### Enabling and disabling the plugin
+### Enabling and disabling the plugin globally
+
+Disable this plugin by removing `"opentelemetry"` from the `plugins: ` configmap
+entry OR setting `plugin-opentelemetry-bypassed-upstreams: "all"`.`
 
 Enable this plugin by adding `"opentelemetry"` to the `plugins:` configmap entry
-AND setting `plugin-opentelemetry-enabled: true`.
+AND setting `plugin-opentelemetry-bypassed-upstreams: ""`.
 
 There are two steps to enable the plugin because nginx-routing-modules requires
 you to update `nginx.tmpl` and do a code deploy to enable/disable plugins (at
-the time of this writing). `plugin-opentelemetry-enabled` is therefore provided
-as an emergency shutoff.
+the time of this writing). `plugin-opentelemetry-bypassed-upstreams` is
+therefore provided as an emergency shutoff.
+
+### Disabling the plugin for individual upstreams
+
+To disable the plugin for an individual NGINX upstream (i.e. an app), add that
+app's name to the `plugin-opentelemetry-bypassed-upstreams` configmap entry. It
+is a comma-separated list. So if you were trying to bypass `arrive-server` and
+`kepler`, you'd set `plugin-opentelemetry-bypassed-upstreams:
+"arrive-server,kepler`. This works on a regex match, so you could also do
+`plugin-opentelemetry-bypassed-upstreams: "arrive-s,kepl"`.

@@ -123,3 +123,49 @@ describe("parse_upstream_addr", function()
         assert.are_same(output.port, expected.port)
     end)
 end)
+
+describe("parse_upstream_list", function()
+    it("returns all when upstream str nil (something's gone wrong - don't run the plugin)", function()
+        assert.are_same(main.parse_upstream_list(nil), { all = true })
+    end)
+
+    it("returns all when upstream str is all", function()
+        assert.are_same(main.parse_upstream_list("all"), { all = true })
+    end)
+
+    it("returns items from comma-separated list when upstream str contains one", function()
+        local input = "foo,bar,baz,bat"
+        assert.are_same(
+            main.parse_upstream_list("foo,bar,baz,bat,all"),
+            { foo = true, bar = true, baz = true, bat = true, all = true}
+        )
+    end)
+
+    it("returns items from comma-separated list when upstream str has spaces", function()
+        local input = "foo,bar,baz,bat"
+        assert.are_same(
+            main.parse_upstream_list("   foo,bar ,baz , bat"),
+            { foo = true, bar = true, baz = true, bat = true }
+        )
+    end)
+end)
+
+describe("request_is_bypassed", function()
+    it("returns true if bypassed_upstreams contains all", function()
+        main.plugin_open_telemetry_bypassed_upstreams = main.parse_upstream_list("all,foo,bar")
+        local upstream = "remote_gcp-us-east1_core_production_pool_ssl"
+        assert.is_true(main.request_is_bypassed(upstream))
+    end)
+
+    it("returns false if bypassed_upstreams does not contain match for upstream", function()
+        main.plugin_open_telemetry_bypassed_upstreams = main.parse_upstream_list("wat,foo,bar,baz")
+        local upstream = "remote_gcp-us-east1_core_production_pool_ssl"
+        assert.is_false(main.request_is_bypassed(upstream))
+    end)
+
+    it("returns true if any part of upstream matches", function()
+        main.plugin_open_telemetry_bypassed_upstreams = main.parse_upstream_list("core")
+        local upstream = "remote_gcp-us-east1_core_production_pool_ssl"
+        assert.is_true(main.request_is_bypassed(upstream))
+    end)
+end)

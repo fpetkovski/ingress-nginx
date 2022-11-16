@@ -213,7 +213,7 @@ The following table shows a configuration option's name, type, and the default v
 |[service-upstream](#service-upstream)|bool|"false"|
 |[ssl-reject-handshake](#ssl-reject-handshake)|bool|"false"|
 |[debug-connections](#debug-connections)|[]string|"127.0.0.1,1.1.1.1/24"|
-|[plugin-opentelemetry-enabled](#plugin-opentelemetry-enabled)|bool|false
+|[plugin-opentelemetry-bypassed-upstreams](#plugin-opentelemetry-bypassed-upstreams)|string|"all"
 |[plugin-opentelemetry-exporter-timeout](#plugin-opentelemetry-exporter-timeout)|int|5
 |[plugin-opentelemetry-exporter-otlp-endpoint](#plugin-opentelemetry-exporter-otlp-endpoint)|string|opentelemetry-collector:4318
 |[plugin-opentelemetry-bsp-max-queue-size](#plugin-opentelemetry-bsp-max-queue-size)|int|2048
@@ -1329,11 +1329,9 @@ _References:_
 
 ## plugin-open-telemetry
 
-### plugin-opentelemetry-enabled
+### plugin-opentelemetry-bypassed-upstreams
 
-When set to false, forces the plugin to no-op. Used to disable the plugin in
-context where its loading is not determined by configmap (e.g.
-nginx-routing-modules).
+Comma-separated list of upstreams that should be bypassed by the opentelemetry-plugin. When set to "all", all upstreams are bypassed. Each list item should be an alphanumeric string. If $proxy_upstream_name contains the string, then plugin will not run for that request.
 
 ### plugin-opentelemetry-exporter-timeout
 

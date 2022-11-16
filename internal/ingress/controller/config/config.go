@@ -782,10 +782,12 @@ type Configuration struct {
 	// Start OpenTelemetry configuration
 	////////////////////////////////////////////////////////////////////////////
 
-	// PluginOpenTelemetryExporterEnabled when set to false, forces the plugin
-	// to no-op. Used to disable the plugin in context where its loading is not
-	// determined by configmap (e.g. nginx-routing-modules).
-	PluginOpenTelemetryEnabled bool `json:"plugin-opentelemetry-enabled"`
+	// PluginOpenTelemetryBypassedUpstreams is comma-separated list of upstreams
+	// that should be bypassed by the opentelemetry-plugin. When set to "all",
+	// all upstreams are bypassed. Each list item should be an alphanumeric
+	// string. If $proxy_upstream_name contains the string, then plugin will not
+	// run for that request.
+	PluginOpenTelemetryBypassedUpstreams string `json:"plugin-opentelemetry-bypassed-upstreams"`
 
 	// PluginOpenTelemetryExporterOtlpEndpoint sets endpoint to which
 	// OpenTelemetry exporter will send spans. Do not include http:// prefix or
@@ -1003,7 +1005,7 @@ func NewDefault() Configuration {
 		GlobalRateLimitMemcachedMaxIdleTimeout:               10000,
 		GlobalRateLimitMemcachedPoolSize:                     50,
 		GlobalRateLimitStatucCode:                            429,
-		PluginOpenTelemetryEnabled:                           false,
+		PluginOpenTelemetryBypassedUpstreams:                 "all",
 		PluginOpenTelemetryExporterTimeout:                   5,
 		PluginOpenTelemetryExporterOtlpEndpoint:              "opentelemetry-collector:4318",
 		PluginOpenTelemetryBspMaxQueueSize:                   2048,

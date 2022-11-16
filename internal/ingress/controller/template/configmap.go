@@ -66,7 +66,7 @@ const (
 	luaSharedDictsKey                     = "lua-shared-dicts"
 	plugins                               = "plugins"
 	debugConnections                      = "debug-connections"
-	otelEnabled                           = "plugin-opentelemetry-enabled"
+	otelBypassedUpstreams                 = "plugin-opentelemetry-bypassed-upstreams"
 	otelExporterOtlpEndpoint              = "plugin-opentelemetry-exporter-otlp-endpoint"
 	otelBspMaxQueueSize                   = "plugin-opentelemetry-bsp-max-queue-size"
 	otelBspMaxExportBatchSize             = "plugin-opentelemetry-bsp-max-export-batch-size"
