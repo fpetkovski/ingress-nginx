@@ -789,6 +789,10 @@ type Configuration struct {
 	// run for that request.
 	PluginOpenTelemetryBypassedUpstreams string `json:"plugin-opentelemetry-bypassed-upstreams"`
 
+	// PluginOpenTelemetryDeferredSamplingUpstreams is comma-separated list of
+	// upstreams for which we want to use the deferred sampler.
+	PluginOpenTelemetryDeferredSamplingUpstreams string `json:"plugin-opentelemetry-deferred-sampling-upstreams"`
+
 	// PluginOpenTelemetryExporterOtlpEndpoint sets endpoint to which
 	// OpenTelemetry exporter will send spans. Do not include http:// prefix or
 	// /v1/traces path as part of the endpoint — opentelemetry-lua adds this
@@ -1006,6 +1010,7 @@ func NewDefault() Configuration {
 		GlobalRateLimitMemcachedPoolSize:                     50,
 		GlobalRateLimitStatucCode:                            429,
 		PluginOpenTelemetryBypassedUpstreams:                 "all",
+		PluginOpenTelemetryDeferredSamplingUpstreams:         "",
 		PluginOpenTelemetryExporterTimeout:                   5,
 		PluginOpenTelemetryExporterOtlpEndpoint:              "opentelemetry-collector:4318",
 		PluginOpenTelemetryBspMaxQueueSize:                   2048,
