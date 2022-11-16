@@ -1,6 +1,30 @@
 local main         = require("plugins.opentelemetry.main")
 local context      = require("opentelemetry.context")
+local result       = require("opentelemetry.trace.sampling.result")
 local span_context = require("opentelemetry.trace.span_context")
+local utils        = require("plugins.opentelemetry.shopify_utils")
+
+local function make_ngx_resp(headers)
+    return {
+        get_headers = function()
+            return headers
+        end
+    }
+end
+
+-- Set defaults, normally provided via config passed to `init_worker`
+main.plugin_open_telemetry_bsp_inactive_timeout                 = 2
+main.plugin_open_telemetry_bsp_max_export_batch_size            = 512
+main.plugin_open_telemetry_service                              = "nginx"
+main.plugin_open_telemetry_environment                          = "production"
+main.plugin_open_telemetry_shopify_verbosity_sampler_percentage = 1
+main.plugin_open_telemetry_bsp_drop_on_queue_full               = true
+main.plugin_open_telemetry_exporter_otlp_endpoint               = "otel-collector.dns.podman:4318"
+main.plugin_open_telemetry_exporter_timeout                     = 5
+main.plugin_open_telemetry_enabled                              = true
+main.plugin_open_telemetry_bsp_max_queue_size                   = 2048
+main.plugin_open_telemetry_traces_sampler                       = "ShopifyVerbositySampler"
+main.plugin_open_telemetry_traces_sampler_arg                   = "0.5"
 
 describe("propagation_context", function()
     it("returns request context when proxy context is not sampled", function()
@@ -19,6 +43,36 @@ describe("propagation_context", function()
         local proxy_ctx          = context:with_span_context(proxy_span_context)
         local request_ctx        = context.new()
         assert.are.same(proxy_ctx, main.propagation_context(request_ctx, proxy_ctx))
+    end)
+end)
+
+describe("should_force_sample_buffered_spans", function()
+    it("returns false if initial sampling decision was record_and_sample", function()
+        local ngx_resp = make_ngx_resp(
+            { traceresponse = "00-00000000000000000000000000000001-0000000000000001-01" }
+        )
+        assert.is_false(main.should_force_sample_buffered_spans(ngx_resp, result.record_and_sample))
+    end)
+
+    it("returns true if initial sampling decision was record_only and traceresponse includes sampling decision 01",
+        function()
+            local ngx_resp = make_ngx_resp(
+                { traceresponse = "00-00000000000000000000000000000001-0000000000000001-01" }
+            )
+            assert.is_true(main.should_force_sample_buffered_spans(ngx_resp, result.record_only))
+        end)
+
+    it("returns false if initial sampling decision was record_only and traceresponse includes sampling decision 00",
+        function()
+            local ngx_resp = make_ngx_resp(
+                { traceresponse = "00-00000000000000000000000000000001-0000000000000001-00" }
+            )
+            assert.is_false(main.should_force_sample_buffered_spans(ngx_resp, result.record_only))
+        end)
+
+    it("returns false if initial sampling decision was record_only and traceresponse was absent", function()
+        local ngx_resp = make_ngx_resp({ hi = "mom" })
+        assert.is_false(main.should_force_sample_buffered_spans(ngx_resp, result.record_only))
     end)
 end)
 
@@ -51,34 +105,6 @@ describe("make_propagation_header_metric_tags", function()
         table.sort(result)
         table.sort(expected)
         assert.are.same(result, expected)
-    end)
-end)
-
-describe("request_is_traced", function()
-    it("returns true when both headers are present and o=1", function()
-        ngx.ctx["shopify_headers_present"] = nil
-        stub(ngx.req, "get_headers", function()
-            return {
-                ["x-shopify-trace-context"] = "B2993819A27935B8EF8295DFFC6DC44B/13421691958286113626;o=1",
-                ["x-cloud-trace-context"] = "B2993819A27935B8EF8295DFFC6DC44B/13421691958286113626;o=1"
-            }
-        end)
-        assert.is_true(main.request_is_traced())
-        assert.is_true(ngx.ctx["shopify_headers_present"])
-        ngx.req.get_headers:revert()
-    end)
-
-    it("returns false when both headers are present and o=0", function()
-        ngx.ctx["shopify_headers_present"] = nil
-        stub(ngx.req, "get_headers", function()
-            return {
-                ["x-shopify-trace-context"] = "B2993819A27935B8EF8295DFFC6DC44B/13421691958286113626;o=0",
-                ["x-cloud-trace-context"] = "B2993819A27935B8EF8295DFFC6DC44B/13421691958286113626;o=0"
-            }
-        end)
-        assert.is_false(main.request_is_traced())
-        assert.is_false(ngx.ctx["shopify_headers_present"])
-        ngx.req.get_headers:revert()
     end)
 end)
 
@@ -124,48 +150,120 @@ describe("parse_upstream_addr", function()
     end)
 end)
 
-describe("parse_upstream_list", function()
-    it("returns all when upstream str nil (something's gone wrong - don't run the plugin)", function()
-        assert.are_same(main.parse_upstream_list(nil), { all = true })
-    end)
-
-    it("returns all when upstream str is all", function()
-        assert.are_same(main.parse_upstream_list("all"), { all = true })
-    end)
-
-    it("returns items from comma-separated list when upstream str contains one", function()
-        local input = "foo,bar,baz,bat"
-        assert.are_same(
-            main.parse_upstream_list("foo,bar,baz,bat,all"),
-            { foo = true, bar = true, baz = true, bat = true, all = true}
-        )
-    end)
-
-    it("returns items from comma-separated list when upstream str has spaces", function()
-        local input = "foo,bar,baz,bat"
-        assert.are_same(
-            main.parse_upstream_list("   foo,bar ,baz , bat"),
-            { foo = true, bar = true, baz = true, bat = true }
-        )
-    end)
-end)
-
 describe("request_is_bypassed", function()
     it("returns true if bypassed_upstreams contains all", function()
-        main.plugin_open_telemetry_bypassed_upstreams = main.parse_upstream_list("all,foo,bar")
+        main.plugin_open_telemetry_bypassed_upstreams = utils.parse_upstream_list("all,foo,bar")
         local upstream = "remote_gcp-us-east1_core_production_pool_ssl"
         assert.is_true(main.request_is_bypassed(upstream))
     end)
 
     it("returns false if bypassed_upstreams does not contain match for upstream", function()
-        main.plugin_open_telemetry_bypassed_upstreams = main.parse_upstream_list("wat,foo,bar,baz")
+        main.plugin_open_telemetry_bypassed_upstreams = utils.parse_upstream_list("wat,foo,bar,baz")
         local upstream = "remote_gcp-us-east1_core_production_pool_ssl"
         assert.is_false(main.request_is_bypassed(upstream))
     end)
 
     it("returns true if any part of upstream matches", function()
-        main.plugin_open_telemetry_bypassed_upstreams = main.parse_upstream_list("core")
+        main.plugin_open_telemetry_bypassed_upstreams = utils.parse_upstream_list("core")
         local upstream = "remote_gcp-us-east1_core_production_pool_ssl"
         assert.is_true(main.request_is_bypassed(upstream))
     end)
+end)
+
+describe("new_tracer_provider", function()
+    it("returns a tracer provider with sampler and arg as specified", function()
+        local provider = main.create_tracer_provider(
+            "ShopifyVerbositySampler", "0.25")
+        assert.are_same(
+            "ShopifyVerbositySampler{0.25}",
+            provider.sampler:get_description()
+        )
+    end)
+
+    it("errors out if sampler is nonexistent", function()
+        assert.has_error(
+            function() main.create_tracer_provider("MakeBelieveSampler") end,
+            "could not find sampler MakeBelieveSampler")
+    end)
+end)
+
+describe("should_use_deferred_sampler", function()
+    it("returns true if deferred_sampling_upstreams matches arg", function()
+        ngx.ctx.opentelemetry_should_use_deferred_sampler = nil
+        main.plugin_open_telemetry_deferred_sampling_upstreams = { foo = true }
+        assert.is_true(main.should_use_deferred_sampler("foo-bar-80"))
+    end)
+
+    it("returns false if deferred_sampling_upstreams does not match arg", function()
+        ngx.ctx.opentelemetry_should_use_deferred_sampler = nil
+        main.plugin_open_telemetry_deferred_sampling_upstreams = { foo = true }
+        assert.is_false(main.should_use_deferred_sampler("baz-bat-80"))
+    end)
+
+    it("returns true if deferred_sampling_upstreams is all", function()
+        ngx.ctx.opentelemetry_should_use_deferred_sampler = nil
+        main.plugin_open_telemetry_deferred_sampling_upstreams = { all = true }
+        assert.is_true(main.should_use_deferred_sampler("baz-bat-80"))
+    end)
+
+    it("returns false if deferred_sampling_upstreams is empty table", function()
+        ngx.ctx.opentelemetry_should_use_deferred_sampler = nil
+        main.plugin_open_telemetry_deferred_sampling_upstreams = {}
+        assert.is_false(main.should_use_deferred_sampler("baz-bat-80"))
+    end)
+end)
+
+describe("plugin_should_run", function()
+    before_each(function()
+        ngx.ctx.opentelemetry_plugin_should_run = nil
+    end)
+    it("respects preexisting context values", function()
+        ngx.ctx.opentelemetry_plugin_should_run = "hello, world!"
+        assert.are_same("hello, world!", main.plugin_should_run())
+    end)
+
+    it("returns false if request is bypassed", function()
+        local orig = main.request_is_bypassed
+        main.request_is_bypassed = function() return true end
+        assert.is_false(main.plugin_should_run())
+        main.request_is_bypassed = orig
+    end)
+
+    it("returns true if request is NOT bypassed and using deferred sampler", function()
+        local orig_bypass = main.request_is_bypassed
+        local orig_deferred = main.should_use_deferred_sampler
+        main.request_is_bypassed = function() return false end
+        main.should_use_deferred_sampler = function() return true end
+        assert.is_true(main.plugin_should_run())
+        main.request_is_bypassed = orig_bypass
+        main.should_use_deferred_sampler = orig_deferred
+    end)
+
+    it("returns false if request is NOT bypassed, is NOT using deferred sampler, and does NOT  have tracing headers",
+        function()
+            local orig_bypass = main.request_is_bypassed
+            local orig_deferred = main.should_use_deferred_sampler
+            local orig_request_has_tracing_headers = main.request_has_tracing_headers
+            main.request_is_bypassed = function() return false end
+            main.should_use_deferred_sampler = function() return false end
+            main.request_has_tracing_headers = function() return false end
+            assert.is_false(main.plugin_should_run())
+            main.request_is_bypassed = orig_bypass
+            main.should_use_deferred_sampler = orig_deferred
+            main.request_has_tracing_headers = orig_request_has_tracing_headers
+        end)
+
+    it("returns true if request is NOT bypassed, is NOT using verbosity sampler, and DOES have tracing headers",
+        function()
+            local orig_bypass = main.request_is_bypassed
+            local orig_deferred = main.should_use_deferred_sampler
+            local orig_request_has_tracing_headers = main.request_has_tracing_headers
+            main.request_is_bypassed = function() return false end
+            main.should_use_deferred_sampler = function() return false end
+            main.request_has_tracing_headers = function() return true end
+            assert.is_true(main.plugin_should_run())
+            main.request_is_bypassed = orig_bypass
+            main.should_use_deferred_sampler = orig_deferred
+            main.request_has_tracing_headers = orig_request_has_tracing_headers
+        end)
 end)

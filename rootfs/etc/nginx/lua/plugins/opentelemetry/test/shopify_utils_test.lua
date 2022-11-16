@@ -69,3 +69,29 @@ describe("w3c_baggage_to_table", function()
         assert.are.same(utils.w3c_baggage_to_table("key1=val1;foobar"), { key1 = "val1" })
     end)
 end)
+
+describe("parse_upstream_list", function()
+    it("returns all when upstream str nil (something's gone wrong - don't run the plugin)", function()
+        assert.are_same(utils.parse_upstream_list(nil), { all = true })
+    end)
+
+    it("returns all when upstream str is all", function()
+        assert.are_same(utils.parse_upstream_list("all"), { all = true })
+    end)
+
+    it("returns items from comma-separated list when upstream str contains one", function()
+        local input = "foo,bar,baz,bat"
+        assert.are_same(
+            utils.parse_upstream_list("foo,bar,baz,bat,all"),
+            { foo = true, bar = true, baz = true, bat = true, all = true }
+        )
+    end)
+
+    it("returns items from comma-separated list when upstream str has spaces", function()
+        local input = "foo,bar,baz,bat"
+        assert.are_same(
+            utils.parse_upstream_list("   foo,bar ,baz , bat"),
+            { foo = true, bar = true, baz = true, bat = true }
+        )
+    end)
+end)
