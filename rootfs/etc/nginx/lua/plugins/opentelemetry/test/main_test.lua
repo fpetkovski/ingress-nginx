@@ -1,8 +1,6 @@
-local main         = require("plugins.opentelemetry.main")
-local context      = require("opentelemetry.context")
-local result       = require("opentelemetry.trace.sampling.result")
-local span_context = require("opentelemetry.trace.span_context")
-local utils        = require("plugins.opentelemetry.shopify_utils")
+local main   = require("plugins.opentelemetry.main")
+local result = require("opentelemetry.trace.sampling.result")
+local utils  = require("plugins.opentelemetry.shopify_utils")
 
 local function make_ngx_resp(headers)
     return {
@@ -31,7 +29,7 @@ describe("should_force_sample_buffered_spans", function()
         local ngx_resp = make_ngx_resp(
             { traceresponse = "00-00000000000000000000000000000001-0000000000000001-01" }
         )
-        assert.is_false(main.should_force_sample_buffered_spans(ngx_resp, result.record_and_sample))
+        assert.is_false(main.should_force_sample_buffered_spans(ngx_resp, result.record_and_sample, "DEFERRED_SAMPLING"))
     end)
 
     it("returns true if initial sampling decision was record_only and traceresponse includes sampling decision 01",
@@ -39,7 +37,15 @@ describe("should_force_sample_buffered_spans", function()
             local ngx_resp = make_ngx_resp(
                 { traceresponse = "00-00000000000000000000000000000001-0000000000000001-01" }
             )
-            assert.is_true(main.should_force_sample_buffered_spans(ngx_resp, result.record_only))
+            assert.is_true(main.should_force_sample_buffered_spans(ngx_resp, result.record_only, "DEFERRED_SAMPLING"))
+        end)
+
+    it("returns false if plugin mode is not deferred_sampling",
+        function()
+            local ngx_resp = make_ngx_resp(
+                { traceresponse = "00-00000000000000000000000000000001-0000000000000001-01" }
+            )
+            assert.is_false(main.should_force_sample_buffered_spans(ngx_resp, result.record_only, "NOT_DEFERRED_SAMPLING"))
         end)
 
     it("returns false if initial sampling decision was record_only and traceresponse includes sampling decision 00",
@@ -47,12 +53,12 @@ describe("should_force_sample_buffered_spans", function()
             local ngx_resp = make_ngx_resp(
                 { traceresponse = "00-00000000000000000000000000000001-0000000000000001-00" }
             )
-            assert.is_false(main.should_force_sample_buffered_spans(ngx_resp, result.record_only))
+            assert.is_false(main.should_force_sample_buffered_spans(ngx_resp, result.record_only, "DEFERRED_SAMPLING" ))
         end)
 
     it("returns false if initial sampling decision was record_only and traceresponse was absent", function()
         local ngx_resp = make_ngx_resp({ hi = "mom" })
-        assert.is_false(main.should_force_sample_buffered_spans(ngx_resp, result.record_only))
+        assert.is_false(main.should_force_sample_buffered_spans(ngx_resp, result.record_only, "DEFERRED_SAMPLING"))
     end)
 end)
 
@@ -193,33 +199,34 @@ describe("should_use_deferred_sampler", function()
     end)
 end)
 
-describe("plugin_should_run", function()
+describe("plugin_mode", function()
     before_each(function()
-        ngx.ctx.opentelemetry_plugin_should_run = nil
-    end)
-    it("respects preexisting context values", function()
-        ngx.ctx.opentelemetry_plugin_should_run = "hello, world!"
-        assert.are_same("hello, world!", main.plugin_should_run())
+        ngx.ctx.opentelemetry_plugin_mode = nil
     end)
 
-    it("returns false if request is bypassed", function()
+    it("respects preexisting context values", function()
+        ngx.ctx.opentelemetry_plugin_mode = "hello, world!"
+        assert.are_same("hello, world!", main.plugin_mode())
+    end)
+
+    it("returns BYPASSED if request is bypassed", function()
         local orig = main.request_is_bypassed
         main.request_is_bypassed = function() return true end
-        assert.is_false(main.plugin_should_run())
+        assert.are.same(main.plugin_mode(), "BYPASSED")
         main.request_is_bypassed = orig
     end)
 
-    it("returns true if request is NOT bypassed and using deferred sampler", function()
+    it("returns DEFERRED_SAMPLING if request is NOT bypassed and using deferred sampler", function()
         local orig_bypass = main.request_is_bypassed
         local orig_deferred = main.should_use_deferred_sampler
         main.request_is_bypassed = function() return false end
         main.should_use_deferred_sampler = function() return true end
-        assert.is_true(main.plugin_should_run())
+        assert.are.same(main.plugin_mode(), "DEFERRED_SAMPLING")
         main.request_is_bypassed = orig_bypass
         main.should_use_deferred_sampler = orig_deferred
     end)
 
-    it("returns false if request is NOT bypassed, is NOT using deferred sampler, and does NOT  have tracing headers",
+    it("returns BYPASSED if request is NOT bypassed, is NOT using deferred sampler, and does NOT  have tracing headers",
         function()
             local orig_bypass = main.request_is_bypassed
             local orig_deferred = main.should_use_deferred_sampler
@@ -227,13 +234,14 @@ describe("plugin_should_run", function()
             main.request_is_bypassed = function() return false end
             main.should_use_deferred_sampler = function() return false end
             main.request_has_tracing_headers = function() return false end
-            assert.is_false(main.plugin_should_run())
+            assert.are.same(main.plugin_mode(), "BYPASSED")
             main.request_is_bypassed = orig_bypass
             main.should_use_deferred_sampler = orig_deferred
             main.request_has_tracing_headers = orig_request_has_tracing_headers
         end)
 
-    it("returns true if request is NOT bypassed, is NOT using verbosity sampler, and DOES have tracing headers",
+    it("returns VERBOSITY_SAMPLING if request is NOT bypassed, is NOT using verbosity sampler, and DOES have tracing headers"
+        ,
         function()
             local orig_bypass = main.request_is_bypassed
             local orig_deferred = main.should_use_deferred_sampler
@@ -241,7 +249,7 @@ describe("plugin_should_run", function()
             main.request_is_bypassed = function() return false end
             main.should_use_deferred_sampler = function() return false end
             main.request_has_tracing_headers = function() return true end
-            assert.is_true(main.plugin_should_run())
+            assert.are.same(main.plugin_mode(), "VERBOSITY_SAMPLING")
             main.request_is_bypassed = orig_bypass
             main.should_use_deferred_sampler = orig_deferred
             main.request_has_tracing_headers = orig_request_has_tracing_headers

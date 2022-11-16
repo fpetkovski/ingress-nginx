@@ -12,6 +12,9 @@ local tonumber = tonumber
 local unpack   = unpack
 
 local OPENTELEMETRY_PLUGIN_VERSION = "0.2.1"
+local BYPASSED = "BYPASSED"
+local DEFERRED_SAMPLING = "DEFERRED_SAMPLING"
+local VERBOSITY_SAMPLING = "VERBOSITY_SAMPLING"
 
 -- This file monkey-patches the upstream tracer implementation so that the
 -- verbosity sampler works.
@@ -43,13 +46,15 @@ local new_context = require("opentelemetry.context").new
 
 local _M = {}
 
+--------------------------------------------------------------------------------
 -- This is from https://gist.github.com/h1k3r/089d43771bdf811eefe8.
 -- Why not just use ngx.var to get this value? We need the hostname before it's
 -- available in ngx.var, so we need to run /bin/hostname inside the container.
 -- Since it's doing i/o, we should only use this function during worker
 -- initialization. ApiSix uses a variant of this strategy. I think we might be
 -- better off just setting an env var on the pod and reading it.
-function _M.get_hostname()
+--------------------------------------------------------------------------------
+local function get_hostname()
   local f = io.popen("/bin/hostname")
 
   if f ~= nil then
@@ -62,7 +67,31 @@ function _M.get_hostname()
   end
 end
 
-local function make_tracer_provider(sampler)
+--------------------------------------------------------------------------------
+-- Make a tracer provider, given a sampler name and arg. Just exists to reduce
+-- boilerplate.
+--
+-- @param sampler_name The name of the sampler to use in the tracer provider.
+--                      * ShopifyVerbositySampler, or
+--                      * ShopifyDeferredSampler
+-- @param sampler_arg The parameter to pass to the sampler's constructor.
+-- @return The tracer provider.
+--------------------------------------------------------------------------------
+function _M.create_tracer_provider(sampler_name, sampler_arg)
+  local samplers = {
+    ShopifyVerbositySampler = verbosity_sampler,
+    ShopifyDeferredSampler = deferred_sampler
+  }
+  local sampler_mod
+
+  if samplers[sampler_name] then
+    sampler_mod = samplers[sampler_name]
+  else
+    error("could not find sampler " .. sampler_name)
+  end
+
+  local sampler = sampler_mod.new(sampler_arg)
+
   local exporter = otlp_exporter_new(exporter_client_new(
     _M.plugin_open_telemetry_exporter_otlp_endpoint,
     _M.plugin_open_telemetry_exporter_timeout,
@@ -87,7 +116,7 @@ local function make_tracer_provider(sampler)
   end
 
   local resource_attrs = {
-    attr.string("hostname", _M.get_hostname()),
+    attr.string("hostname", get_hostname()),
     attr.string("service.name", _M.plugin_open_telemetry_service),
     attr.string("deployment.environment", _M.plugin_open_telemetry_environment)
   }
@@ -101,78 +130,13 @@ local function make_tracer_provider(sampler)
   return tp
 end
 
-function _M.create_tracer_provider(sampler_name, sampler_arg)
-  local samplers = {
-    ShopifyVerbositySampler = verbosity_sampler,
-    ShopifyDeferredSampler = deferred_sampler
-  }
-  local sampler_mod
-
-  if samplers[sampler_name] then
-    sampler_mod = samplers[sampler_name]
-  else
-    error("could not find sampler " .. sampler_name)
-  end
-
-  return make_tracer_provider(
-    sampler_mod.new(sampler_arg)
-  )
-end
-
 --------------------------------------------------------------------------------
--- This function tells us whether or not the plugin should run for a given
--- request. Here are the rules:
--- * If the request is bypassed (via opentelemetry-plugin-bypassed-upstreams),
---   then we don't want to run.
--- * If the request is not bypassed and the upstream is configured to use the
---   deferred sampler, then we want to run.
--- * If the request is not bypassed and the upstream is configured to use the
---   verbosity sampler, we only want to run if there are already tracing headers
---   present on the request.
--- @param proxy_upstream_name The name of the upstream that the request is being
---                            proxied to.
+-- Returns true if a request is bypassed due to opentelemetry_bypassed_upstreams
+-- setting.
+--
+-- @param proxy_upstream_name The name of the upstream being proxied to
 -- @return boolean
 --------------------------------------------------------------------------------
-function _M.plugin_should_run(proxy_upstream_name)
-  if ngx.ctx.opentelemetry_plugin_should_run ~= nil then
-    return ngx.ctx.opentelemetry_plugin_should_run
-  end
-
-  if _M.request_is_bypassed(proxy_upstream_name) then
-    ngx.log(ngx.INFO, "request bypassed")
-    ngx.ctx.opentelemetry_plugin_should_run = false
-    return false
-  end
-
-  if _M.should_use_deferred_sampler(proxy_upstream_name) then
-    ngx.log(ngx.INFO, "should use deferred sampler")
-    ngx.ctx.opentelemetry_plugin_should_run = true
-    return true
-  end
-
-  -- We're if we're not using the deferred sampler, we're using the verbosity
-  -- sampler, and we only want to run if there are tracing headers
-  ngx.ctx.opentelemetry_plugin_should_run = _M.request_has_tracing_headers()
-  ngx.log(ngx.INFO, "deciding runnability based on tracing headers, value is " .. tostring(ngx.ctx.opentelemetry_plugin_should_run))
-  return ngx.ctx.opentelemetry_plugin_should_run
-end
-
-function _M.tracer()
-  if ngx.ctx.opentelemetry_tracer then
-    return ngx.ctx.opentelemetry_tracer
-  end
-
-  if _M.should_use_deferred_sampler(ngx.var.proxy_upstream_name) then
-    ngx.log(ngx.INFO, "using deferred sampler")
-    ngx.ctx.opentelemetry_tracer = _M.ShopifyDeferredSampler
-  else
-    ngx.log(ngx.INFO, "using verbosity sampler")
-    ngx.ctx.opentelemetry_tracer = _M.ShopifyVerbositySampler
-  end
-
-  return ngx.ctx.opentelemetry_tracer
-end
-
 function _M.request_is_bypassed(proxy_upstream_name)
   if _M.plugin_open_telemetry_bypassed_upstreams["all"] then
     return true
@@ -188,8 +152,10 @@ function _M.request_is_bypassed(proxy_upstream_name)
 end
 
 --------------------------------------------------------------------------------
--- Check to see if request has tracing headers. We only regard the request as
--- having tracing headers if ;o=1.
+-- Returns true if inbound request has Shopify tracing headers and the inbound
+-- trace context indicates that the parent span was sampled in (;o=1).
+--
+-- @return boolean
 --------------------------------------------------------------------------------
 function _M.request_has_tracing_headers()
   local ngx_ctx = ngx.ctx
@@ -210,9 +176,81 @@ function _M.request_has_tracing_headers()
 end
 
 --------------------------------------------------------------------------------
+-- Tells us what mode the plugin should run in for a given request. We have to
+-- make this calculation on a request-by-request basis because it currently
+-- depends on the upstream.
+-- * If the request is bypassed (via opentelemetry-plugin-bypassed-upstreams),
+--   then the plug in is in BYPASSED mode
+-- * If the request is not bypassed and the upstream is configured to use the
+--   deferred sampler, then we are in DEFERRED_SAMPLING mode
+-- * If the request is not bypassed and the upstream is configured to use the
+--   verbosity sampler, we are in VERBOSITY_SAMPLING mode if and only if the
+--   request has tracing headers present
+--
+-- @param proxy_upstream_name The name of the upstream that the request is being
+--                            proxied to.
+-- @return boolean
+--------------------------------------------------------------------------------
+function _M.plugin_mode(proxy_upstream_name)
+  if ngx.ctx.opentelemetry_plugin_mode ~= nil then
+    return ngx.ctx.opentelemetry_plugin_mode
+  end
+
+  if _M.request_is_bypassed(proxy_upstream_name) then
+    ngx.log(ngx.INFO, "plugin mode: bypassed")
+    ngx.ctx.opentelemetry_plugin_mode = BYPASSED
+    return ngx.ctx.opentelemetry_plugin_mode
+  end
+
+  if _M.should_use_deferred_sampler(proxy_upstream_name) then
+    ngx.log(ngx.INFO, "plugin mode: deferred_sampling")
+    ngx.ctx.opentelemetry_plugin_mode = DEFERRED_SAMPLING
+    return ngx.ctx.opentelemetry_plugin_mode
+  end
+
+  -- We're if we're not using the deferred sampler, we're using the verbosity
+  -- sampler, and we only want to run if there are tracing headers
+  if _M.request_has_tracing_headers() then
+    ngx.log(ngx.INFO, "plugin mode: verbosity sampling")
+    ngx.ctx.opentelemetry_plugin_mode = VERBOSITY_SAMPLING
+  else
+    ngx.log(ngx.INFO, "plugin mode: bypassed (no tracing headers)")
+    ngx.ctx.opentelemetry_plugin_mode = BYPASSED
+  end
+
+  return ngx.ctx.opentelemetry_plugin_mode
+end
+
+--------------------------------------------------------------------------------
+-- Function to return a tracer stored on _M. We can't just set _M.tracer per
+-- request because multiple requests share _M's state. We cache on ngx.ctx
+-- to save operations.
+--
+-- @param plugin_mode The mode the plugin is running in.
+-- @return tracer instance.
+--------------------------------------------------------------------------------
+function _M.tracer(plugin_mode)
+  if ngx.ctx.opentelemetry_tracer then
+    return ngx.ctx.opentelemetry_tracer
+  end
+
+  if plugin_mode == nil then
+    error("plugin mode not set, cannot get tracer")
+  elseif plugin_mode == DEFERRED_SAMPLING then
+    ngx.log(ngx.INFO, "using deferred sampler")
+    ngx.ctx.opentelemetry_tracer = _M.ShopifyDeferredSampler
+  elseif plugin_mode == VERBOSITY_SAMPLING then
+    ngx.log(ngx.INFO, "using verbosity sampler")
+    ngx.ctx.opentelemetry_tracer = _M.ShopifyVerbositySampler
+  end
+
+  return ngx.ctx.opentelemetry_tracer
+end
+
+--------------------------------------------------------------------------------
 -- Decide whether or not we should force sample spans. The logic also holds for
 -- whether or not we should return a traceresponse header to the requester. The
--- logic is defined here:
+-- logic is also spelled out here:
 -- https://docs.google.com/spreadsheets/d/1idsmrcB_x-vmJJi9YZg8QOIBstrFuFRUa-QK0yywFDc/
 --
 -- @param ngx_resp                    Should be be ngx.resp.
@@ -220,7 +258,11 @@ end
 --                                    the deferred sampler
 -- @return boolean
 --------------------------------------------------------------------------------
-function _M.should_force_sample_buffered_spans(ngx_resp, initial_sampling_decision)
+function _M.should_force_sample_buffered_spans(ngx_resp, initial_sampling_decision, plugin_mode)
+  if plugin_mode ~= DEFERRED_SAMPLING then
+    return false
+  end
+
   if initial_sampling_decision == result.record_and_sample then
     return false
   end
@@ -254,23 +296,16 @@ function _M.make_propagation_header_metric_tags(ngx_headers, upstream_name)
 end
 
 function _M.should_use_deferred_sampler(proxy_upstream_name)
-  if ngx.ctx.opentelemetry_should_use_deferred_sampler ~= nil then
-    return ngx.ctx.opentelemetry_should_use_deferred_sampler
-  end
-
   if _M.plugin_open_telemetry_deferred_sampling_upstreams["all"] then
-    ngx.ctx.opentelemetry_should_use_deferred_sampler = true
     return true
   end
 
   for us, _ in pairs(_M.plugin_open_telemetry_deferred_sampling_upstreams) do
     if string.match(proxy_upstream_name, us) then
-      ngx.ctx.opentelemetry_should_use_deferred_sampler = true
       return true
     end
   end
 
-  ngx.ctx.opentelemetry_should_use_deferred_sampler = false
   return false
 end
 
@@ -318,10 +353,12 @@ function _M.init_worker(config)
 end
 
 function _M.rewrite()
-  if not _M.plugin_should_run(ngx.var.proxy_upstream_name) then
+  local plugin_mode = _M.plugin_mode(ngx.var.proxy_upstream_name)
+  if plugin_mode == BYPASSED then
     ngx.log(ngx.INFO, "skipping rewrite")
     return
   end
+  local tracer = _M.tracer(plugin_mode)
 
   local rewrite_start = otel_utils.gettimeofday_ms()
   metrics_reporter:add_to_counter(
@@ -353,7 +390,7 @@ function _M.rewrite()
   table.insert(server_attributes, attr.string("net.host.name", ngx_var.server_name))
   table.insert(server_attributes, attr.int("net.host.port", tonumber(ngx_var.server_port)))
 
-  local request_span_ctx = _M.tracer():start(upstream_context, "nginx.request", {
+  local request_span_ctx = tracer:start(upstream_context, "nginx.request", {
     kind = span_kind.server,
     attributes = server_attributes,
   })
@@ -362,7 +399,7 @@ function _M.rewrite()
   local proxy_attributes = shopify_utils.shallow_copy(common_attributes)
   table.insert(proxy_attributes, attr.string("net.peer.name", ngx_var.proxy_host))
 
-  local proxy_span_ctx = _M.tracer():start(request_span_ctx, "nginx.proxy", {
+  local proxy_span_ctx = tracer:start(request_span_ctx, "nginx.proxy", {
     kind = span_kind.client,
     attributes = proxy_attributes,
   })
@@ -397,7 +434,7 @@ function _M.parse_upstream_addr(input)
 end
 
 function _M.header_filter()
-  if not _M.plugin_should_run(ngx.var.proxy_upstream_name) then
+  if _M.plugin_mode(ngx.var.proxy_upstream_name) == BYPASSED then
     ngx.log(ngx.INFO, "skipping header filter")
     return
   end
@@ -435,31 +472,32 @@ function _M.header_filter()
     ngx_ctx.opentelemetry.request_span_ctx.sp:set_status(span_status.error)
   end
   ngx_ctx.opentelemetry.request_span_ctx.sp:set_attributes(attr.int("http.status_code", upstream_status))
-
   ngx_ctx.opentelemetry.proxy_span_end_time = otel_utils.time_nano()
-  local response_span = _M.tracer():start(ngx_ctx.opentelemetry.request_span_ctx, "nginx.response", {
+
+  -- Start response span
+  local response_span = _M.tracer(ngx.ctx.opentelemetry_plugin_mode):start(
+    ngx_ctx.opentelemetry.request_span_ctx, "nginx.response", {
     kind = span_kind.client,
     attributes = {},
   })
   ngx_ctx.opentelemetry["response_span_ctx"] = response_span
 
-  if _M.should_use_deferred_sampler(ngx.var.proxy_upstream_name) then
-    if _M.should_force_sample_buffered_spans(ngx.resp, ngx_ctx.opentelemetry.initial_sampling_decision) then
-      ngx_ctx.opentelemetry.proxy_span_ctx:span_context().trace_flags = 1
-      ngx_ctx.opentelemetry.response_span_ctx:span_context().trace_flags = 1
-      ngx_ctx.opentelemetry.request_span_ctx:span_context().trace_flags = 1
-      -- We need to update the child ID in the traceresponse header. To do this, we can just overwrite the traceresponse
-      -- header to match the context from NGINX's outermost span (the request span) since the trace ID in the
-      -- traceresponse header we received back from the proxied-to service originated in this plugin or the initial
-      -- request that hit NGINX.
-      traceresponse_propagator:inject(ngx_ctx.opentelemetry.request_span_ctx, ngx)
-      -- remove log after testing in sandbox
-      ngx.log(ngx.NOTICE, "plugin force sampling spans")
-    else
-      -- remove log after testing in sandbox
-      ngx.log(ngx.NOTICE,
-        "Plugin not force-sampling spans, initial sampling decision: ", ngx_ctx.opentelemetry.initial_sampling_decision)
-    end
+  if _M.should_force_sample_buffered_spans(ngx.resp, ngx_ctx.opentelemetry.initial_sampling_decision,
+    ngx.ctx.opentelemetry_plugin_mode) then
+    ngx_ctx.opentelemetry.proxy_span_ctx:span_context().trace_flags = 1
+    ngx_ctx.opentelemetry.response_span_ctx:span_context().trace_flags = 1
+    ngx_ctx.opentelemetry.request_span_ctx:span_context().trace_flags = 1
+    -- We need to update the child ID in the traceresponse header. To do this, we can just overwrite the traceresponse
+    -- header to match the context from NGINX's outermost span (the request span) since the trace ID in the
+    -- traceresponse header we received back from the proxied-to service originated in this plugin or the initial
+    -- request that hit NGINX.
+    traceresponse_propagator:inject(ngx_ctx.opentelemetry.request_span_ctx, ngx)
+    -- remove log after testing in sandbox
+    ngx.log(ngx.NOTICE, "plugin force sampling spans")
+  else
+    -- remove log after testing in sandbox
+    ngx.log(ngx.NOTICE,
+      "Plugin not force-sampling spans, initial sampling decision: ", ngx_ctx.opentelemetry.initial_sampling_decision)
   end
 
   local header_end = otel_utils.gettimeofday_ms()
@@ -467,7 +505,7 @@ function _M.header_filter()
 end
 
 function _M.log()
-  if not _M.plugin_should_run(ngx.var.proxy_upstream_name) then
+  if _M.plugin_mode(ngx.var.proxy_upstream_name) == BYPASSED then
     ngx.log(ngx.INFO, "skipping log")
     return
   end
@@ -475,8 +513,6 @@ function _M.log()
   local log_start = otel_utils.gettimeofday_ms()
   local ngx_ctx = ngx.ctx
   if not ngx_ctx["opentelemetry"] then
-    ngx.log(ngx.INFO,
-      "Bailing from log(). ngx_ctx['opentelemetry'] is nil")
     return
   end
 
