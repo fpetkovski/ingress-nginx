@@ -1010,7 +1010,7 @@ func NewDefault() Configuration {
 		GlobalRateLimitMemcachedPoolSize:                     50,
 		GlobalRateLimitStatucCode:                            429,
 		PluginOpenTelemetryBypassedUpstreams:                 "all",
-		PluginOpenTelemetryDeferredSamplingUpstreams:		  "",
+		PluginOpenTelemetryDeferredSamplingUpstreams:         "",
 		PluginOpenTelemetryExporterTimeout:                   5,
 		PluginOpenTelemetryExporterOtlpEndpoint:              "opentelemetry-collector:4318",
 		PluginOpenTelemetryBspMaxQueueSize:                   2048,
