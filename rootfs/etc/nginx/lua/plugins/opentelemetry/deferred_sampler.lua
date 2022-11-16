@@ -4,6 +4,7 @@
 -- sampling decision after the proxied-to service has responded.
 --------------------------------------------------------------------------------
 local result = require("opentelemetry.trace.sampling.result")
+local setmetatable = setmetatable
 
 local _M = {}
 

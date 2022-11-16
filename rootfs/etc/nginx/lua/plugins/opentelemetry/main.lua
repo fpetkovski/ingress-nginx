@@ -9,6 +9,7 @@ local pcall    = pcall
 local table    = table
 local string   = string
 local tonumber = tonumber
+local tostring = tostring
 local unpack   = unpack
 
 local OPENTELEMETRY_PLUGIN_VERSION = "0.2.1"
