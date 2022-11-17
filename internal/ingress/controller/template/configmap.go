@@ -67,6 +67,7 @@ const (
 	plugins                               = "plugins"
 	debugConnections                      = "debug-connections"
 	otelBypassedUpstreams                 = "plugin-opentelemetry-bypassed-upstreams"
+	otelSendTraceResponse                 = "plugin-opentelemetry-send-traceresponse"
 	otelDeferredSamplingUpstreams         = "plugin-opentelemetry-deferred-sampling-upstreams"
 	otelExporterOtlpEndpoint              = "plugin-opentelemetry-exporter-otlp-endpoint"
 	otelBspMaxQueueSize                   = "plugin-opentelemetry-bsp-max-queue-size"

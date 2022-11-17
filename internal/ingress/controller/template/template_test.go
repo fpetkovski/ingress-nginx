@@ -1121,6 +1121,7 @@ func TestBuildPluginConfigForLua(t *testing.T) {
 	plugin_open_telemetry_exporter_otlp_endpoint = "opentelemetry-collector:4318",
 	plugin_open_telemetry_exporter_otlp_headers = "hi=mom;",
 	plugin_open_telemetry_exporter_timeout = 5,
+	plugin_open_telemetry_send_traceresponse = false,
 	plugin_open_telemetry_service = "nginx",
 	plugin_open_telemetry_shopify_verbosity_sampler_percentage = 0
 }`}, {"", `{
@@ -1135,6 +1136,7 @@ func TestBuildPluginConfigForLua(t *testing.T) {
 	plugin_open_telemetry_exporter_otlp_endpoint = "opentelemetry-collector:4318",
 	plugin_open_telemetry_exporter_otlp_headers = "",
 	plugin_open_telemetry_exporter_timeout = 5,
+	plugin_open_telemetry_send_traceresponse = false,
 	plugin_open_telemetry_service = "nginx",
 	plugin_open_telemetry_shopify_verbosity_sampler_percentage = 0
 }`},

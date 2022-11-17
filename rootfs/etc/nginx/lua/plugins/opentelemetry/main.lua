@@ -297,6 +297,7 @@ function _M.init_worker(config)
   _M.plugin_open_telemetry_shopify_verbosity_sampler_percentage = config.plugin_open_telemetry_shopify_verbosity_sampler_percentage
   _M.plugin_open_telemetry_service = config.plugin_open_telemetry_service
   _M.plugin_open_telemetry_environment = config.plugin_open_telemetry_environment
+  _M.plugin_open_telemetry_send_traceresponse  = config.plugin_open_telemetry_send_traceresponse
 
   local tracer_samplers = {
     VerbositySamplerTracer = verbosity_sampler.new(_M.plugin_open_telemetry_shopify_verbosity_sampler_percentage),
@@ -460,17 +461,18 @@ function _M.header_filter()
     ngx_ctx.opentelemetry.proxy_span_ctx:span_context().trace_flags = 1
     ngx_ctx.opentelemetry.response_span_ctx:span_context().trace_flags = 1
     ngx_ctx.opentelemetry.request_span_ctx:span_context().trace_flags = 1
+  end
+
+  if _M.plugin_open_telemetry_send_traceresponse then
+    ngx.log(ngx.ERR, "Sending traceresponse")
     -- We need to update the child ID in the traceresponse header. To do this, we can just overwrite the traceresponse
     -- header to match the context from NGINX's outermost span (the request span) since the trace ID in the
     -- traceresponse header we received back from the proxied-to service originated in this plugin or the initial
-    -- request that hit NGINX.
+    -- request that hit NGINX. The global proxy is responsible for stripping traceresponse headers.
     traceresponse_propagator:inject(ngx_ctx.opentelemetry.request_span_ctx, ngx)
-    -- remove log after testing in sandbox
-    ngx.log(ngx.NOTICE, "plugin force sampling spans")
   else
-    -- remove log after testing in sandbox
-    ngx.log(ngx.NOTICE,
-      "Plugin not force-sampling spans, initial sampling decision: ", ngx_ctx.opentelemetry.initial_sampling_decision)
+    ngx.log(ngx.ERR, "not sending traceresponse")
+    ngx.req.clear_header("traceresponse")
   end
 
   local header_end = otel_utils.gettimeofday_ms()
