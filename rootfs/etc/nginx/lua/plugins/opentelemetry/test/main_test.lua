@@ -156,23 +156,6 @@ describe("request_is_bypassed", function()
     end)
 end)
 
-describe("new_tracer_provider", function()
-    it("returns a tracer provider with sampler and arg as specified", function()
-        local provider = main.create_tracer_provider(
-            "ShopifyVerbositySampler", "0.25")
-        assert.are_same(
-            "ShopifyVerbositySampler{0.25}",
-            provider.sampler:get_description()
-        )
-    end)
-
-    it("errors out if sampler is nonexistent", function()
-        assert.has_error(
-            function() main.create_tracer_provider("MakeBelieveSampler") end,
-            "could not find sampler MakeBelieveSampler")
-    end)
-end)
-
 describe("should_use_deferred_sampler", function()
     it("returns true if deferred_sampling_upstreams matches arg", function()
         ngx.ctx.opentelemetry_should_use_deferred_sampler = nil

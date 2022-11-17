@@ -68,30 +68,12 @@ local function get_hostname()
 end
 
 --------------------------------------------------------------------------------
--- Make a tracer provider, given a sampler name and arg. Just exists to reduce
--- boilerplate.
+-- Make a tracer provider, given a sampler. Just exists to reduce boilerplate.
 --
--- @param sampler_name The name of the sampler to use in the tracer provider.
---                      * ShopifyVerbositySampler, or
---                      * ShopifyDeferredSampler
--- @param sampler_arg The parameter to pass to the sampler's constructor.
+-- @param sampler_name The sampler to use in the provider.
 -- @return The tracer provider.
 --------------------------------------------------------------------------------
-function _M.create_tracer_provider(sampler_name, sampler_arg)
-  local samplers = {
-    ShopifyVerbositySampler = verbosity_sampler,
-    ShopifyDeferredSampler = deferred_sampler
-  }
-  local sampler_mod
-
-  if samplers[sampler_name] then
-    sampler_mod = samplers[sampler_name]
-  else
-    error("could not find sampler " .. sampler_name)
-  end
-
-  local sampler = sampler_mod.new(sampler_arg)
-
+function _M.create_tracer_provider(sampler)
   local exporter = otlp_exporter_new(exporter_client_new(
     _M.plugin_open_telemetry_exporter_otlp_endpoint,
     _M.plugin_open_telemetry_exporter_timeout,
@@ -230,10 +212,10 @@ function _M.tracer(plugin_mode)
     error("plugin mode not set, cannot get tracer")
   elseif plugin_mode == DEFERRED_SAMPLING then
     ngx.log(ngx.INFO, "using deferred sampler")
-    ngx.ctx.opentelemetry_tracer = _M.ShopifyDeferredSampler
+    ngx.ctx.opentelemetry_tracer = _M.DeferredSamplerTracer
   elseif plugin_mode == VERBOSITY_SAMPLING then
     ngx.log(ngx.INFO, "using verbosity sampler")
-    ngx.ctx.opentelemetry_tracer = _M.ShopifyVerbositySampler
+    ngx.ctx.opentelemetry_tracer = _M.VerbositySamplerTracer
   end
 
   return ngx.ctx.opentelemetry_tracer
@@ -316,14 +298,13 @@ function _M.init_worker(config)
   _M.plugin_open_telemetry_service = config.plugin_open_telemetry_service
   _M.plugin_open_telemetry_environment = config.plugin_open_telemetry_environment
 
-  local samplers = {
-    ShopifyVerbositySampler = _M.plugin_open_telemetry_shopify_verbosity_sampler_percentage,
-    ShopifyDeferredSampler = ""
+  local tracer_samplers = {
+    VerbositySamplerTracer = verbosity_sampler.new(_M.plugin_open_telemetry_shopify_verbosity_sampler_percentage),
+    DeferredSamplerTracer = deferred_sampler.new()
   }
-
-  for s, a in pairs(samplers) do
+  for t, s in pairs(tracer_samplers) do
     local ok, tp = pcall(
-      _M.create_tracer_provider, s, a)
+      _M.create_tracer_provider, s)
 
     local t_ok, tracer = pcall(
       tp.tracer,
@@ -336,7 +317,7 @@ function _M.init_worker(config)
     end
 
     if t_ok then
-      _M[s] = tracer
+      _M[t] = tracer
     end
   end
 
