@@ -92,7 +92,7 @@ local function create_tracer_provider()
     _M.plugin_open_telemetry_shopify_verbosity_sampler_percentage)
 
   local resource_attrs = {
-    attr.string("hostname", get_hostname()),
+    attr.string("host.name", get_hostname()),
     attr.string("service.name", _M.plugin_open_telemetry_service),
     attr.string("deployment.environment", _M.plugin_open_telemetry_environment)
   }
