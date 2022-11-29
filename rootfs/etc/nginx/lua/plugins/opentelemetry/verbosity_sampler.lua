@@ -18,10 +18,6 @@
 -- Given a verbosity percentage set to X%
 -- When ingress-nginx processes a trusted Shopify-traced request
 -- Then ingress-nginx will emit verbose spans for X% of requests, while it will emit one essential span for 1-X% of requests
-
--- Given baggage in the current context
--- When the verbosity_key is present in baggage
--- Then should_sample returns true
 --------------------------------------------------------------------------------
 
 local setmetatable = setmetatable
@@ -57,8 +53,8 @@ local mt = {
 ------------------------------------------------------------------
 function _M.new(verbosity_probability)
     return setmetatable({
-        verbosity_probability = verbosity_probability or 1,
-        verbosity_id_upper_bound = (verbosity_probability or 1) * tonumber("ffffffff", 16),
+        verbosity_probability = tonumber(verbosity_probability or 1),
+        verbosity_id_upper_bound = tonumber(verbosity_probability or 1) * tonumber("ffffffff", 16),
     }, mt)
 end
 
@@ -81,6 +77,10 @@ function _M.should_sample(self, params)
     else
         return result_new(RESULT_CODES.drop, params.parent_ctx.trace_state)
     end
+end
+
+function _M.get_description(self)
+    return "ShopifyVerbositySampler{" .. self.verbosity_probability .. "}"
 end
 
 return _M

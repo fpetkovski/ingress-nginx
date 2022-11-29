@@ -789,6 +789,10 @@ type Configuration struct {
 	// run for that request.
 	PluginOpenTelemetryBypassedUpstreams string `json:"plugin-opentelemetry-bypassed-upstreams"`
 
+	// PluginOpenTelemetrySendTraceresponse is boolean indicating whether or not
+	// to send traceresponse header back to client.
+	PluginOpenTelemetrySendTraceresponse bool `json:"plugin-opentelemetry-send-traceresponse"`
+
 	// PluginOpenTelemetryDeferredSamplingUpstreams is comma-separated list of
 	// upstreams for which we want to use the deferred sampler.
 	PluginOpenTelemetryDeferredSamplingUpstreams string `json:"plugin-opentelemetry-deferred-sampling-upstreams"`
@@ -1010,6 +1014,7 @@ func NewDefault() Configuration {
 		GlobalRateLimitMemcachedPoolSize:                     50,
 		GlobalRateLimitStatucCode:                            429,
 		PluginOpenTelemetryBypassedUpstreams:                 "all",
+		PluginOpenTelemetrySendTraceresponse:                 false,
 		PluginOpenTelemetryDeferredSamplingUpstreams:         "",
 		PluginOpenTelemetryExporterTimeout:                   5,
 		PluginOpenTelemetryExporterOtlpEndpoint:              "opentelemetry-collector:4318",

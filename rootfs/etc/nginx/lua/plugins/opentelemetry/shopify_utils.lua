@@ -163,4 +163,21 @@ function _M.split(inputstr, sep)
   return t
 end
 
+--------------------------------------------------------------------------------
+-- Parses a comma-separated list of upstream names into a table
+--
+-- @param upstream_list_str A comma-separated list of upstream names to bypass
+--------------------------------------------------------------------------------
+function _M.parse_upstream_list(upstream_list_str)
+  if not upstream_list_str then
+    return { all = true }
+  end
+
+  local list = {}
+  for us in string.gmatch(upstream_list_str, "(%w+)") do
+    list[us] = true
+  end
+  return list
+end
+
 return _M
