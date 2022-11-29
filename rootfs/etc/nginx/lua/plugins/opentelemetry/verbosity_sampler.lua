@@ -63,19 +63,21 @@ function _M.verbose_probability_sampled(self, trace_id)
 end
 
 function _M.should_sample(self, params)
+    local tracestate = params.parent_ctx:span_context().trace_state
+
     -- discard malformed trace_ids
     if string.len(params.trace_id) ~= 32 then
-        return result_new(RESULT_CODES.drop, params.parent_ctx.trace_state)
+        return result_new(RESULT_CODES.drop, tracestate)
     end
 
     if ALWAYS_SAMPLE[params.kind] then
-        return result_new(RESULT_CODES.record_and_sample, params.parent_ctx.trace_state)
+        return result_new(RESULT_CODES.record_and_sample, tracestate)
     end
 
     if self:verbose_probability_sampled(params.trace_id) then
-        return result_new(RESULT_CODES.record_and_sample, params.parent_ctx.trace_state)
+        return result_new(RESULT_CODES.record_and_sample, tracestate)
     else
-        return result_new(RESULT_CODES.drop, params.parent_ctx.trace_state)
+        return result_new(RESULT_CODES.drop, tracestate)
     end
 end
 
