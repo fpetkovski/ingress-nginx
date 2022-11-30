@@ -30,11 +30,7 @@ containers:
     dockerfile:
       build_timeout: 40m
       build_args:
-<<<<<<< HEAD
         BASE_IMAGE: gcr.io/shopify-docker-images/apps/production/nginx:904d543356a9a258f95fc1378d5305da82f578c9
-=======
-        BASE_IMAGE: gcr.io/shopify-docker-images/apps/production/nginx:49e4a7582f53bcf85f26a612aea64ef92b40bbfb
->>>>>>> 2c5aa7afb (update code for 0.2.2)
         TARGETARCH: amd64
         VERSION: $SHOPIFY_BUILD_COMMIT
         COMMIT_SHA: $SHOPIFY_BUILD_COMMIT
