@@ -5,7 +5,6 @@ containers:
     dockerfile:
       dir: images/nginx/rootfs
       build_timeout: 400m
-      tag_using_path: images/nginx/rootfs/VERSION
       tag_branch: true
   e2e:
     environment: ci
