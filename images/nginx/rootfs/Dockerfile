@@ -15,6 +15,7 @@ FROM alpine:3.16.2 as builder
 
 COPY . /
 
+RUN echo "hi"
 RUN apk update \
   && apk upgrade \
   && apk add -U bash \
