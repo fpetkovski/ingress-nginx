@@ -5,7 +5,7 @@ containers:
     dockerfile:
       dir: images/nginx/rootfs
       build_timeout: 400m
-      tag_branch: true
+      tag_using_path: images/nginx/rootfs/VERSION
   e2e:
     environment: ci
     application: nginx-e2e-test-runner
