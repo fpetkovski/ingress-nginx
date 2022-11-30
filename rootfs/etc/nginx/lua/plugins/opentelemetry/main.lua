@@ -329,6 +329,13 @@ end
 function _M.rewrite()
   local plugin_mode = _M.plugin_mode(ngx.var.proxy_upstream_name)
   if plugin_mode == BYPASSED then
+    metrics_reporter:add_to_counter(
+      "otel.nginx.bypassed_request",
+      1,
+      _M.make_propagation_header_metric_tags(
+        ngx.req.get_headers(),
+        ngx.var.proxy_upstream_name)
+    )
     ngx.log(ngx.INFO, "skipping rewrite")
     return
   end
