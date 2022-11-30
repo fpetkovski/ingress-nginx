@@ -126,7 +126,7 @@ clean: ## Remove .gocache directory.
 
 .PHONY: static-check
 static-check: ## Run verification script for boilerplate, codegen, gofmt, golint, lualint and chart-lint.
-	sleep 1200
+	hack/verify-all.sh -v
 
 ###############################
 # Tests for ingress-nginx
