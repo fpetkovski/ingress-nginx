@@ -6,7 +6,7 @@
 local setmetatable       = setmetatable
 local ngx                = ngx
 local string             = string
-local trace_ctx_prop     = require("opentelemetry.trace.propagation.text_map.trace_context_propagator")
+local tracestate         = require("opentelemetry.trace.tracestate")
 local text_map_getter    = require("opentelemetry.trace.propagation.text_map.getter")
 local text_map_setter    = require("opentelemetry.trace.propagation.text_map.setter")
 local shopify_utils      = require("plugins.opentelemetry.shopify_utils")
@@ -75,7 +75,7 @@ function _M:inject(context, carrier, setter)
     setter.set(carrier, GKE_HEADER_KEY, header_value)
 
     if span_context.trace_state then
-        setter.set(carrier, TRACESTATE_HEADER_KEY, span_context.trace_state)
+        setter.set(carrier, TRACESTATE_HEADER_KEY, span_context.trace_state:as_string())
     end
 end
 
@@ -135,7 +135,7 @@ function _M:extract(context, carrier, getter)
     end
 
     local sampled = raw_sampled == "1" and 1 or "0"
-    local trace_state = trace_ctx_prop.parse_trace_state(
+    local trace_state = tracestate.parse_tracestate(
         getter.get(carrier, TRACESTATE_HEADER_KEY))
 
     -- TODO: handle traceflags better. Currently there's only one bit, which is

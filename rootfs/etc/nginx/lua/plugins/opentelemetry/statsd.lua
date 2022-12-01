@@ -210,7 +210,7 @@ _M.config = {
   port = statsd_port,
   sampling_rate = 0.1,
   tags = {
-    ["telemetry.sdk.version"] = '0.2.1',
+    ["telemetry.sdk.version"] = '0.2.2',
     ["telemetry.sdk.language"] = 'lua'
   },
 }

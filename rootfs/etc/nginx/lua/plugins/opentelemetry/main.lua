@@ -11,7 +11,7 @@ local string   = string
 local tonumber = tonumber
 local unpack   = unpack
 
-local OPENTELEMETRY_PLUGIN_VERSION = "0.2.1"
+local OPENTELEMETRY_PLUGIN_VERSION = "0.2.2"
 local BYPASSED = "BYPASSED"
 local DEFERRED_SAMPLING = "DEFERRED_SAMPLING"
 local VERBOSITY_SAMPLING = "VERBOSITY_SAMPLING"
@@ -284,20 +284,20 @@ function _M.should_use_deferred_sampler(proxy_upstream_name)
 end
 
 function _M.init_worker(config)
-  _M.plugin_open_telemetry_bypassed_upstreams = shopify_utils.parse_upstream_list(config.plugin_open_telemetry_bypassed_upstreams)
-  _M.plugin_open_telemetry_deferred_sampling_upstreams = shopify_utils.parse_upstream_list(config.plugin_open_telemetry_deferred_sampling_upstreams)
-  _M.plugin_open_telemetry_exporter_otlp_endpoint = config.plugin_open_telemetry_exporter_otlp_endpoint
-  _M.plugin_open_telemetry_exporter_otlp_headers = shopify_utils.w3c_baggage_to_table(config.plugin_open_telemetry_exporter_otlp_headers)
-  _M.plugin_open_telemetry_exporter_timeout = config.plugin_open_telemetry_exporter_timeout
-  _M.plugin_open_telemetry_bsp_max_queue_size = config.plugin_open_telemetry_bsp_max_queue_size
-  _M.plugin_open_telemetry_bsp_batch_timeout = config.plugin_open_telemetry_bsp_batch_timeout
-  _M.plugin_open_telemetry_bsp_max_export_batch_size = config.plugin_open_telemetry_bsp_max_export_batch_size
-  _M.plugin_open_telemetry_bsp_inactive_timeout = config.plugin_open_telemetry_bsp_inactive_timeout
-  _M.plugin_open_telemetry_bsp_drop_on_queue_full = config.plugin_open_telemetry_bsp_drop_on_queue_full
+  _M.plugin_open_telemetry_bypassed_upstreams                   = shopify_utils.parse_upstream_list(config.plugin_open_telemetry_bypassed_upstreams)
+  _M.plugin_open_telemetry_deferred_sampling_upstreams          = shopify_utils.parse_upstream_list(config.plugin_open_telemetry_deferred_sampling_upstreams)
+  _M.plugin_open_telemetry_exporter_otlp_endpoint               = config.plugin_open_telemetry_exporter_otlp_endpoint
+  _M.plugin_open_telemetry_exporter_otlp_headers                = shopify_utils.w3c_baggage_to_table(config.plugin_open_telemetry_exporter_otlp_headers)
+  _M.plugin_open_telemetry_exporter_timeout                     = config.plugin_open_telemetry_exporter_timeout
+  _M.plugin_open_telemetry_bsp_max_queue_size                   = config.plugin_open_telemetry_bsp_max_queue_size
+  _M.plugin_open_telemetry_bsp_batch_timeout                    = config.plugin_open_telemetry_bsp_batch_timeout
+  _M.plugin_open_telemetry_bsp_max_export_batch_size            = config.plugin_open_telemetry_bsp_max_export_batch_size
+  _M.plugin_open_telemetry_bsp_inactive_timeout                 = config.plugin_open_telemetry_bsp_inactive_timeout
+  _M.plugin_open_telemetry_bsp_drop_on_queue_full               = config.plugin_open_telemetry_bsp_drop_on_queue_full
   _M.plugin_open_telemetry_shopify_verbosity_sampler_percentage = config.plugin_open_telemetry_shopify_verbosity_sampler_percentage
-  _M.plugin_open_telemetry_service = config.plugin_open_telemetry_service
-  _M.plugin_open_telemetry_environment = config.plugin_open_telemetry_environment
-  _M.plugin_open_telemetry_send_traceresponse  = config.plugin_open_telemetry_send_traceresponse
+  _M.plugin_open_telemetry_service                              = config.plugin_open_telemetry_service
+  _M.plugin_open_telemetry_environment                          = config.plugin_open_telemetry_environment
+  _M.plugin_open_telemetry_send_traceresponse                   = config.plugin_open_telemetry_send_traceresponse
 
   local tracer_samplers = {
     VerbositySamplerTracer = verbosity_sampler.new(_M.plugin_open_telemetry_shopify_verbosity_sampler_percentage),
@@ -329,6 +329,13 @@ end
 function _M.rewrite()
   local plugin_mode = _M.plugin_mode(ngx.var.proxy_upstream_name)
   if plugin_mode == BYPASSED then
+    metrics_reporter:add_to_counter(
+      "otel.nginx.bypassed_request",
+      1,
+      _M.make_propagation_header_metric_tags(
+        ngx.req.get_headers(),
+        ngx.var.proxy_upstream_name)
+    )
     ngx.log(ngx.INFO, "skipping rewrite")
     return
   end

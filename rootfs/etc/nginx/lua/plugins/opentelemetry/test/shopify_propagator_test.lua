@@ -2,6 +2,7 @@ local context      = require("opentelemetry.context")
 local propagator   = require("plugins.opentelemetry.shopify_propagator")
 local codec        = require("plugins.opentelemetry.shopify_utils")
 local span_context = require("opentelemetry.trace.span_context")
+local tracestate   = require("opentelemetry.trace.tracestate")
 local match        = require("luassert.match")
 local otel_global  = require("opentelemetry.global")
 
@@ -36,9 +37,8 @@ describe("inject", function()
 
         local trace_id         = "0123456789abcdef0123456789abcdef"
         local span_id          = "89abcdef"
-        local tracestate       = {}
         local sampled          = 0
-        local new_span_context = span_context.new(trace_id, span_id, sampled, tracestate, false)
+        local new_span_context = span_context.new(trace_id, span_id, sampled, tracestate.new({}), false)
         local new_ctx          = context:with_span_context(new_span_context)
         local expected_header  = string.format("%s/%s;o=0", trace_id,
             codec.hex_to_decimal_string(span_id))
@@ -99,12 +99,12 @@ describe("inject", function()
 
         local trace_id         = "00000000000000000000000000000001"
         local span_id          = "00000001"
-        local tracestate       = "foo=bar,baz=bat"
+        local tracestate       = tracestate.parse_tracestate("foo=bar,baz=bat")
         local sampled          = 0
         local new_span_context = span_context.new(trace_id, span_id, sampled, tracestate, false)
         local new_ctx          = context:with_span_context(new_span_context)
         shop_prop:inject(new_ctx, ngx.req)
-        assert.stub(ngx.req.set_header).was_called_with("tracestate", tracestate)
+        assert.stub(ngx.req.set_header).was_called_with("tracestate", tracestate:as_string())
     end)
 end)
 
@@ -229,6 +229,6 @@ describe("extract", function()
         local shop_prop = propagator.new()
         local context   = context.new()
         local span_ctx  = shop_prop:extract(context, ngx.req).sp:context()
-        assert.are.same(span_ctx.trace_state, "foo=bar,baz=bat")
+        assert.are.same(span_ctx.trace_state:as_string(), "foo=bar,baz=bat")
     end)
 end)
