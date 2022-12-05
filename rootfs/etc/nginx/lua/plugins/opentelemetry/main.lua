@@ -195,6 +195,22 @@ function _M.plugin_mode(proxy_upstream_name)
   return ngx.ctx.opentelemetry_plugin_mode
 end
 
+-- This is a hack, but we'll fully replace the verbosity sampler with deferred
+-- sampling soon anyway. If the proxy span is sampled, we always propagate. If
+-- the proxy_span_ctx is not sampled and we're in verbosity sampling mode, then
+-- we use the request span for context (since that means we're throwing the
+-- proxy span away). If we're in deferred sampling mode, we propagate the proxy
+-- span.
+function _M.propagation_context(request_span_ctx, proxy_span_ctx, plugin_mode)
+  if proxy_span_ctx:span_context():is_sampled() then
+    return proxy_span_ctx
+  elseif plugin_mode == VERBOSITY_SAMPLING then
+    return request_span_ctx
+  else
+    return proxy_span_ctx
+  end
+end
+
 --------------------------------------------------------------------------------
 -- Function to return a tracer stored on _M. We can't just set _M.tracer per
 -- request because multiple requests share _M's state. We cache on ngx.ctx
@@ -385,7 +401,9 @@ function _M.rewrite()
     attributes = proxy_attributes,
   })
 
-  composite_propagator:inject(proxy_span_ctx, ngx.req)
+  composite_propagator:inject(
+    _M.propagation_context(request_span_ctx, proxy_span_ctx, plugin_mode),
+    ngx.req)
 
   ngx.ctx["opentelemetry"] = {
     initial_sampling_decision = request_span_ctx:span_context():is_sampled() and result.record_and_sample or

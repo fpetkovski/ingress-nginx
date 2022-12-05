@@ -1,6 +1,8 @@
-local main   = require("plugins.opentelemetry.main")
-local result = require("opentelemetry.trace.sampling.result")
-local utils  = require("plugins.opentelemetry.shopify_utils")
+local context      = require("opentelemetry.context")
+local main         = require("plugins.opentelemetry.main")
+local result       = require("opentelemetry.trace.sampling.result")
+local span_context = require("opentelemetry.trace.span_context")
+local utils        = require("plugins.opentelemetry.shopify_utils")
 
 local function make_ngx_resp(headers)
     return {
@@ -53,7 +55,7 @@ describe("should_force_sample_buffered_spans", function()
             local ngx_resp = make_ngx_resp(
                 { traceresponse = "00-00000000000000000000000000000001-0000000000000001-00" }
             )
-            assert.is_false(main.should_force_sample_buffered_spans(ngx_resp, result.record_only, "DEFERRED_SAMPLING" ))
+            assert.is_false(main.should_force_sample_buffered_spans(ngx_resp, result.record_only, "DEFERRED_SAMPLING"))
         end)
 
     it("returns false if initial sampling decision was record_only and traceresponse was absent", function()
@@ -91,6 +93,35 @@ describe("make_propagation_header_metric_tags", function()
         table.sort(result)
         table.sort(expected)
         assert.are.same(result, expected)
+    end)
+end)
+
+describe("propagation_context", function()
+    it("returns proxy context when proxy context is sampled", function()
+        local sampled            = 1
+        local proxy_span_context = span_context.new("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "aaaaaaaaaaaaaaaa", sampled, "",
+            false)
+        local proxy_ctx          = context:with_span_context(proxy_span_context)
+        local request_ctx        = context.new()
+        assert.are.same(proxy_ctx, main.propagation_context(request_ctx, proxy_ctx, "VERBOSITY_SAMPLING"))
+    end)
+
+    it("returns request context when proxy context is not sampled and plugin mode is VERBOSITY_SAMPLING", function()
+        local sampled            = 0
+        local proxy_span_context = span_context.new("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "aaaaaaaaaaaaaaaa", sampled, "",
+            false)
+        local proxy_ctx          = context:with_span_context(proxy_span_context)
+        local request_ctx        = context.new()
+        assert.are.same(request_ctx, main.propagation_context(request_ctx, proxy_ctx, "VERBOSITY_SAMPLING"))
+    end)
+
+    it("returns proxy context when proxy context is not sampled and plugin mode is deferred sampling", function()
+        local sampled            = 0
+        local proxy_span_context = span_context.new("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "aaaaaaaaaaaaaaaa", sampled, "",
+            false)
+        local proxy_ctx          = context:with_span_context(proxy_span_context)
+        local request_ctx        = context.new()
+        assert.are.same(proxy_ctx, main.propagation_context(request_ctx, proxy_ctx, "DEFERRED_SAMPLING"))
     end)
 end)
 
