@@ -174,7 +174,7 @@ function _M.parse_upstream_list(upstream_list_str)
   end
 
   local list = {}
-  for us in string.gmatch(upstream_list_str, "(%w+)") do
+  for us in string.gmatch(upstream_list_str, "([^,|^%s]+)") do
     list[us] = true
   end
   return list

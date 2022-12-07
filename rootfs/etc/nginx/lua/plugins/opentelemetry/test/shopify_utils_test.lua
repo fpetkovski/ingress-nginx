@@ -94,4 +94,16 @@ describe("parse_upstream_list", function()
             { foo = true, bar = true, baz = true, bat = true }
         )
     end)
+
+    it("does not split at hyphen", function()
+        local result = utils.parse_upstream_list("wat, foo-bar-baz, bar,baz-production ,    storefront-renderer-production-web,monorail-production,foo-bar-prod-80")
+        assert.are_same(result,
+          { wat = true,
+            ["foo-bar-baz"] = true,
+             bar = true,
+            ["baz-production"] = true,
+            ["storefront-renderer-production-web"] = true,
+            ["monorail-production"] = true,
+            ["foo-bar-prod-80"] = true })
+    end)
 end)
