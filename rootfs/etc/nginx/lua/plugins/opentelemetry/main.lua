@@ -272,8 +272,8 @@ end
 -- @param upstream_name The name of the service being proxied to
 -- @return Table containing tags for propagation header metrics
 --------------------------------------------------------------------------------
-function _M.make_propagation_header_metric_tags(ngx_headers, upstream_name)
-  local ret = { trace_id_present = "false", upstream_name = upstream_name }
+function _M.make_propagation_header_metric_tags(ngx_headers, upstream_name, plugin_mode)
+  local ret = { trace_id_present = "false", upstream_name = upstream_name, plugin_mode = plugin_mode }
   for _, header in ipairs({ "traceparent", "x-cloud-trace-context", "x-shopify-trace-context" }) do
     if ngx_headers[header] ~= nil then
       ret[header] = "true"
@@ -344,27 +344,21 @@ end
 
 function _M.rewrite()
   local plugin_mode = _M.plugin_mode(ngx.var.proxy_upstream_name)
+  metrics_reporter:add_to_counter(
+    "otel.nginx.request",
+    1,
+    _M.make_propagation_header_metric_tags(
+      ngx.req.get_headers(),
+      ngx.var.proxy_upstream_name,
+      plugin_mode)
+  )
   if plugin_mode == BYPASSED then
-    metrics_reporter:add_to_counter(
-      "otel.nginx.bypassed_request",
-      1,
-      _M.make_propagation_header_metric_tags(
-        ngx.req.get_headers(),
-        ngx.var.proxy_upstream_name)
-    )
     ngx.log(ngx.INFO, "skipping rewrite")
     return
   end
   local tracer = _M.tracer(plugin_mode)
 
   local rewrite_start = otel_utils.gettimeofday_ms()
-  metrics_reporter:add_to_counter(
-    "otel.nginx.traceable_request",
-    1,
-    _M.make_propagation_header_metric_tags(
-      ngx.req.get_headers(),
-      ngx.var.proxy_upstream_name)
-  )
 
   -- Extract trace context from the headers of downstream HTTP request
   local upstream_context = composite_propagator:extract(new_context(), ngx.req)

@@ -67,18 +67,18 @@ end)
 describe("make_propagation_header_metric_tags", function()
     it("returns trace_id_present = false if no propagation headers present", function()
         local headers = {}
-        local expected = { trace_id_present = 'false', traceparent = 'false', upstream_name = "mycoolservice" }
+        local expected = { trace_id_present = 'false', traceparent = 'false', upstream_name = "mycoolservice", plugin_mode = "VERBOSITY_SAMPLING" }
         expected["x-cloud-trace-context"] = 'false'
         expected["x-shopify-trace-context"] = 'false'
-        assert.are.same(main.make_propagation_header_metric_tags(headers, "mycoolservice"), expected)
+        assert.are.same(main.make_propagation_header_metric_tags(headers, "mycoolservice", "VERBOSITY_SAMPLING"), expected)
     end)
 
     it("returns traceparent = true when only traceparent is supplied", function()
         local headers = { traceparent = "hi" }
-        local expected = { trace_id_present = 'true', traceparent = 'true', upstream_name = "mycoolservice" }
+        local expected = { trace_id_present = 'true', traceparent = 'true', upstream_name = "mycoolservice", plugin_mode = "VERBOSITY_SAMPLING" }
         expected["x-cloud-trace-context"] = 'false'
         expected["x-shopify-trace-context"] = 'false'
-        assert.are.same(main.make_propagation_header_metric_tags(headers, "mycoolservice"), expected)
+        assert.are.same(main.make_propagation_header_metric_tags(headers, "mycoolservice", "VERBOSITY_SAMPLING"), expected)
     end)
 
     it("returns multiple headers when multiple are present", function()
@@ -86,8 +86,8 @@ describe("make_propagation_header_metric_tags", function()
         headers["x-shopify-trace-context"] = "hi"
         headers["x-cloud-trace-context"] = "hi"
         headers["traceparent"] = "hi"
-        local result = main.make_propagation_header_metric_tags(headers, "mycoolservice")
-        local expected = { trace_id_present = 'true', traceparent = 'true', upstream_name = "mycoolservice" }
+        local result = main.make_propagation_header_metric_tags(headers, "mycoolservice", "VERBOSITY_SAMPLING")
+        local expected = { trace_id_present = 'true', traceparent = 'true', upstream_name = "mycoolservice", plugin_mode = "VERBOSITY_SAMPLING" }
         expected["x-cloud-trace-context"] = 'true'
         expected["x-shopify-trace-context"] = 'true'
         table.sort(result)
