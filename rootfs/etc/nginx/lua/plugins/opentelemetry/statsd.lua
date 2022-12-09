@@ -21,6 +21,7 @@ local _M = {}
 local default_tag_string = "|#"
 
 local METRIC_COUNTER   = "c"
+local METRIC_DISTRIBUTION = "d"
 local METRIC_GAUGE     = "g"
 local METRIC_HISTOGRAM = "h"
 local METRIC_SET       = "s"
@@ -173,6 +174,10 @@ end
 
 function _M.histogram(key, value, tags, ...)
   return log_metric(METRIC_HISTOGRAM, key, value, tags, ...)
+end
+
+function _M.distribution(key, value, tags, ...)
+  return log_metric(METRIC_DISTRIBUTION, key, value, tags, ...)
 end
 
 function _M.set(key, value, tags, ...)

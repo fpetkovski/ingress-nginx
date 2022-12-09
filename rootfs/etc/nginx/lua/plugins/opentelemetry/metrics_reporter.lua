@@ -16,10 +16,9 @@ end
 --------------------------------------------------------------------------------
 -- Records a value for a metric with provided labels (corresponds to histogram
 -- metric type in datadog)
--- todo(plantfansam): make this a statsd distribution
 --------------------------------------------------------------------------------
 function _M:record_value(metric, value, labels)
-    self.statsd.histogram(metric, value, labels)
+    self.statsd.distribution(metric, value, labels)
 end
 
 --------------------------------------------------------------------------------
