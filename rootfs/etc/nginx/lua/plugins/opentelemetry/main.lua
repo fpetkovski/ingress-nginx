@@ -373,6 +373,8 @@ function _M.rewrite()
     attr.string("http.method", ngx_var.request_method),
     attr.string("http.scheme", ngx_var.scheme),
     attr.string("http.user_agent", ngx_var.http_user_agent),
+    attr.string("nginx.proxy_upstream_name", ngx.var.proxy_upstream_name or "unknown"),
+    attr.string("nginx.request_id", ngx.var.http_x_request_id or "unknown")
   }
 
   -- Assemble additional nginx.request span attributes
