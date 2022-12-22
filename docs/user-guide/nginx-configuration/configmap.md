@@ -227,6 +227,8 @@ The following table shows a configuration option's name, type, and the default v
 |[plugin-opentelemetry-bsp-batch-timeout](#plugin-opentelemetry-bsp-timeout)|int|3
 |[plugin-opentelemetry-shopify-verbosity-sampler-percentage](#plugin-opentelemetry-shopify-verbosity-sampler-percentage)|float32|0.0
 |[plugin-opentelemetry-service](#plugin-opentelemetry-service)|string|"nginx"
+|[plugin-opentelemetry-strip-traceresponse](#plugin-opentelemetry-strip-traceresponse)|boolean|false
+|[plugin-opentelemetry-set-traceresponse](#plugin-opentelemetry-set-traceresponse)|boolean|false
 
 ## add-headers
 
@@ -1393,3 +1395,11 @@ String representing the service for which nginx will emit spans (e.g. "productio
 ### plugin-opentelemetry-environment
 
 String denoting the environment in which plugin is running.
+
+### plugin-opentelemetry-set-traceresponse
+
+Boolean indicating whether or not to set a response header with a traceresponse.
+
+### plugin-opentelemetry-strip-traceresponse
+
+Boolean indicating whether or not to strip upstream traceresponse response header before returning request to client. We strip the traceresponse even if the upstream is bypassed (see [`plugin-opentelemetry-bypassed-upstreams`](#plugin-opentelemetry-bypassed-upstreams)). We do not strip the trace response if the user supplies a `?debug_headers=anything` URL parameter.

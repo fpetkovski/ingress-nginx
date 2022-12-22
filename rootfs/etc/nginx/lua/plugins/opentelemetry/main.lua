@@ -313,7 +313,8 @@ function _M.init_worker(config)
   _M.plugin_open_telemetry_shopify_verbosity_sampler_percentage = config.plugin_open_telemetry_shopify_verbosity_sampler_percentage
   _M.plugin_open_telemetry_service                              = config.plugin_open_telemetry_service
   _M.plugin_open_telemetry_environment                          = config.plugin_open_telemetry_environment
-  _M.plugin_open_telemetry_send_traceresponse                   = config.plugin_open_telemetry_send_traceresponse
+  _M.plugin_open_telemetry_set_traceresponse                    = config.plugin_open_telemetry_set_traceresponse
+  _M.plugin_open_telemetry_strip_traceresponse                  = config.plugin_open_telemetry_strip_traceresponse
 
   local tracer_samplers = {
     VerbositySamplerTracer = verbosity_sampler.new(_M.plugin_open_telemetry_shopify_verbosity_sampler_percentage),
@@ -428,8 +429,18 @@ function _M.parse_upstream_addr(input)
   end
 end
 
+local function should_strip_traceresponse()
+  return _M.plugin_open_telemetry_strip_traceresponse and
+    ngx.var.arg_debug_headers == nil
+end
+
 function _M.header_filter()
   if _M.plugin_mode(ngx.var.proxy_upstream_name) == BYPASSED then
+    -- As noted in readme, we strip traceresponse when settings say so, even when in BYPASSED MODE
+    if should_strip_traceresponse() then
+      ngx.header["traceresponse"] = nil
+    end
+
     ngx.log(ngx.INFO, "skipping header filter")
     return
   end
@@ -472,16 +483,16 @@ function _M.header_filter()
     ngx_ctx.opentelemetry.request_span_ctx:span_context().trace_flags = 1
   end
 
-  if _M.plugin_open_telemetry_send_traceresponse then
-    ngx.log(ngx.ERR, "Sending traceresponse")
+  if _M.plugin_open_telemetry_set_traceresponse then
     -- We need to update the child ID in the traceresponse header. To do this, we can just overwrite the traceresponse
     -- header to match the context from NGINX's outermost span (the request span) since the trace ID in the
     -- traceresponse header we received back from the proxied-to service originated in this plugin or the initial
     -- request that hit NGINX. The global proxy is responsible for stripping traceresponse headers.
     traceresponse_propagator:inject(ngx_ctx.opentelemetry.request_span_ctx, ngx)
-  else
-    ngx.log(ngx.ERR, "not sending traceresponse")
-    ngx.req.clear_header("traceresponse")
+  end
+
+  if should_strip_traceresponse() then
+    ngx.header["traceresponse"] = nil
   end
 
   local header_end = otel_utils.gettimeofday_ms()

@@ -1121,9 +1121,10 @@ func TestBuildPluginConfigForLua(t *testing.T) {
 	plugin_open_telemetry_exporter_otlp_endpoint = "opentelemetry-collector:4318",
 	plugin_open_telemetry_exporter_otlp_headers = "hi=mom;",
 	plugin_open_telemetry_exporter_timeout = 5,
-	plugin_open_telemetry_send_traceresponse = false,
 	plugin_open_telemetry_service = "nginx",
-	plugin_open_telemetry_shopify_verbosity_sampler_percentage = 0
+	plugin_open_telemetry_set_traceresponse = false,
+	plugin_open_telemetry_shopify_verbosity_sampler_percentage = 0,
+	plugin_open_telemetry_strip_traceresponse = false
 }`}, {"", `{
 	plugin_open_telemetry_bsp_batch_timeout = 3,
 	plugin_open_telemetry_bsp_drop_on_queue_full = true,
@@ -1136,9 +1137,10 @@ func TestBuildPluginConfigForLua(t *testing.T) {
 	plugin_open_telemetry_exporter_otlp_endpoint = "opentelemetry-collector:4318",
 	plugin_open_telemetry_exporter_otlp_headers = "",
 	plugin_open_telemetry_exporter_timeout = 5,
-	plugin_open_telemetry_send_traceresponse = false,
 	plugin_open_telemetry_service = "nginx",
-	plugin_open_telemetry_shopify_verbosity_sampler_percentage = 0
+	plugin_open_telemetry_set_traceresponse = false,
+	plugin_open_telemetry_shopify_verbosity_sampler_percentage = 0,
+	plugin_open_telemetry_strip_traceresponse = false
 }`},
 	}
 	for i := 0; i < len(cases); i++ {

@@ -316,3 +316,38 @@ describe("log()", function()
         assert.are_same(ngx.ctx.opentelemetry.proxy_span_ctx.sp.status.code, 2)
     end)
 end)
+
+describe("header_filters", function()
+    before_each(function()
+        main.plugin_open_telemetry_strip_traceresponse = true
+        main.plugin_mode = function() return "BYPASSED" end
+    end)
+
+    after_each(function()
+        main.plugin_mode = orig_plugin_mode
+        ngx.var.arg_debug_headers = nil
+    end)
+
+    it("strips traceresponse when strip_traceresponse setting is true and debug_headers is not present", function()
+        main.plugin_open_telemetry_strip_traceresponse = true
+        ngx.var.arg_debug_headers = nil
+        ngx.header["traceresponse"] = "im_here"
+        main.header_filter()
+        assert.is_nil(ngx.header["traceresponse"])
+    end)
+
+    it("does not strip traceresponse when strip_traceresponse is true and ?debug_headers is present", function()
+        main.plugin_open_telemetry_strip_traceresponse = true
+        ngx.header["traceresponse"] = "im_here"
+        ngx.var.arg_debug_headers = "hi"
+        main.header_filter()
+        assert.are_same(ngx.header["traceresponse"], "im_here")
+    end)
+
+    it("does not strip traceresponse headers when strip_traceresponse is false", function()
+        main.plugin_open_telemetry_strip_traceresponse = false
+        ngx.header["traceresponse"] = "im_here"
+        main.header_filter()
+        assert.are_same(ngx.header["traceresponse"], "im_here")
+    end)
+end)
