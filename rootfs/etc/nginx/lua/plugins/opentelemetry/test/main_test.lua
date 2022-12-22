@@ -1,8 +1,12 @@
-local context      = require("opentelemetry.context")
-local main         = require("plugins.opentelemetry.main")
-local result       = require("opentelemetry.trace.sampling.result")
-local span_context = require("opentelemetry.trace.span_context")
-local utils        = require("plugins.opentelemetry.shopify_utils")
+local context        = require("opentelemetry.context")
+local main           = require("plugins.opentelemetry.main")
+local recording_span = require("opentelemetry.trace.recording_span")
+local result         = require("opentelemetry.trace.sampling.result")
+local span_context   = require("opentelemetry.trace.span_context")
+local span_kind      = require("opentelemetry.trace.span_kind")
+local utils          = require("plugins.opentelemetry.shopify_utils")
+
+local orig_plugin_mode = main.plugin_mode
 
 local function make_ngx_resp(headers)
     return {
@@ -268,4 +272,47 @@ describe("plugin_mode", function()
             main.should_use_deferred_sampler = orig_deferred
             main.request_has_tracing_headers = orig_request_has_tracing_headers
         end)
+end)
+
+describe("log()", function()
+    before_each(function()
+        main.plugin_mode = function() return "VERBOSITY_SAMPLING" end
+        stub(recording_span, "finish")
+        local proxy_span = recording_span.new(
+            nil, nil, span_context.new(), "test_span", { kind = span_kind.server })
+        local request_span = recording_span.new(
+            nil, nil, span_context.new(), "test_span", { kind = span_kind.server })
+        local response_span = recording_span.new(
+            nil, nil, span_context.new(), "test_span", { kind = span_kind.server })
+        ngx.ctx = {
+            opentelemetry = {
+                proxy_span_ctx = { sp = proxy_span },
+                request_span_ctx = { sp = request_span },
+                response_span_ctx = { sp = response_span }
+            }
+        }
+    end)
+
+    after_each(function()
+        recording_span.finish:revert()
+        main.plugin_mode = orig_plugin_mode
+        ngx.ctx = {}
+    end)
+
+    it("sets status and http status on spans", function()
+        ngx.var.status = 504
+        main.log()
+        local req_span = ngx.ctx.opentelemetry.request_span_ctx.sp
+        -- local proxy_span = ngx.ctx.opentelemetry.proxy_span_ctx.sp
+        local req_span_has_http_status = false
+        for i, attr in ipairs(req_span.attributes) do
+            if attr.key == "http.status_code" and attr.value.int_value == 504 then
+                req_span_has_http_status = true
+            end
+        end
+
+        assert.is_true(req_span_has_http_status)
+        assert.are_same(ngx.ctx.opentelemetry.request_span_ctx.sp.status.code, 2)
+        assert.are_same(ngx.ctx.opentelemetry.proxy_span_ctx.sp.status.code, 2)
+    end)
 end)

@@ -443,8 +443,6 @@ function _M.header_filter()
     return
   end
 
-  local upstream_status = tonumber(ngx_var.upstream_status) or 0
-
   local parsed_upstream = _M.parse_upstream_addr(ngx_var.upstream_addr)
 
   -- This is not in semconv, but we capture the full upstream addr as an attribute for debugging purposes
@@ -457,16 +455,6 @@ function _M.header_filter()
   end
 
   ngx_ctx.opentelemetry.proxy_span_ctx.sp:set_attributes(unpack(attrs))
-
-  -- See https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/trace/semantic_conventions/http.md#status
-  -- for rules on which spans should be marked as having error status
-  if upstream_status >= 400 then
-    ngx_ctx.opentelemetry.proxy_span_ctx.sp:set_status(span_status.error)
-  end
-  if upstream_status >= 500 then
-    ngx_ctx.opentelemetry.request_span_ctx.sp:set_status(span_status.error)
-  end
-  ngx_ctx.opentelemetry.request_span_ctx.sp:set_attributes(attr.int("http.status_code", upstream_status))
   ngx_ctx.opentelemetry.proxy_span_end_time = otel_utils.time_nano()
 
   -- Start response span
@@ -507,10 +495,24 @@ function _M.log()
   end
 
   local log_start = otel_utils.gettimeofday_ms()
+  local status = tonumber(ngx.var.status) or 0
+
   local ngx_ctx = ngx.ctx
   if not ngx_ctx["opentelemetry"] then
     return
   end
+
+  -- See https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/trace/semantic_conventions/http.md#status
+  -- for rules on which spans should be marked as having error status
+
+  if status >= 400 then
+    ngx_ctx.opentelemetry.proxy_span_ctx.sp:set_status(span_status.error)
+  end
+  if status >= 500 then
+    ngx_ctx.opentelemetry.request_span_ctx.sp:set_status(span_status.error)
+  end
+
+  ngx.ctx.opentelemetry.request_span_ctx.sp:set_attributes(attr.int("http.status_code", status))
 
   -- close proxy span using end time from header_filter
   ngx_ctx.opentelemetry.proxy_span_ctx.sp:finish(ngx_ctx.opentelemetry.proxy_span_end_time)
