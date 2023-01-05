@@ -1334,11 +1334,11 @@ _References:_
 
 ### plugin-opentelemetry-bypassed-upstreams
 
-Comma-separated list of upstreams that should be bypassed by the opentelemetry-plugin. When set to "all", all upstreams are bypassed. Each list item should be an alphanumeric string. If $proxy_upstream_name contains the string, then plugin will not run for that request.
+Comma-separated list of upstreams that should be bypassed by the opentelemetry-plugin. When set to "all", all upstreams are bypassed. Each list item should be an alphanumeric string. If $proxy_upstream_name contains the string, then plugin will not run for that request. If you want to match an upstream with a dash in it (or any "special character" in Lua's pattern-matching scheme), you should escape it with a `%`. So to match "storefront-renderer", supply `"storefront%-renderer`.
 
 ### plugin-opentelemetry-deferred-sampling-upstreams
 
-Comma-separated list of upstreams that should use deferred sampling. Each list item should be an alphanumeric string. If $proxy_upstream_name contains the string, then plugin will use deferred sampling for that request.
+Comma-separated list of upstreams that should use deferred sampling. Each list item should be an alphanumeric string. If $proxy_upstream_name contains the string, then plugin will use deferred sampling for that request.  If you want to match an upstream with a dash in it (or any "special character" in Lua's pattern-matching scheme), you should escape it with a `%`. So to match "storefront-renderer", supply `"storefront%-renderer`.
 
 ### plugin-opentelemetry-exporter-timeout
 
