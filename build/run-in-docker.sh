@@ -44,7 +44,6 @@ function cleanup {
 }
 trap cleanup EXIT
 
-
 E2E_IMAGE=${E2E_IMAGE:-gcr.io/shopify-docker-images/apps/ci/nginx-e2e-test-runner:5077cd603f84918d300ff85b2bebf41e321a6f30}
 
 if [[ "$RUNTIME" == podman ]]; then
@@ -77,23 +76,21 @@ fi
 
 USER=${USER:-nobody}
 
-echo "..printing env & other vars to stdout"
-echo "HOSTNAME=`hostname`"
-uname -a
-env
-echo "DIND_ENABLED=$DOCKER_IN_DOCKER_ENABLED"
-echo "done..printing env & other vars to stdout"
+#echo "..printing env & other vars to stdout"
+#echo "HOSTNAME=`hostname`"
+#uname -a
+#env
+#echo "DIND_ENABLED=$DOCKER_IN_DOCKER_ENABLED"
+#echo "done..printing env & other vars to stdout"
 
 if [[ "$DOCKER_IN_DOCKER_ENABLED" == "true" ]]; then
   echo "..reached DIND check TRUE block, inside run-in-docker.sh"
   echo "FLAGS=$FLAGS"
-  go env
-  set -x
-  go install -mod=mod github.com/onsi/ginkgo/v2/ginkgo@v2.1.4
+  #go env
+  go install -mod=mod github.com/onsi/ginkgo/v2/ginkgo@v2.6.1
   find / -type f -name ginkgo 2>/dev/null
   which ginkgo
   /bin/bash -c "${FLAGS}"
-  set +x
 else
   echo "Reached DIND check ELSE block, inside run-in-docker.sh"
 

@@ -3,6 +3,7 @@ name: ingress-nginx
 type: go
 
 up:
+  - podman
   - go:
       version: 1.18.2
       modules: true
@@ -14,12 +15,9 @@ up:
       name: Configure GeoIP database files
       met?: ls rootfs/geoip/GeoLite2-Country.mmdb.gz &> /dev/null
       meet: gsutil cp gs://shopify-mmdb-free/GeoLite2-Country.mmdb.gz rootfs/geoip/
-  - custom:
-      name: Build dev environment
-      met?: docker ps | grep ingress-nginx-dev-control-plane &> /dev/null
-      meet: make dev-env
 env:
   BASE_IMAGE: gcr.io/shopify-docker-images/apps/production/nginx:1.21.6.0
+  RUNTIME: podman
 
 commands:
   lint:
