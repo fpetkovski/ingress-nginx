@@ -1,5 +1,6 @@
 local context        = require("opentelemetry.context")
 local main           = require("plugins.opentelemetry.main")
+local old_getenv     = os.getenv
 local recording_span = require("opentelemetry.trace.recording_span")
 local result         = require("opentelemetry.trace.sampling.result")
 local span_context   = require("opentelemetry.trace.span_context")
@@ -13,6 +14,29 @@ local function make_ngx_resp(headers)
         get_headers = function()
             return headers
         end
+    }
+end
+local function make_config()
+    return {
+        plugin_open_telemetry_bsp_batch_timeout = 3,
+        plugin_open_telemetry_bsp_drop_on_queue_full = true,
+        plugin_open_telemetry_bsp_inactive_timeout = 2,
+        plugin_open_telemetry_bsp_max_export_batch_size = 512,
+        plugin_open_telemetry_bsp_max_queue_size = 2048,
+        plugin_open_telemetry_enabled = true,
+        plugin_open_telemetry_environment = "production",
+        plugin_open_telemetry_exporter_otlp_endpoint = "otel-collector.dns.podman:4318",
+        plugin_open_telemetry_exporter_otlp_headers = "hi=mom;",
+        plugin_open_telemetry_exporter_timeout = 5,
+        plugin_open_telemetry_service = "nginx",
+        plugin_open_telemetry_traces_sampler = "ShopifyVerbositySampler",
+        plugin_open_telemetry_traces_sampler_arg = "1.0",
+        plugin_open_telemetry_traces_sampler_secondary = "ShopifyDeferredSampler",
+        plugin_open_telemetry_bypassed_upstreams = "",
+        plugin_open_telemetry_deferred_sampling_upstreams = "",
+        plugin_open_telemetry_shopify_verbosity_sampler_percentage = "1.0",
+        plugin_open_telemetry_set_traceresponse = true,
+        plugin_open_telemetry_strip_traceresponse = false
     }
 end
 
@@ -349,5 +373,55 @@ describe("header_filters", function()
         ngx.header["traceresponse"] = "im_here"
         main.header_filter()
         assert.are_same(ngx.header["traceresponse"], "im_here")
+    end)
+end)
+
+describe("init_worker", function()
+    before_each(function()
+        package.loaded['plugins.opentelemetry.main'] = nil -- so we can re-require and pick up env vars
+        os.getenv = old_getenv
+        ngx.ctx.opentelemetry_tracer = nil
+    end)
+
+    it("does not attach env-var sourced attributes when absent ", function()
+        local main = require("plugins.opentelemetry.main")
+        main.init_worker(make_config())
+
+        local env_attrs = { POD_NAMESPACE = "k8s.namespace.name", POD_NAME = "k8s.pod.name",
+        NODE_NAME = "k8s.node.name", KUBE_LOCATION = "cloud.region", KUBE_CLUSTER = "k8s.cluster.name" }
+        for _, attr in pairs(env_attrs) do
+            local present = false
+            for _i, r_attr in ipairs(main.tracer("DEFERRED_SAMPLING").provider.resource.attrs) do
+                if r_attr.key == attr then
+                    present = true
+                end
+            end
+            assert.is_false(present)
+        end
+    end)
+
+    it("attaches env-var sourced attributes when present", function()
+        os.getenv = function(str)
+            local hash = { POD_NAMESPACE = "my-namespace", POD_NAME = "abc123",
+                           NODE_NAME = "my-cool-node", KUBE_LOCATION = "us-north-northwest-1",
+                           KUBE_CLUSTER = "my-cool-cluster" }
+            return hash[str]
+        end
+        local main = require("plugins.opentelemetry.main")
+
+        main.init_worker(make_config())
+
+        local env_attrs = { POD_NAMESPACE = "k8s.namespace.name", POD_NAME = "k8s.pod.name",
+                            NODE_NAME = "k8s.node.name", KUBE_LOCATION = "cloud.region",
+                            KUBE_CLUSTER = "k8s.cluster.name" }
+        for _, attr in pairs(env_attrs) do
+            local present = false
+            for _i, r_attr in ipairs(main.tracer("DEFERRED_SAMPLING").provider.resource.attrs) do
+                if r_attr.key == attr then
+                    present = true
+                end
+            end
+            assert.is_true(present)
+        end
     end)
 end)

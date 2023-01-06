@@ -180,4 +180,14 @@ function _M.parse_upstream_list(upstream_list_str)
   return list
 end
 
+--------------------------------------------------------------------------------
+-- Returns name of region from string that might contain -gcp
+--
+-- @param unparsed_string A string for region that might contain -gcp
+-- @return string
+--------------------------------------------------------------------------------
+function _M.parse_region(unparsed_string)
+  return string.gsub(unparsed_string, "gcp%-", "")
+end
+
 return _M

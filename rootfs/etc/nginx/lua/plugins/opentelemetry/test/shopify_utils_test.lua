@@ -107,3 +107,13 @@ describe("parse_upstream_list", function()
             ["foo-bar-prod-80"] = true })
     end)
 end)
+
+describe("parse_region", function()
+  it("should extract gcp- prefix", function()
+    assert.are.same(utils.parse_region("gcp-us-east-1"), "us-east-1")
+  end)
+
+  it("does nothing if gcp-prefix is missing", function()
+    assert.are.same(utils.parse_region("us-eagcpst-1"), "us-eagcpst-1")
+  end)
+end)

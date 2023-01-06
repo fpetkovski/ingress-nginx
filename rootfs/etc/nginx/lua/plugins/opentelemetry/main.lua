@@ -10,6 +10,7 @@ local table    = table
 local string   = string
 local tonumber = tonumber
 local unpack   = unpack
+local os       = os
 
 local OPENTELEMETRY_PLUGIN_VERSION = "0.2.2"
 local BYPASSED = "BYPASSED"
@@ -45,6 +46,30 @@ local attr = require("opentelemetry.attribute")
 local new_context = require("opentelemetry.context").new
 
 local _M = {}
+
+-- Parse common attributes when module is required (instead of when module functions are invoked from NGINX config file)
+-- so that env vars are available to the Lua VM. If you were to run this code from a foo_by_lua block in an NGINX
+-- configuration file, os.getenv would not return the env vars on the pod, since NGINX strips most env vars.
+local env_attrs = { POD_NAMESPACE = "k8s.namespace.name", POD_NAME = "k8s.pod.name",
+                    NODE_NAME = "k8s.node.name", KUBE_LOCATION = "cloud.region", KUBE_CLUSTER = "k8s.cluster.name"}
+local parsed_env_attrs = {}
+local function get_env_attrs()
+  for env_var, attr_name in pairs(env_attrs) do
+    local value = os.getenv(env_var)
+
+    if value ~= nil then
+      if env_var == "KUBE_LOCATION" then
+        value = shopify_utils.parse_region(value)
+      end
+      parsed_env_attrs[attr_name] = value
+    end
+  end
+end
+
+local ev_ok, maybe_err = pcall(get_env_attrs)
+if not ev_ok then
+  ngx.log(ngx.ERR, "Error reading resource attrs from environment: " .. maybe_err)
+end
 
 --------------------------------------------------------------------------------
 -- This is from https://gist.github.com/h1k3r/089d43771bdf811eefe8.
@@ -100,8 +125,12 @@ function _M.create_tracer_provider(sampler)
   local resource_attrs = {
     attr.string("host.name", get_hostname()),
     attr.string("service.name", _M.plugin_open_telemetry_service),
-    attr.string("deployment.environment", _M.plugin_open_telemetry_environment)
+    attr.string("deployment.environment", _M.plugin_open_telemetry_environment),
+    attr.string("cloud.provider", "gcp")
   }
+  for k, v in pairs(parsed_env_attrs) do
+    table.insert(resource_attrs, attr.string(k, v))
+  end
 
   -- Create tracer provider
   local tp = tracer_provider_new(batch_span_processor, {
