@@ -20,12 +20,12 @@ local util_tablelength = util.tablelength
 local _M = {}
 local default_tag_string = "|#"
 
-local METRIC_COUNTER   = "c"
+local METRIC_COUNTER      = "c"
 local METRIC_DISTRIBUTION = "d"
-local METRIC_GAUGE     = "g"
-local METRIC_HISTOGRAM = "h"
-local METRIC_SET       = "s"
-local MICROSECONDS     = 1000000
+local METRIC_GAUGE        = "g"
+local METRIC_HISTOGRAM    = "h"
+local METRIC_SET          = "s"
+local MICROSECONDS        = 1000000
 
 local ENV_TAGS = {
   kube_namespace = os.getenv("POD_NAMESPACE"),
@@ -153,6 +153,10 @@ end
 
 -- to avoid logging everywhere in #metric
 local function log_metric(...)
+  if not _M.config.enabled then
+    return
+  end
+
   local err = defer_to_timer.enqueue(send_metrics, ...)
   if err then
     local msg = "failed to log metric: " .. tostring(err)
@@ -162,7 +166,7 @@ local function log_metric(...)
   return true
 end
 
--- Statsd module level convenince functions
+-- Statsd module level convenience functions
 
 function _M.increment(key, value, tags, ...)
   return log_metric(METRIC_COUNTER, key, value or 1, tags, ...)
@@ -214,6 +218,7 @@ _M.config = {
   host = statsd_host,
   port = statsd_port,
   sampling_rate = 0.1,
+  enabled = true,
   tags = {
     ["telemetry.sdk.version"] = '0.2.2',
     ["telemetry.sdk.language"] = 'lua'
@@ -222,7 +227,7 @@ _M.config = {
 
 if not _M.config.host or not _M.config.port then
   ngx.log(ngx.ERR, "Either STATSD_ADDR or (STATSD_HOST and STATSD_PORT) env variables must be set")
-  error("STATSD_HOST and STATSD_PORT env variables must be set")
+  _M.config.enabled = false
 end
 
 expand_default_tags()
