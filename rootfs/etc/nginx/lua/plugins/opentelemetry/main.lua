@@ -9,6 +9,7 @@ local pcall    = pcall
 local table    = table
 local string   = string
 local tonumber = tonumber
+local tostring = tostring
 local unpack   = unpack
 local os       = os
 
@@ -288,8 +289,11 @@ function _M.should_force_sample_buffered_spans(ngx_resp, initial_sampling_decisi
 
   local ctx = traceresponse_propagator:extract(new_context(), ngx_resp)
   if ctx:span_context():is_valid() then
-    return ctx:span_context():is_sampled()
+    local is_sampled = ctx:span_context():is_sampled()
+    metrics_reporter:add_to_counter("otel.nginx.deferred_sampling_decision", 1, { is_sampled = tostring(is_sampled), context_valid = "true" })
+    return is_sampled
   else
+    metrics_reporter:add_to_counter("otel.nginx.deferred_sampling_decision", 1, { is_sampled = "false", context_valid = "false" })
     return false
   end
 end
