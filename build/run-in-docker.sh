@@ -44,7 +44,7 @@ function cleanup {
 }
 trap cleanup EXIT
 
-E2E_IMAGE=${E2E_IMAGE:-gcr.io/shopify-docker-images/apps/ci/nginx-e2e-test-runner:5077cd603f84918d300ff85b2bebf41e321a6f30}
+E2E_IMAGE=${E2E_IMAGE:-gcr.io/shopify-docker-images/apps/ci/nginx-e2e-test-runner:814123722a68c2824f8edc8fb50c7e0cf65315cf}
 
 if [[ "$RUNTIME" == podman ]]; then
   # Podman does not support both tag and digest
