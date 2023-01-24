@@ -10,6 +10,7 @@ local type          = type
 local next          = next
 local table         = table
 local re_gmatch     = ngx.re.gmatch
+local io            = io
 
 local _M = {}
 
@@ -211,5 +212,46 @@ function _M.dump_table(t)
   end
   return out
 end
+
+local function get_hostname()
+  local f = io.popen("/bin/hostname")
+
+  if f ~= nil then
+    local h = f:read("*a") or ""
+    h = string.gsub(h, "[\n]", "")
+    f:close()
+    return h
+  else
+    return "unknown"
+  end
+end
+
+_M.get_hostname = get_hostname
+
+local MAX_HASH_NUM = 2^31-1
+local function hash_string(str)
+  local hash = 0
+  for i = 1, string.len(str) do
+    hash = 31 * hash + string.byte(str, i)
+    if hash > MAX_HASH_NUM then
+      hash = hash % MAX_HASH_NUM
+    end
+  end
+  return hash
+end
+
+_M.hash_string = hash_string
+
+local function get_host_seed()
+  return hash_string(_M.get_hostname())
+end
+
+_M.get_host_seed = get_host_seed
+
+local function array_mod(i, max)
+  return (i - 1) % max + 1
+end
+
+_M.array_mod = array_mod
 
 return _M
