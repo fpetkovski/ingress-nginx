@@ -33,6 +33,8 @@ local DEBUG_PARAM_NAME = "debug_headers"
 
 local DEFAULT_HASH_BALANCE_FACTOR = 2
 
+local HOST_SEED = util.get_host_seed()
+
 -- Controls how many "tenants" we'll keep track of
 -- to avoid routing them to alternative_backends
 -- as they were already consistently routed to some endpoint.
@@ -122,6 +124,7 @@ local function update_endpoints(self, endpoints)
   self.endpoints = endpoints
   self.endpoints_reverse = reverse_table(endpoints)
   self.total_endpoints = #endpoints
+  self.ring_seed = util.array_mod(HOST_SEED, self.total_endpoints)
 end
 
 -- this is an extra sanity check for the rollout and it will be gone by final iteration
@@ -228,11 +231,15 @@ function _M.balance(self)
   local first_endpoint = self.chash:find(hash_by_value)
   local index = self.endpoints_reverse[first_endpoint]
 
+  -- By design, resty.chash always points to the same element of the ring,
+  -- regardless of the environment. In this algorithm, we want the consistency
+  -- to be "seeded" based on the host where it's running.
+  -- That's how both Envoy and Haproxy implement this.
+  -- For convenience, we keep resty.chash but manually introduce the seed.
+  index = util.array_mod(index + self.ring_seed, self.total_endpoints)
+
   for i=0, self.total_endpoints-1 do
-    local j = index + i
-    if j > self.total_endpoints then
-      j = j - self.total_endpoints
-    end
+    local j = util.array_mod(index + i, self.total_endpoints)
     local endpoint = self.endpoints[j]
 
     if not tried_endpoints[endpoint] then

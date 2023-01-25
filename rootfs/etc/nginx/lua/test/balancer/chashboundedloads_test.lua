@@ -1,15 +1,27 @@
-local util = require("util")
-
 local original_ngx = ngx
 local function reset_ngx()
   _G.ngx = original_ngx
 end
 
 describe("Balancer chashboundedloads", function()
-  local balancer_chashboundedloads = require("balancer.chashboundedloads")
-  local backend, instance
+  local balancer_chashboundedloads, backend, instance
+
+  local function endpoint_for_hash(instance, hash_by_value, offset)
+    if offset == nil then offset = 0 end
+
+    local first_endpoint = instance.chash:find(hash_by_value)
+    local index = instance.endpoints_reverse[first_endpoint]
+
+    index = util.array_mod(index + instance.ring_seed + offset, instance.total_endpoints)
+    return instance.endpoints[index]
+  end
 
   before_each(function()
+    util = require_without_cache("util")
+    util.get_hostname = function()
+      return "test-host"
+    end
+
     balancer_chashboundedloads = require_without_cache("balancer.chashboundedloads")
 
     backend = {
@@ -102,21 +114,27 @@ describe("Balancer chashboundedloads", function()
   it("skips tried endpoint", function()
     ngx.var = { request_uri = "/alma/armud" }
 
-    ngx.ctx.balancer_chashbl_tried_endpoints = {["10.10.10.1:8080"]=true}
+    local expected_first_endpoint = endpoint_for_hash(instance, "/alma/armud")
+    local expected_second_endpoint = endpoint_for_hash(instance, "/alma/armud", 1)
+
+    ngx.ctx.balancer_chashbl_tried_endpoints = {[expected_first_endpoint]=true}
     local endpoint = instance:balance()
 
-    assert.are.equals("10.10.10.2:8080", endpoint)
+    assert.are.equals(expected_second_endpoint, endpoint)
 
-    assert.are.same({["10.10.10.2:8080"] = 1}, instance.requests_by_endpoint)
+    assert.are.same({[expected_second_endpoint] = 1}, instance.requests_by_endpoint)
     assert.are.equals(1, instance.total_requests)
   end)
 
   it("after_balance decrements all tried endpoints", function()
-    instance.requests_by_endpoint["10.10.10.1:8080"] = 1
-    instance.requests_by_endpoint["10.10.10.2:8080"] = 1
+    local expected_first_endpoint = endpoint_for_hash(instance, "/alma/armud")
+    local expected_second_endpoint = endpoint_for_hash(instance, "/alma/armud", 1)
+
+    instance.requests_by_endpoint[expected_first_endpoint] = 1
+    instance.requests_by_endpoint[expected_second_endpoint] = 1
     instance.total_requests = 2
 
-    ngx.var = { request_uri = "/alma/armud", upstream_addr = "10.10.10.1:8080 : 10.10.10.2:8080" }
+    ngx.var = { request_uri = "/alma/armud", upstream_addr = expected_first_endpoint .. " : " .. expected_second_endpoint }
 
     instance:after_balance()
 
@@ -127,30 +145,34 @@ describe("Balancer chashboundedloads", function()
   it("spills over", function()
     ngx.var = { request_uri = "/alma/armud" }
     local endpoint = instance:balance()
-    assert.are.equals("10.10.10.1:8080", endpoint)
 
-    assert.are.same({["10.10.10.1:8080"] = 1}, instance.requests_by_endpoint)
+    local expected_first_endpoint = endpoint_for_hash(instance, "/alma/armud")
+    local expected_second_endpoint = endpoint_for_hash(instance, "/alma/armud", 1)
+
+    assert.are.equals(expected_first_endpoint, endpoint)
+
+    assert.are.same({[expected_first_endpoint] = 1}, instance.requests_by_endpoint)
     assert.are.equals(1, instance.total_requests)
 
     ngx.ctx.balancer_chashbl_tried_endpoints = nil
 
     local endpoint = instance:balance()
-    assert.are.equals("10.10.10.1:8080", endpoint)
+    assert.are.equals(expected_first_endpoint, endpoint)
 
-    assert.are.same({["10.10.10.1:8080"] = 2}, instance.requests_by_endpoint)
+    assert.are.same({[expected_first_endpoint] = 2}, instance.requests_by_endpoint)
     assert.are.equals(2, instance.total_requests)
 
     ngx.ctx.balancer_chashbl_tried_endpoints = nil
 
     local endpoint = instance:balance()
-    assert.are.equals("10.10.10.2:8080", endpoint)
+    assert.are.equals(expected_second_endpoint, endpoint)
 
-    assert.are.same({["10.10.10.1:8080"] = 2, ["10.10.10.2:8080"] = 1}, instance.requests_by_endpoint)
+    assert.are.same({[expected_first_endpoint] = 2, [expected_second_endpoint] = 1}, instance.requests_by_endpoint)
     assert.are.equals(3, instance.total_requests)
   end)
 
   it("balances and keeps track of requests", function()
-    local expected_endpoint = instance.chash:find("/alma/armud")
+    local expected_endpoint = endpoint_for_hash(instance, "/alma/armud")
 
     ngx.var = { request_uri = "/alma/armud" }
     local endpoint = instance:balance()
@@ -174,6 +196,7 @@ describe("Balancer chashboundedloads", function()
     }
     instance.requests_by_endpoint["10.10.10.3:8080"] = 2
     instance.total_requests = 2
+    instance.ring_seed = 0
 
     ngx.var = { request_uri = "/alma/armud" }
     local endpoint = instance:balance()
@@ -186,7 +209,7 @@ describe("Balancer chashboundedloads", function()
     instance.requests_by_endpoint["10.10.10.3:8080"] = 2
     instance.total_requests = 6
 
-    local expected_endpoint = instance.chash:find("/alma/armud")
+    local expected_endpoint = endpoint_for_hash(instance, "/alma/armud")
 
     ngx.var = { request_uri = "/alma/armud" }
     local endpoint = instance:balance()
@@ -231,6 +254,9 @@ describe("Balancer chashboundedloads", function()
       assert.are.same({"10.10.10.1:8080", "10.10.10.2:8080", "10.10.10.3:8080", "10.10.10.4:8080"}, instance.endpoints)
       assert.are.equal(4, instance.total_endpoints)
       assert.are.same({["10.10.10.1:8080"] = 1,["10.10.10.2:8080"] = 2, ["10.10.10.3:8080"] = 3, ["10.10.10.4:8080"] = 4}, instance.endpoints_reverse)
+
+      local expected_seed = util.array_mod(util.hash_string(util.get_hostname()), instance.total_endpoints)
+      assert.are.equal(expected_seed, instance.ring_seed)
     end)
 
     it("updates chash and roundrobin", function()
