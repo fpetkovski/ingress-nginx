@@ -546,26 +546,31 @@ function _M.log()
     return
   end
 
+  -- close proxy span using end time from header_filter, if present
   -- See https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/trace/semantic_conventions/http.md#status
   -- for rules on which spans should be marked as having error status
+  if ngx_ctx.opentelemetry.proxy_span_ctx then
+    if status >= 400 then
+      ngx_ctx.opentelemetry.proxy_span_ctx.sp:set_status(span_status.error)
+    end
 
-  if status >= 400 then
-    ngx_ctx.opentelemetry.proxy_span_ctx.sp:set_status(span_status.error)
+    ngx_ctx.opentelemetry.proxy_span_ctx.sp:finish(ngx_ctx.opentelemetry.proxy_span_end_time)
   end
-  if status >= 500 then
-    ngx_ctx.opentelemetry.request_span_ctx.sp:set_status(span_status.error)
+
+  -- close response span if present
+  if ngx_ctx.opentelemetry.response_span_ctx then ngx_ctx.opentelemetry.response_span_ctx.sp:finish() end
+
+  -- close request span if present
+  -- See https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/trace/semantic_conventions/http.md#status
+  -- for rules on which spans should be marked as having error status
+  if ngx_ctx.opentelemetry.request_span_ctx then
+    if status >= 500 then
+      ngx_ctx.opentelemetry.request_span_ctx.sp:set_status(span_status.error)
+    end
+
+    ngx.ctx.opentelemetry.request_span_ctx.sp:set_attributes(attr.int("http.status_code", status))
+    ngx_ctx.opentelemetry.request_span_ctx.sp:finish()
   end
-
-  ngx.ctx.opentelemetry.request_span_ctx.sp:set_attributes(attr.int("http.status_code", status))
-
-  -- close proxy span using end time from header_filter
-  ngx_ctx.opentelemetry.proxy_span_ctx.sp:finish(ngx_ctx.opentelemetry.proxy_span_end_time)
-
-  -- close response span
-  ngx_ctx.opentelemetry.response_span_ctx.sp:finish()
-
-  -- close request span
-  ngx_ctx.opentelemetry.request_span_ctx.sp:finish()
 
   -- Send stats now that the log phase is over.
   local log_end = otel_utils.gettimeofday_ms()

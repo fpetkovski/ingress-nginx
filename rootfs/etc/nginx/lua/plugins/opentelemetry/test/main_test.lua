@@ -339,6 +339,20 @@ describe("log()", function()
         assert.are_same(ngx.ctx.opentelemetry.request_span_ctx.sp.status.code, 2)
         assert.are_same(ngx.ctx.opentelemetry.proxy_span_ctx.sp.status.code, 2)
     end)
+
+    describe("when spans are absent", function()
+        before_each(function()
+            ngx.ctx = {
+                opentelemetry = { hi = "ok"}
+            }
+        end)
+
+        it("does not error if spans are nil", function()
+            -- test will fail if there are errors
+            main.log()
+        end)
+    end)
+
 end)
 
 describe("header_filters", function()
