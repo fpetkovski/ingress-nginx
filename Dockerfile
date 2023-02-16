@@ -109,15 +109,20 @@ RUN gunzip -fk /etc/nginx/geoip/*.gz \
   && rm -rf /etc/nginx/geoip/*.gz \
   && chown -R www-data.www-data /etc/nginx/geoip
 
-RUN apk add --no-cache libcap \
-  && setcap    cap_net_bind_service=+ep /nginx-ingress-controller \
-  && setcap -v cap_net_bind_service=+ep /nginx-ingress-controller \
-  && setcap    cap_net_bind_service=+ep /usr/local/nginx/sbin/nginx \
-  && setcap -v cap_net_bind_service=+ep /usr/local/nginx/sbin/nginx \
-  && setcap    cap_net_bind_service=+ep /usr/bin/dumb-init \
-  && setcap -v cap_net_bind_service=+ep /usr/bin/dumb-init \
-  && apk del libcap \
-  && ln -sf /usr/local/nginx/sbin/nginx /usr/bin/nginx
+# cap_net_bind_service allows ingress-nginx to bind to privileged ports.
+# Although that's not ideal, components that rely on ingress-nginx and need to do that
+# can build on this image by setting cap_net_bind_service in their own Dockerfiles.
+# See https://github.com/Shopify/team-routing/issues/859 for more context.
+
+# RUN apk add --no-cache libcap \
+#   && setcap    cap_net_bind_service=+ep /nginx-ingress-controller \
+#   && setcap -v cap_net_bind_service=+ep /nginx-ingress-controller \
+#   && setcap    cap_net_bind_service=+ep /usr/local/nginx/sbin/nginx \
+#   && setcap -v cap_net_bind_service=+ep /usr/local/nginx/sbin/nginx \
+#   && setcap    cap_net_bind_service=+ep /usr/bin/dumb-init \
+#   && setcap -v cap_net_bind_service=+ep /usr/bin/dumb-init \
+#   && apk del libcap
+RUN ln -sf /usr/local/nginx/sbin/nginx /usr/bin/nginx
 
 USER www-data
 
