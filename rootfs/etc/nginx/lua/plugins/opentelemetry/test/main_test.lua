@@ -55,11 +55,11 @@ main.plugin_open_telemetry_traces_sampler                       = "ShopifyVerbos
 main.plugin_open_telemetry_traces_sampler_arg                   = "0.5"
 
 describe("should_force_sample_buffered_spans", function()
-    it("returns false if initial sampling decision was record_and_sample", function()
+    it("returns true if initial sampling decision was record_and_sample", function()
         local ngx_resp = make_ngx_resp(
             { traceresponse = "00-00000000000000000000000000000001-0000000000000001-01" }
         )
-        assert.is_false(main.should_force_sample_buffered_spans(ngx_resp, result.record_and_sample, "DEFERRED_SAMPLING"))
+        assert.is_true(main.should_force_sample_buffered_spans(ngx_resp, result.record_and_sample, "DEFERRED_SAMPLING"))
     end)
 
     it("returns true if initial sampling decision was record_only and traceresponse includes sampling decision 01",
@@ -301,6 +301,9 @@ end)
 describe("log()", function()
     before_each(function()
         main.plugin_mode = function() return "VERBOSITY_SAMPLING" end
+        main.span_buffering_processor = {
+            send_spans = function(_, __) end
+        }
         stub(recording_span, "finish")
         local proxy_span = recording_span.new(
             nil, nil, span_context.new(), "test_span", { kind = span_kind.server })
@@ -327,7 +330,6 @@ describe("log()", function()
         ngx.var.status = 504
         main.log()
         local req_span = ngx.ctx.opentelemetry.request_span_ctx.sp
-        -- local proxy_span = ngx.ctx.opentelemetry.proxy_span_ctx.sp
         local req_span_has_http_status = false
         for i, attr in ipairs(req_span.attributes) do
             if attr.key == "http.status_code" and attr.value.int_value == 504 then

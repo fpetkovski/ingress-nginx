@@ -36,6 +36,7 @@ local traceresponse_propagator = require("plugins.opentelemetry.traceresponse_pr
 local exporter_client_new = require("opentelemetry.trace.exporter.http_client").new
 local otlp_exporter_new = require("opentelemetry.trace.exporter.otlp").new
 local batch_span_processor_new = require("opentelemetry.trace.batch_span_processor").new
+local span_buffering_processor = require("plugins.opentelemetry.span_buffering_processor")
 local tracer_provider_new = require("opentelemetry.trace.tracer_provider").new
 local deferred_sampler = require("plugins.opentelemetry.deferred_sampler")
 local verbosity_sampler = require("plugins.opentelemetry.verbosity_sampler")
@@ -94,12 +95,11 @@ local function get_hostname()
 end
 
 --------------------------------------------------------------------------------
--- Make a tracer provider, given a sampler. Just exists to reduce boilerplate.
+-- Make a span_buffering_processor
 --
--- @param sampler_name The sampler to use in the provider.
--- @return The tracer provider.
+-- @return A buffering span processor
 --------------------------------------------------------------------------------
-function _M.create_tracer_provider(sampler)
+local function create_span_buffering_processor()
   local exporter = otlp_exporter_new(exporter_client_new(
     _M.plugin_open_telemetry_exporter_otlp_endpoint,
     _M.plugin_open_telemetry_exporter_timeout,
@@ -123,6 +123,18 @@ function _M.create_tracer_provider(sampler)
     error("Couldn't create batch span processor: " .. batch_span_processor)
   end
 
+  return span_buffering_processor.new(batch_span_processor)
+end
+
+--------------------------------------------------------------------------------
+-- Make a tracer provider, given a sampler and span buffering processor.
+--
+-- @param sampler_name The sampler to use in the provider.
+-- @param sbp A span buffering processor to use.
+--
+-- @return The tracer provider.
+--------------------------------------------------------------------------------
+function _M.create_tracer_provider(sampler, sbp)
   local resource_attrs = {
     attr.string("host.name", get_hostname()),
     attr.string("service.name", _M.plugin_open_telemetry_service),
@@ -134,7 +146,7 @@ function _M.create_tracer_provider(sampler)
   end
 
   -- Create tracer provider
-  local tp = tracer_provider_new(batch_span_processor, {
+  local tp = tracer_provider_new(sbp, {
     resource = resource_new(unpack(resource_attrs)),
     sampler = sampler,
   })
@@ -276,6 +288,8 @@ end
 -- @param ngx_resp                    Should be be ngx.resp.
 -- @param initial_sampling_decision   The sampling decision made initially by
 --                                    the deferred sampler
+-- @param plugin_mode                 The plugin mode
+--
 -- @return boolean
 --------------------------------------------------------------------------------
 function _M.should_force_sample_buffered_spans(ngx_resp, initial_sampling_decision, plugin_mode)
@@ -284,7 +298,7 @@ function _M.should_force_sample_buffered_spans(ngx_resp, initial_sampling_decisi
   end
 
   if initial_sampling_decision == result.record_and_sample then
-    return false
+    return true
   end
 
   local ctx = traceresponse_propagator:extract(new_context(), ngx_resp)
@@ -353,23 +367,24 @@ function _M.init_worker(config)
     VerbositySamplerTracer = verbosity_sampler.new(_M.plugin_open_telemetry_shopify_verbosity_sampler_percentage),
     DeferredSamplerTracer = deferred_sampler.new()
   }
+  local ok, sbp = pcall(create_span_buffering_processor)
+  if not ok then
+    ngx.log(ngx.ERR, "ingress-nginx failed to create buffering span processor: ", sbp)
+    return
+  end
+
+  -- We need a handle on the span buffering processor so that we can flush it in the log phase. Although the span
+  -- buffering processor is shared by all requests, the underlying storage is actually on ngx.ctx, so it should be
+  -- safe to share.
+  _M.span_buffering_processor = sbp
+
   for t, s in pairs(tracer_samplers) do
-    local ok, tp = pcall(
-      _M.create_tracer_provider, s)
-
-    local t_ok, tracer = pcall(
-      tp.tracer,
-      tp,
-      "ingress_nginx.plugins.opentelemetry",
+    -- We can reuse the buffering span processor because each request only has one sampling mode
+    -- and hence, only uses one tracer.
+    local tp = _M.create_tracer_provider(s, span_buffering_processor)
+    local tracer = tp:tracer("ingress_nginx.plugins.opentelemetry",
       { version = OPENTELEMETRY_PLUGIN_VERSION, schema_url = "" })
-
-    if not ok then
-      ngx.log(ngx.ERR, "Failed to create tracer provider during plugin init: " .. tp)
-    end
-
-    if t_ok then
-      _M[t] = tracer
-    end
+    _M[t] = tracer
   end
 
   ngx.log(ngx.INFO, "OpenTelemetry ingress-nginx plugin enabled.")
@@ -499,7 +514,7 @@ function _M.header_filter()
   end
 
   ngx_ctx.opentelemetry.proxy_span_ctx.sp:set_attributes(unpack(attrs))
-  ngx_ctx.opentelemetry.proxy_span_end_time = otel_utils.time_nano()
+  ngx_ctx.opentelemetry.proxy_span_ctx.sp:finish()
 
   -- Start response span
   local response_span = _M.tracer(ngx.ctx.opentelemetry_plugin_mode):start(
@@ -509,12 +524,6 @@ function _M.header_filter()
   })
   ngx_ctx.opentelemetry["response_span_ctx"] = response_span
 
-  if _M.should_force_sample_buffered_spans(ngx.resp, ngx_ctx.opentelemetry.initial_sampling_decision,
-    ngx.ctx.opentelemetry_plugin_mode) then
-    ngx_ctx.opentelemetry.proxy_span_ctx:span_context().trace_flags = 1
-    ngx_ctx.opentelemetry.response_span_ctx:span_context().trace_flags = 1
-    ngx_ctx.opentelemetry.request_span_ctx:span_context().trace_flags = 1
-  end
 
   if _M.plugin_open_telemetry_set_traceresponse then
     -- We need to update the child ID in the traceresponse header. To do this, we can just overwrite the traceresponse
@@ -523,6 +532,10 @@ function _M.header_filter()
     -- request that hit NGINX. The global proxy is responsible for stripping traceresponse headers.
     traceresponse_propagator:inject(ngx_ctx.opentelemetry.request_span_ctx, ngx)
   end
+
+  -- Cache whether or not we should force sample buffered spans, since we may strip the header
+  ngx_ctx.opentelemetry_should_force_sample_buffered_spans = _M.should_force_sample_buffered_spans(
+    ngx.resp, ngx_ctx.opentelemetry.initial_sampling_decision, ngx.ctx.opentelemetry_plugin_mode)
 
   if should_strip_traceresponse() then
     ngx.header["traceresponse"] = nil
@@ -570,6 +583,13 @@ function _M.log()
 
     ngx.ctx.opentelemetry.request_span_ctx.sp:set_attributes(attr.int("http.status_code", status))
     ngx_ctx.opentelemetry.request_span_ctx.sp:finish()
+  end
+
+  -- Handle deferred sampling
+  if  ngx_ctx.opentelemetry_should_force_sample_buffered_spans then
+    _M.span_buffering_processor:send_spans(true)
+  else
+    _M.span_buffering_processor:send_spans(false)
   end
 
   -- Send stats now that the log phase is over.
