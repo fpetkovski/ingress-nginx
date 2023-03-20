@@ -33,6 +33,7 @@ local function make_config()
         plugin_open_telemetry_traces_sampler_arg = "1.0",
         plugin_open_telemetry_traces_sampler_secondary = "ShopifyDeferredSampler",
         plugin_open_telemetry_bypassed_upstreams = "",
+        plugin_open_telemetry_firehose_upstreams = "",
         plugin_open_telemetry_deferred_sampling_upstreams = "",
         plugin_open_telemetry_shopify_verbosity_sampler_percentage = "1.0",
         plugin_open_telemetry_set_traceresponse = true,
@@ -273,6 +274,7 @@ describe("plugin_mode", function()
             local orig_bypass = main.request_is_bypassed
             local orig_deferred = main.should_use_deferred_sampler
             local orig_request_has_tracing_headers = main.request_has_tracing_headers
+            main.plugin_open_telemetry_firehose_upstreams = {}
             main.request_is_bypassed = function() return false end
             main.should_use_deferred_sampler = function() return false end
             main.request_has_tracing_headers = function() return false end
@@ -291,7 +293,40 @@ describe("plugin_mode", function()
             main.request_is_bypassed = function() return false end
             main.should_use_deferred_sampler = function() return false end
             main.request_has_tracing_headers = function() return true end
+            main.plugin_open_telemetry_firehose_upstreams = {}
             assert.are.same(main.plugin_mode(), "VERBOSITY_SAMPLING")
+            main.request_is_bypassed = orig_bypass
+            main.should_use_deferred_sampler = orig_deferred
+            main.request_has_tracing_headers = orig_request_has_tracing_headers
+        end)
+
+    it("returns VERBOSITY_SAMPLING if request is NOT bypassed, DOES NOT have tracing headers, and IS in firehose"
+        ,
+        function()
+            local orig_bypass = main.request_is_bypassed
+            local orig_deferred = main.should_use_deferred_sampler
+            local orig_request_has_tracing_headers = main.request_has_tracing_headers
+            main.request_is_bypassed = function() return false end
+            main.should_use_deferred_sampler = function() return false end
+            main.request_has_tracing_headers = function() return false end
+            main.plugin_open_telemetry_firehose_upstreams = { wat = true }
+            assert.are.same(main.plugin_mode("wat"), "VERBOSITY_SAMPLING")
+            main.request_is_bypassed = orig_bypass
+            main.should_use_deferred_sampler = orig_deferred
+            main.request_has_tracing_headers = orig_request_has_tracing_headers
+        end)
+
+    it("returns VERBOSITY_SAMPLING if request is NOT bypassed, DOES NOT have tracing headers, and firehose is set to ALL"
+        ,
+        function()
+            local orig_bypass = main.request_is_bypassed
+            local orig_deferred = main.should_use_deferred_sampler
+            local orig_request_has_tracing_headers = main.request_has_tracing_headers
+            main.request_is_bypassed = function() return false end
+            main.should_use_deferred_sampler = function() return false end
+            main.request_has_tracing_headers = function() return false end
+            main.plugin_open_telemetry_firehose_upstreams = { all = true }
+            assert.are.same(main.plugin_mode("wat"), "VERBOSITY_SAMPLING")
             main.request_is_bypassed = orig_bypass
             main.should_use_deferred_sampler = orig_deferred
             main.request_has_tracing_headers = orig_request_has_tracing_headers

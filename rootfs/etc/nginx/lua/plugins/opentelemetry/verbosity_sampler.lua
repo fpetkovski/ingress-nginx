@@ -26,7 +26,6 @@ local result_new = require("opentelemetry.trace.sampling.result").new
 local span_kind = require("opentelemetry.trace.span_kind")
 local string = string
 
--- verbosity key should be kept in sync with https://github.com/Shopify/opentelemetry-ruby-shopify/blob/master/opentelemetry-shopify/lib/opentelemetry/shopify.rb#L45
 local ALWAYS_SAMPLE = {}
 ALWAYS_SAMPLE[span_kind.server] = true
 
@@ -59,24 +58,39 @@ function _M.new(verbosity_probability)
 end
 
 function _M.verbose_probability_sampled(self, trace_id)
+    if self.verbosity_probability == 0 then return false end;
     return tonumber(string.sub(trace_id, 9, 16), 16) < self.verbosity_id_upper_bound
 end
 
 function _M.should_sample(self, params)
-    local tracestate = params.parent_ctx:span_context().trace_state
+    local parent_span_context = params.parent_ctx:span_context()
+    local tracestate = parent_span_context.trace_state
 
     -- discard malformed trace_ids
     if string.len(params.trace_id) ~= 32 then
         return result_new(RESULT_CODES.drop, tracestate)
     end
 
-    if ALWAYS_SAMPLE[params.kind] then
+    -- General note on trace_flags: span_context.trace_flags defaults to nil in
+    -- opentelemetry-lua. As such, if parent_ctx:span_context() does not have trace flags, it likely came when:
+    --
+    -- 1. We minted a new context object upon receving a request (that context object's span context has trace_flags of
+    --    nil).
+    -- 2. Passed the new context object to the composite propagator's extract method, which did not successfully extract
+    --    a span context from the headers, and got it right back. (i.e. there were no valid Shopify trace headers on the
+    --    req)
+    -- 3. Used this context object as the parent_ctx for the plugin's first span, and hence passed it to should_sample.
+    if parent_span_context.trace_flags and not parent_span_context:is_sampled() then
+        -- If we affirmatively know that the parent context was unsampled, we drop
+        return result_new(RESULT_CODES.drop, tracestate)
+    elseif ALWAYS_SAMPLE[params.kind] then
+        -- Otherwise, if it's a SERVER span, we record and sample
         return result_new(RESULT_CODES.record_and_sample, tracestate)
-    end
-
-    if self:verbose_probability_sampled(params.trace_id) then
+    elseif self:verbose_probability_sampled(params.trace_id) then
+        -- If it's not a server span, do some math to determine if we keep
         return result_new(RESULT_CODES.record_and_sample, tracestate)
     else
+        -- Otherwise, drop
         return result_new(RESULT_CODES.drop, tracestate)
     end
 end

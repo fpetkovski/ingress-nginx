@@ -214,6 +214,7 @@ The following table shows a configuration option's name, type, and the default v
 |[ssl-reject-handshake](#ssl-reject-handshake)|bool|"false"|
 |[debug-connections](#debug-connections)|[]string|"127.0.0.1,1.1.1.1/24"|
 |[plugin-opentelemetry-bypassed-upstreams](#plugin-opentelemetry-bypassed-upstreams)|string|"all"
+|[plugin-opentelemetry-firehose-upstreams](#plugin-opentelemetry-firehose-upstreams)|string|""
 |[plugin-opentelemetry-deferred-sampling-upstreams](#plugin-opentelemetry-deferred-sampling-upstreams)|string|""
 |[plugin-opentelemetry-exporter-timeout](#plugin-opentelemetry-exporter-timeout)|int|5
 |[plugin-opentelemetry-exporter-otlp-endpoint](#plugin-opentelemetry-exporter-otlp-endpoint)|string|opentelemetry-collector:4318
@@ -1335,6 +1336,10 @@ _References:_
 ### plugin-opentelemetry-bypassed-upstreams
 
 Comma-separated list of upstreams that should be bypassed by the opentelemetry-plugin. When set to "all", all upstreams are bypassed. Each list item should be an alphanumeric string. If $proxy_upstream_name contains the string, then plugin will not run for that request. If you want to match an upstream with a dash in it (or any "special character" in Lua's pattern-matching scheme), you should escape it with a `%`. So to match "storefront-renderer", supply `"storefront%-renderer`.
+
+### plugin-opentelemetry-firehose-upstreams
+
+Comma-separated list of upstreams that should use the ShopifyVerbositySampler on all requests (i.e. not just requests with o=1;). Each list item should be an alphanumeric string. If $proxy_upstream_name contains the string, then plugin will not run for that request. THIS SETTING IS TEMPORARY AND WILL BE REMOVED IN THE FUTURE.
 
 ### plugin-opentelemetry-deferred-sampling-upstreams
 

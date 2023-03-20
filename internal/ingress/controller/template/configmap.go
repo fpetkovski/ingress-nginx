@@ -67,6 +67,7 @@ const (
 	plugins                               = "plugins"
 	debugConnections                      = "debug-connections"
 	otelBypassedUpstreams                 = "plugin-opentelemetry-bypassed-upstreams"
+	otelFirehoseUpstreams                 = "plugin-opentelemetry-firehose-upstreams"
 	otelSetTraceresponse                  = "plugin-opentelemetry-set-traceresponse"
 	otelStripTraceresponse                = "plugin-opentelemetry-strip-traceresponse"
 	otelDeferredSamplingUpstreams         = "plugin-opentelemetry-deferred-sampling-upstreams"

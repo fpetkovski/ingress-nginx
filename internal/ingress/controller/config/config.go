@@ -789,6 +789,14 @@ type Configuration struct {
 	// run for that request.
 	PluginOpenTelemetryBypassedUpstreams string `json:"plugin-opentelemetry-bypassed-upstreams"`
 
+	// PluginOpenTelemetryFirehoseUpstreams is comma-separated list of upstreams
+	// that should use the ShopifyVerbositySampler on all requests (i.e. not just
+	// requests with o=1;).
+	// Each list item should be an alphanumeric string. If $proxy_upstream_name
+	// contains the string, then plugin will not run for that request.
+	// THIS SETTING IS TEMPORARY AND WILL BE REMOVED IN THE FUTURE.
+	PluginOpenTelemetryFirehoseUpstreams string `json:"plugin-opentelemetry-firehose-upstreams"`
+
 	// PluginOpenTelemetrySetTraceresponse is boolean indicating whether or not
 	// to set a response header with a traceresponse.
 	PluginOpenTelemetrySetTraceresponse bool `json:"plugin-opentelemetry-set-traceresponse"`
@@ -1019,6 +1027,7 @@ func NewDefault() Configuration {
 		GlobalRateLimitMemcachedPoolSize:                     50,
 		GlobalRateLimitStatucCode:                            429,
 		PluginOpenTelemetryBypassedUpstreams:                 "all",
+		PluginOpenTelemetryFirehoseUpstreams:                 "",
 		PluginOpenTelemetrySetTraceresponse:                  false,
 		PluginOpenTelemetryStripTraceresponse:                false,
 		PluginOpenTelemetryDeferredSamplingUpstreams:         "",

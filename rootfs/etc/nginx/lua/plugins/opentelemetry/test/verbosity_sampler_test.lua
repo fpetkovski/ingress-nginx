@@ -19,6 +19,18 @@ describe("verbose_probability_sampled", function()
 end)
 
 describe("should_sample?", function()
+    it("returns true for SERVER spans whose parent is an empty context", function()
+        local sampler = vs.new(0)
+        local ctx = context:with_span_context(span_context.new())
+        local result = sampler:should_sample(
+            {
+                trace_id = "11111111111111111111111111111111",
+                parent_ctx = ctx,
+                kind = span_kind.server
+            })
+        assert.is_true(result:is_sampled())
+    end)
+
     it("returns false if TraceID is malformed", function()
         local sampler = vs.new(1)
         local tracestate = tracestate.new({ foo = "bar" })
@@ -35,9 +47,27 @@ describe("should_sample?", function()
         assert.is_false(result:is_sampled())
     end)
 
-    it("always returns true if span kind is server", function()
+    it("returns false for SERVER spans if parent span context is valid + not sampled", function()
         local tracestate = tracestate.new({ foo = "bar" })
         local new_span_context = span_context.new("eea85efa015a9fc70e1e1fc9af41f94f", "30e2bb20d2ad42b9", 0, tracestate,
+            false)
+        local span = recording_span.new(nil, nil, new_span_context, "test_span", { kind = span_kind.server })
+        local ctx = context.new({}, span)
+        local sampler = vs.new(0)
+        local result = sampler:should_sample(
+            {
+                trace_id = "11111111111111111111111111111111",
+                parent_ctx = ctx,
+                kind = span_kind.server
+            }
+        )
+        assert.is_same(result.trace_state, tracestate)
+        assert.is_false(result:is_sampled())
+    end)
+
+    it("always returns true for SERVER spans if parent span context is valid + sampled", function()
+        local tracestate = tracestate.new({ foo = "bar" })
+        local new_span_context = span_context.new("eea85efa015a9fc70e1e1fc9af41f94f", "30e2bb20d2ad42b9", 1, tracestate,
             false)
         local span = recording_span.new(nil, nil, new_span_context, "test_span", { kind = span_kind.server })
         local ctx = context.new({}, span)
@@ -53,10 +83,10 @@ describe("should_sample?", function()
         assert.is_true(result:is_sampled())
     end)
 
-    it("returns false if verbose_probability_sampled is false and span kind ~= server", function()
+    it("returns false for PRODUCER spans if parent span context valid + sampled and verbose_probability_sampled is false", function()
         local sampler = vs.new(0)
         local tracestate = tracestate.new({ foo = "bar" })
-        local new_span_context = span_context.new("eea85efa015a9fc70e1e1fc9af41f94f", "30e2bb20d2ad42b9", 0, tracestate,
+        local new_span_context = span_context.new("eea85efa015a9fc70e1e1fc9af41f94f", "30e2bb20d2ad42b9", 1, tracestate,
             false)
         local span = recording_span.new(nil, nil, new_span_context, "test_span", { kind = span_kind.producer })
         local ctx = context.new({}, span)

@@ -175,6 +175,26 @@ function _M.request_is_bypassed(proxy_upstream_name)
   return false
 end
 
+local function firehose_enabled_for_upstream(proxy_upstream_name)
+  if not _M.plugin_open_telemetry_firehose_upstreams then
+    metrics_reporter:add_to_counter("otel.nginx.firehose_enabled", 1, { evaluation = "false", upstream = proxy_upstream_name or "unknown" })
+    return false
+  elseif _M.plugin_open_telemetry_firehose_upstreams["all"] then
+    metrics_reporter:add_to_counter("otel.nginx.firehose_enabled", 1, { evaluation = "true", upstream = proxy_upstream_name or "unknown" })
+    return true
+  end
+
+  for us, _ in pairs(_M.plugin_open_telemetry_firehose_upstreams) do
+    if string.match(proxy_upstream_name, us) then
+      metrics_reporter:add_to_counter("otel.nginx.firehose_enabled", 1, { evaluation = "true", upstream = proxy_upstream_name or "unknown" })
+      return true
+    end
+  end
+
+  metrics_reporter:add_to_counter("otel.nginx.firehose_enabled", 1, { evaluation = "false", upstream = proxy_upstream_name or "unknown" })
+
+  return false
+end
 --------------------------------------------------------------------------------
 -- Returns true if inbound request has Shopify tracing headers and the inbound
 -- trace context indicates that the parent span was sampled in (;o=1).
@@ -224,9 +244,9 @@ function _M.plugin_mode(proxy_upstream_name)
     return ngx.ctx.opentelemetry_plugin_mode
   end
 
-  -- We're if we're not using the deferred sampler, we're using the verbosity
+  -- If we're not using the deferred sampler, we're using the verbosity
   -- sampler, and we only want to run if there are tracing headers
-  if _M.request_has_tracing_headers() then
+  if firehose_enabled_for_upstream(proxy_upstream_name) or _M.request_has_tracing_headers() then
     ngx.log(ngx.INFO, "plugin mode: verbosity sampling")
     ngx.ctx.opentelemetry_plugin_mode = VERBOSITY_SAMPLING
   else
@@ -348,6 +368,7 @@ end
 
 function _M.init_worker(config)
   _M.plugin_open_telemetry_bypassed_upstreams                   = shopify_utils.parse_upstream_list(config.plugin_open_telemetry_bypassed_upstreams)
+  _M.plugin_open_telemetry_firehose_upstreams                   = shopify_utils.parse_upstream_list(config.plugin_open_telemetry_firehose_upstreams)
   _M.plugin_open_telemetry_deferred_sampling_upstreams          = shopify_utils.parse_upstream_list(config.plugin_open_telemetry_deferred_sampling_upstreams)
   _M.plugin_open_telemetry_exporter_otlp_endpoint               = config.plugin_open_telemetry_exporter_otlp_endpoint
   _M.plugin_open_telemetry_exporter_otlp_headers                = shopify_utils.w3c_baggage_to_table(config.plugin_open_telemetry_exporter_otlp_headers)
@@ -465,6 +486,8 @@ end
 -- commas. The final one is the one we want to capture. See
 -- http://nginx.org/en/docs/http/ngx_http_upstream_module.html#var_upstream_addr
 function _M.parse_upstream_addr(input)
+  if not input then return { addr = nil, port = nil } end
+
   local t = {}
   for a, p in string.gmatch(input, "([^:%s]+):([^%s,:]+)") do
     table.insert(t, { addr = a, port = p })
@@ -526,6 +549,7 @@ function _M.header_filter()
 
 
   if _M.plugin_open_telemetry_set_traceresponse then
+    metrics_reporter:add_to_counter("otel.nginx.set_traceresponse", 1, { upstream = ngx.var.proxy_upstream_name or "unknown" })
     -- We need to update the child ID in the traceresponse header. To do this, we can just overwrite the traceresponse
     -- header to match the context from NGINX's outermost span (the request span) since the trace ID in the
     -- traceresponse header we received back from the proxied-to service originated in this plugin or the initial
