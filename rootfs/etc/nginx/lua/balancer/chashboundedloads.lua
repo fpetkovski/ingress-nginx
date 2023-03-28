@@ -112,6 +112,16 @@ local function update_balance_factor(self, backend)
   self.balance_factor = balance_factor or DEFAULT_HASH_BALANCE_FACTOR
 end
 
+local function update_enable_seed_by_host(self, backend)
+  local seed_by_host = backend["upstreamHashByConfig"]["upstream-hash-by-enable-seed-by-host"]
+
+  if seed_by_host then
+    self.ring_seed = util.array_mod(HOST_SEED, self.total_endpoints)
+  else
+    self.ring_seed = 0
+  end
+end
+
 local function normalize_endpoints(endpoints)
   local b = {}
   for i, endpoint in ipairs(endpoints) do
@@ -128,9 +138,10 @@ local function update_endpoints(self, endpoints)
 end
 
 -- this is an extra sanity check for the rollout and it will be gone by final iteration
-local function debug_header(endpoint)
+local function debug_header(self, endpoint)
   if ngx.req.get_uri_args()[DEBUG_PARAM_NAME] then
-    ngx.header["X-Served-By"] = "served-by;desc=" .. endpoint
+    ngx.header["X-Served-By"] =
+      "served-by;desc=" .. endpoint .. ";ring_seed=" .. tostring(self.ring_seed)
   end
 end
 
@@ -160,6 +171,7 @@ function _M.new(self, backend)
   if err ~= nil then
     ngx_log(ngx_ERR, "could not parse the value of the upstream-hash-by: ", err)
   end
+  -- seed-by-hostname
 
   local o = {
     name = "chashboundedloads",
@@ -176,6 +188,7 @@ function _M.new(self, backend)
 
   update_endpoints(o, normalize_endpoints(backend.endpoints))
   update_balance_factor(o, backend)
+  update_enable_seed_by_host(o, backend)
 
   setmetatable(o, self)
   self.__index = self
@@ -186,6 +199,7 @@ function _M.sync(self, backend)
   self.alternative_backends = backend.alternativeBackends
 
   update_balance_factor(self, backend)
+  update_enable_seed_by_host(self, backend)
 
   local new_endpoints = normalize_endpoints(backend.endpoints)
 
@@ -251,7 +265,7 @@ function _M.balance(self)
           i, current, allowed, self.total_requests, hash_by_value)
 
         incr_req_stats(self, endpoint)
-        debug_header(endpoint)
+        debug_header(self, endpoint)
         tried_endpoints[endpoint] = true
         return endpoint
       end
@@ -264,7 +278,7 @@ function _M.balance(self)
   -- than max Nginx retries and tried_endpoints contains all endpoints.
   incr_req_stats(self, first_endpoint)
   ngx.var.chashbl_debug = "fallback_first_endpoint"
-  debug_header(first_endpoint)
+  debug_header(self, first_endpoint)
   return first_endpoint
 end
 

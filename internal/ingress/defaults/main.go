@@ -144,6 +144,11 @@ type Backend struct {
 	// Defaults to 2 (meaning a host might be overloaded 2x compared to average)
 	UpstreamHashByBalanceFactor float32 `json:"upstream-hash-by-balance-factor"`
 
+	// Controls whether consistent hashing should append a hostname-dependent seed to the hash key.
+	// Useful for cases when you run many nginx instances and you don't want them all to point
+	// to the same upstream server.
+	UpstreamHashByEnableSeedByHost bool `json:"upstream-hash-by-enable-seed-by-host"`
+
 	// Let's us choose a load balancing algorithm per ingress
 	LoadBalancing string `json:"load-balance"`
 

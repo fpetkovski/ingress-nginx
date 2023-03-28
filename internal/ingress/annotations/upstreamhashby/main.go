@@ -29,10 +29,11 @@ type upstreamhashby struct {
 
 // Config contains the Consistent hash configuration to be used in the Ingress
 type Config struct {
-	UpstreamHashBy              string  `json:"upstream-hash-by,omitempty"`
-	UpstreamHashBySubset        bool    `json:"upstream-hash-by-subset,omitempty"`
-	UpstreamHashBySubsetSize    int     `json:"upstream-hash-by-subset-size,omitempty"`
-	UpstreamHashByBalanceFactor float32 `json:"upstream-hash-by-balance-factor,omitempty"`
+	UpstreamHashBy                 string  `json:"upstream-hash-by,omitempty"`
+	UpstreamHashBySubset           bool    `json:"upstream-hash-by-subset,omitempty"`
+	UpstreamHashBySubsetSize       int     `json:"upstream-hash-by-subset-size,omitempty"`
+	UpstreamHashByBalanceFactor    float32 `json:"upstream-hash-by-balance-factor,omitempty"`
+	UpstreamHashByEnableSeedByHost bool    `json:"upstream-hash-by-enable-seed-by-host,omitempty"`
 }
 
 // NewParser creates a new UpstreamHashBy annotation parser
@@ -46,10 +47,16 @@ func (a upstreamhashby) Parse(ing *networking.Ingress) (interface{}, error) {
 	upstreamHashBySubset, _ := parser.GetBoolAnnotation("upstream-hash-by-subset", ing)
 	upstreamHashbySubsetSize, _ := parser.GetIntAnnotation("upstream-hash-by-subset-size", ing)
 	upstreamHashByBalanceFactor, _ := parser.GetFloatAnnotation("upstream-hash-by-balance-factor", ing)
+	UpstreamHashByEnableSeedByHost, _ := parser.GetBoolAnnotation("upstream-hash-by-enable-seed-by-host", ing)
 
 	if upstreamHashbySubsetSize == 0 {
 		upstreamHashbySubsetSize = 3
 	}
 
-	return &Config{upstreamHashBy, upstreamHashBySubset, upstreamHashbySubsetSize, upstreamHashByBalanceFactor}, nil
+	return &Config{
+		upstreamHashBy,
+		upstreamHashBySubset,
+		upstreamHashbySubsetSize,
+		upstreamHashByBalanceFactor,
+		UpstreamHashByEnableSeedByHost}, nil
 }
