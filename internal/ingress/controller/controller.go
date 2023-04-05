@@ -982,6 +982,7 @@ func (n *NGINXController) createUpstreams(data []*ingress.Ingress, du *ingress.B
 				upstreams[name].UpstreamHashBy.UpstreamHashBySubset = anns.UpstreamHashBy.UpstreamHashBySubset
 				upstreams[name].UpstreamHashBy.UpstreamHashBySubsetSize = anns.UpstreamHashBy.UpstreamHashBySubsetSize
 				upstreams[name].UpstreamHashBy.UpstreamHashByBalanceFactor = anns.UpstreamHashBy.UpstreamHashByBalanceFactor
+				upstreams[name].UpstreamHashBy.UpstreamHashByEnableSeedByHost = anns.UpstreamHashBy.UpstreamHashByEnableSeedByHost
 
 				upstreams[name].LoadBalancing = anns.LoadBalancing
 				if upstreams[name].LoadBalancing == "" {

@@ -26,7 +26,7 @@ describe("Balancer chashboundedloads", function()
 
     backend = {
       name = "namespace-service-port", ["load-balance"] = "ewma",
-      upstreamHashByConfig = { ["upstream-hash-by"] = "$request_uri", ["upstream-hash-by-balance-factor"] = 2,  ["upstream-hash-by"] = "$request_uri" },
+      upstreamHashByConfig = { ["upstream-hash-by"] = "$request_uri", ["upstream-hash-by-balance-factor"] = 2, ["upstream-hash-by-enable-seed-by-host"] = true },
       endpoints = {
         { address = "10.10.10.1", port = "8080", maxFails = 0, failTimeout = 0 },
         { address = "10.10.10.2", port = "8080", maxFails = 0, failTimeout = 0 },
@@ -53,7 +53,7 @@ describe("Balancer chashboundedloads", function()
   it("sets balance_factor", function()
     backend = {
       name = "namespace-service-port", ["load-balance"] = "ewma",
-      upstreamHashByConfig = { ["upstream-hash-by"] = "$request_uri", ["upstream-hash-by-balance-factor"] = 2.5,  ["upstream-hash-by"] = "$request_uri" },
+      upstreamHashByConfig = { ["upstream-hash-by"] = "$request_uri", ["upstream-hash-by-balance-factor"] = 2.5 },
       endpoints = {
         { address = "10.10.10.1", port = "8080", maxFails = 0, failTimeout = 0 },
         { address = "10.10.10.2", port = "8080", maxFails = 0, failTimeout = 0 },
@@ -80,7 +80,7 @@ describe("Balancer chashboundedloads", function()
   it("sets default balance factor", function()
     backend = {
       name = "namespace-service-port", ["load-balance"] = "ewma",
-      upstreamHashByConfig = { ["upstream-hash-by"] = "$request_uri",  ["upstream-hash-by"] = "$request_uri" },
+      upstreamHashByConfig = { ["upstream-hash-by"] = "$request_uri" },
       endpoints = {
         { address = "10.10.10.1", port = "8080", maxFails = 0, failTimeout = 0 },
         { address = "10.10.10.2", port = "8080", maxFails = 0, failTimeout = 0 },
@@ -90,6 +90,36 @@ describe("Balancer chashboundedloads", function()
 
     instance = balancer_chashboundedloads:new(backend)
     assert.are.equals(2, instance.balance_factor)
+  end)
+
+  it("sets ring_seed to zero when upstream-hash-by-enable-seed-by-host is false", function()
+    backend = {
+      name = "namespace-service-port", ["load-balance"] = "ewma",
+      upstreamHashByConfig = { ["upstream-hash-by"] = "$request_uri", ["upstream-hash-by-enable-seed-by-host"] = false },
+      endpoints = {
+        { address = "10.10.10.1", port = "8080", maxFails = 0, failTimeout = 0 },
+        { address = "10.10.10.2", port = "8080", maxFails = 0, failTimeout = 0 },
+        { address = "10.10.10.3", port = "8080", maxFails = 0, failTimeout = 0 },
+      }
+    }
+
+    instance = balancer_chashboundedloads:new(backend)
+    assert.are.equals(0, instance.ring_seed)
+  end)
+
+  it("sets ring_seed when upstream-hash-by-enable-seed-by-host is true", function()
+    backend = {
+      name = "namespace-service-port", ["load-balance"] = "ewma",
+      upstreamHashByConfig = { ["upstream-hash-by"] = "$request_uri", ["upstream-hash-by-enable-seed-by-host"] = true },
+      endpoints = {
+        { address = "10.10.10.1", port = "8080", maxFails = 0, failTimeout = 0 },
+        { address = "10.10.10.2", port = "8080", maxFails = 0, failTimeout = 0 },
+        { address = "10.10.10.3", port = "8080", maxFails = 0, failTimeout = 0 },
+      }
+    }
+
+    instance = balancer_chashboundedloads:new(backend)
+    assert.are.equals(instance.ring_seed > 0, true)
   end)
 
   it("uses round-robin and does not touch counters when hash_by value is missing", function()
