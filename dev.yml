@@ -26,6 +26,9 @@ commands:
   test-lua:
     desc: 'Run lua tests'
     run: build/run-in-docker.sh make lua-test
+  benchmark-plugin-lua: # can make more generic if other plugins add benchmarks
+    desc: 'Run lua benchmarks'
+    run: build/run-in-docker.sh resty -I ./rootfs/etc/nginx/lua ./rootfs/etc/nginx/lua/plugins/opentelemetry/benchmark/benchmark.lua
   test-go:
     desc: 'Run go tests'
     run: build/run-in-docker.sh make test

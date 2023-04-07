@@ -320,6 +320,11 @@ function _M.should_force_sample_buffered_spans(ngx_resp, initial_sampling_decisi
     return true
   end
 
+  if ngx_resp.get_headers()["traceresponse"] and string.sub(ngx_resp.get_headers()["traceresponse"], -3) == "-00" then
+    metrics_reporter:add_to_counter("otel.nginx.deferred_sampling_decision", 1, { is_sampled = "false", context_valid = "true" })
+    return false
+  end
+
   local ctx = traceresponse_propagator:extract(new_context(), ngx_resp)
   if ctx:span_context():is_valid() then
     local is_sampled = ctx:span_context():is_sampled()
