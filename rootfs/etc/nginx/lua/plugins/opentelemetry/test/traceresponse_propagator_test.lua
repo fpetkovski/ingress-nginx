@@ -66,6 +66,18 @@ describe("extract", function()
         -- Last segment of traceresponse is sampling decision; 00 is unsampled.
         assert.are.same(new_span_ctx:is_sampled(), false)
     end)
+
+    it("handles single-character sampling decisions", function()
+        local cases = { { sampled = false,  flag = 0 }, { sampled = true, flag = 1 } }
+        for _, case in ipairs(cases) do
+            local carrier = new_response_header_carrier({ traceresponse = "00-12345678123456781234567812345678-1234567812345678-" .. case.flag })
+                .resp
+            local ctx = context.new()
+            local new_trp = trp.new()
+            local new_span_ctx = new_trp:extract(ctx, carrier).sp:context()
+            assert.are.same(new_span_ctx:is_sampled(), case.sampled)
+        end
+    end)
 end)
 
 describe("inject", function()
