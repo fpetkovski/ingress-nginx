@@ -112,11 +112,11 @@ local function update_balance_factor(self, backend)
   self.balance_factor = balance_factor or DEFAULT_HASH_BALANCE_FACTOR
 end
 
-local function update_enable_seed_by_host(self, backend)
+local function update_ring_seed(self, backend)
   local seed_by_host = backend["upstreamHashByConfig"]["upstream-hash-by-enable-seed-by-host"]
 
   if seed_by_host then
-    self.ring_seed = util.array_mod(HOST_SEED, self.total_endpoints)
+    self.ring_seed = HOST_SEED
   else
     self.ring_seed = 0
   end
@@ -134,7 +134,6 @@ local function update_endpoints(self, endpoints)
   self.endpoints = endpoints
   self.endpoints_reverse = reverse_table(endpoints)
   self.total_endpoints = #endpoints
-  self.ring_seed = util.array_mod(HOST_SEED, self.total_endpoints)
 end
 
 -- this is an extra sanity check for the rollout and it will be gone by final iteration
@@ -186,9 +185,9 @@ function _M.new(self, backend)
     seen_hash_by_values = lrucache.new(SEEN_LRU_SIZE)
   }
 
+  update_ring_seed(o, backend)
   update_endpoints(o, normalize_endpoints(backend.endpoints))
   update_balance_factor(o, backend)
-  update_enable_seed_by_host(o, backend)
 
   setmetatable(o, self)
   self.__index = self
@@ -199,7 +198,7 @@ function _M.sync(self, backend)
   self.alternative_backends = backend.alternativeBackends
 
   update_balance_factor(self, backend)
-  update_enable_seed_by_host(self, backend)
+  update_ring_seed(self, backend)
 
   local new_endpoints = normalize_endpoints(backend.endpoints)
 
