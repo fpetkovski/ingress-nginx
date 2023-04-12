@@ -310,14 +310,14 @@ describe("Balancer chashboundedloads", function()
       assert.are.same({"10.10.10.1:8080", "10.10.10.2:8080", "10.10.10.3:8080"}, instance_seed_by_host.endpoints)
       assert.are.equal(3, instance_seed_by_host.total_endpoints)
       assert.are.same({["10.10.10.1:8080"] = 1,["10.10.10.2:8080"] = 2, ["10.10.10.3:8080"] = 3}, instance_seed_by_host.endpoints_reverse)
-      assert.are.equal(util.array_mod(util.hash_string(util.get_hostname()), 3), instance_seed_by_host.ring_seed)
+      assert.are.equal(920885048, instance_seed_by_host.ring_seed) -- 920885048 is the seed for "test-host"
 
       instance_seed_by_host:sync(new_backend)
 
       assert.are.same({"10.10.10.1:8080", "10.10.10.2:8080", "10.10.10.3:8080", "10.10.10.4:8080"}, instance_seed_by_host.endpoints)
       assert.are.equal(4, instance_seed_by_host.total_endpoints)
       assert.are.same({["10.10.10.1:8080"] = 1,["10.10.10.2:8080"] = 2, ["10.10.10.3:8080"] = 3, ["10.10.10.4:8080"] = 4}, instance_seed_by_host.endpoints_reverse)
-      assert.are.equal(util.array_mod(util.hash_string(util.get_hostname()), 4), instance_seed_by_host.ring_seed)
+      assert.are.equal(920885048, instance_seed_by_host.ring_seed) -- 920885048 is the seed for "test-host"
     end)
 
     it("updates chash and roundrobin", function()
