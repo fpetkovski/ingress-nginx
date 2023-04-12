@@ -26,7 +26,7 @@ describe("Balancer chashboundedloads", function()
 
     backend = {
       name = "namespace-service-port", ["load-balance"] = "ewma",
-      upstreamHashByConfig = { ["upstream-hash-by"] = "$request_uri", ["upstream-hash-by-balance-factor"] = 2, ["upstream-hash-by-enable-seed-by-host"] = true },
+      upstreamHashByConfig = { ["upstream-hash-by"] = "$request_uri", ["upstream-hash-by-balance-factor"] = 2, ["upstream-hash-by-enable-seed-by-host"] = false },
       endpoints = {
         { address = "10.10.10.1", port = "8080", maxFails = 0, failTimeout = 0 },
         { address = "10.10.10.2", port = "8080", maxFails = 0, failTimeout = 0 },
@@ -34,9 +34,9 @@ describe("Balancer chashboundedloads", function()
       }
     }
 
-    backend_single_seed = {
+    backend_seed_by_host = {
       name = "namespace-service-port", ["load-balance"] = "ewma",
-      upstreamHashByConfig = { ["upstream-hash-by"] = "$request_uri", ["upstream-hash-by-balance-factor"] = 2, ["upstream-hash-by-enable-seed-by-host"] = false },
+      upstreamHashByConfig = { ["upstream-hash-by"] = "$request_uri", ["upstream-hash-by-balance-factor"] = 2, ["upstream-hash-by-enable-seed-by-host"] = true },
       endpoints = {
         { address = "10.10.10.1", port = "8080", maxFails = 0, failTimeout = 0 },
         { address = "10.10.10.2", port = "8080", maxFails = 0, failTimeout = 0 },
@@ -52,7 +52,7 @@ describe("Balancer chashboundedloads", function()
     }
 
     instance = balancer_chashboundedloads:new(backend)
-    instance_single_seed = balancer_chashboundedloads:new(backend_single_seed)
+    instance_seed_by_host = balancer_chashboundedloads:new(backend_seed_by_host)
   end)
 
   after_each(function()
@@ -285,38 +285,39 @@ describe("Balancer chashboundedloads", function()
   describe("sync()", function()
     it("updates endpoints and total_endpoints", function()
       local new_backend = util.deepcopy(backend)
+      local expected_seed = 0
+
       new_backend.endpoints[4] = { address = "10.10.10.4", port = "8080", maxFails = 0, failTimeout = 0 },
 
       assert.are.same({"10.10.10.1:8080", "10.10.10.2:8080", "10.10.10.3:8080"}, instance.endpoints)
       assert.are.equal(3, instance.total_endpoints)
       assert.are.same({["10.10.10.1:8080"] = 1,["10.10.10.2:8080"] = 2, ["10.10.10.3:8080"] = 3}, instance.endpoints_reverse)
+      assert.are.equal(expected_seed, instance.ring_seed)
+
       instance:sync(new_backend)
 
       assert.are.same({"10.10.10.1:8080", "10.10.10.2:8080", "10.10.10.3:8080", "10.10.10.4:8080"}, instance.endpoints)
       assert.are.equal(4, instance.total_endpoints)
       assert.are.same({["10.10.10.1:8080"] = 1,["10.10.10.2:8080"] = 2, ["10.10.10.3:8080"] = 3, ["10.10.10.4:8080"] = 4}, instance.endpoints_reverse)
-
-      local expected_seed = util.array_mod(util.hash_string(util.get_hostname()), instance.total_endpoints)
       assert.are.equal(expected_seed, instance.ring_seed)
     end)
 
-    it("updates endpoints and total_endpoints and sets ring_seed=0 when upstream-hash-by-enable-seed-by-host is false", function()
-      local new_backend = util.deepcopy(backend_single_seed)
-      local expected_seed = 0
+    it("updates endpoints and total_endpoints when upstream-hash-by-enable-seed-by-host is true", function()
+      local new_backend = util.deepcopy(backend_seed_by_host)
 
       new_backend.endpoints[4] = { address = "10.10.10.4", port = "8080", maxFails = 0, failTimeout = 0 },
 
-      assert.are.same({"10.10.10.1:8080", "10.10.10.2:8080", "10.10.10.3:8080"}, instance_single_seed.endpoints)
-      assert.are.equal(3, instance_single_seed.total_endpoints)
-      assert.are.same({["10.10.10.1:8080"] = 1,["10.10.10.2:8080"] = 2, ["10.10.10.3:8080"] = 3}, instance_single_seed.endpoints_reverse)
-      assert.are.equal(expected_seed, instance_single_seed.ring_seed)
+      assert.are.same({"10.10.10.1:8080", "10.10.10.2:8080", "10.10.10.3:8080"}, instance_seed_by_host.endpoints)
+      assert.are.equal(3, instance_seed_by_host.total_endpoints)
+      assert.are.same({["10.10.10.1:8080"] = 1,["10.10.10.2:8080"] = 2, ["10.10.10.3:8080"] = 3}, instance_seed_by_host.endpoints_reverse)
+      assert.are.equal(util.array_mod(util.hash_string(util.get_hostname()), 3), instance_seed_by_host.ring_seed)
 
-      instance_single_seed:sync(new_backend)
+      instance_seed_by_host:sync(new_backend)
 
-      assert.are.same({"10.10.10.1:8080", "10.10.10.2:8080", "10.10.10.3:8080", "10.10.10.4:8080"}, instance_single_seed.endpoints)
-      assert.are.equal(4, instance_single_seed.total_endpoints)
-      assert.are.same({["10.10.10.1:8080"] = 1,["10.10.10.2:8080"] = 2, ["10.10.10.3:8080"] = 3, ["10.10.10.4:8080"] = 4}, instance_single_seed.endpoints_reverse)
-      assert.are.equal(expected_seed, instance_single_seed.ring_seed)
+      assert.are.same({"10.10.10.1:8080", "10.10.10.2:8080", "10.10.10.3:8080", "10.10.10.4:8080"}, instance_seed_by_host.endpoints)
+      assert.are.equal(4, instance_seed_by_host.total_endpoints)
+      assert.are.same({["10.10.10.1:8080"] = 1,["10.10.10.2:8080"] = 2, ["10.10.10.3:8080"] = 3, ["10.10.10.4:8080"] = 4}, instance_seed_by_host.endpoints_reverse)
+      assert.are.equal(util.array_mod(util.hash_string(util.get_hostname()), 4), instance_seed_by_host.ring_seed)
     end)
 
     it("updates chash and roundrobin", function()
