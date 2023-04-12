@@ -112,7 +112,7 @@ local function update_balance_factor(self, backend)
   self.balance_factor = balance_factor or DEFAULT_HASH_BALANCE_FACTOR
 end
 
-local function update_enable_seed_by_host(self, backend)
+local function update_ring_seed(self, backend)
   local seed_by_host = backend["upstreamHashByConfig"]["upstream-hash-by-enable-seed-by-host"]
 
   if seed_by_host then
@@ -130,11 +130,13 @@ local function normalize_endpoints(endpoints)
   return b
 end
 
-local function update_endpoints(self, endpoints)
+local function update_endpoints(self, backend, endpoints)
   self.endpoints = endpoints
   self.endpoints_reverse = reverse_table(endpoints)
   self.total_endpoints = #endpoints
-  self.ring_seed = util.array_mod(HOST_SEED, self.total_endpoints)
+
+  -- always check the state of enable-seed-by-host when updating endpoints
+  update_ring_seed(self, backend)
 end
 
 -- this is an extra sanity check for the rollout and it will be gone by final iteration
@@ -186,9 +188,8 @@ function _M.new(self, backend)
     seen_hash_by_values = lrucache.new(SEEN_LRU_SIZE)
   }
 
-  update_endpoints(o, normalize_endpoints(backend.endpoints))
+  update_endpoints(o, backend, normalize_endpoints(backend.endpoints))
   update_balance_factor(o, backend)
-  update_enable_seed_by_host(o, backend)
 
   setmetatable(o, self)
   self.__index = self
@@ -199,7 +200,10 @@ function _M.sync(self, backend)
   self.alternative_backends = backend.alternativeBackends
 
   update_balance_factor(self, backend)
-  update_enable_seed_by_host(self, backend)
+
+  -- always check the state of enable-seed-by-host when syncing,
+  -- because it might have changed since the last time we updated endpoints
+  update_ring_seed(self, backend)
 
   local new_endpoints = normalize_endpoints(backend.endpoints)
 
@@ -211,7 +215,7 @@ function _M.sync(self, backend)
   ngx_log(INFO, string_format("[%s] endpoints have changed for backend %s",
     self.name, backend.name))
 
-  update_endpoints(self, new_endpoints)
+  update_endpoints(self, backend, new_endpoints)
 
   local nodes = util.get_nodes(backend.endpoints)
   self.chash:reinit(nodes)
