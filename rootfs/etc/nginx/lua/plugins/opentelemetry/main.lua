@@ -108,7 +108,7 @@ local function create_span_buffering_processor()
 
   -- There are various assertions in the batch span processor initializer in
   -- opentelemetry-lua; catch and report them with pcall
-  local ok, batch_span_processor = pcall(batch_span_processor_new,
+  local ok, span_processor = pcall(batch_span_processor_new,
     exporter,
     {
       drop_on_queue_full = _M.plugin_open_telemetry_bsp_drop_on_queue_full,
@@ -120,10 +120,11 @@ local function create_span_buffering_processor()
   )
 
   if not ok then
-    error("Couldn't create batch span processor: " .. batch_span_processor)
+    error("Couldn't create batch span processor: " .. span_processor)
   end
 
-  return span_buffering_processor.new(batch_span_processor)
+  -- Allow for injection of span processor, for testing purposes
+  return span_buffering_processor.new(_M.plugin_open_telemetry_span_processor or span_processor)
 end
 
 --------------------------------------------------------------------------------
