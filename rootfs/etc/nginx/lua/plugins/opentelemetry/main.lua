@@ -10,6 +10,7 @@ local table    = table
 local string   = string
 local tonumber = tonumber
 local tostring = tostring
+local type     = type
 local unpack   = unpack
 local os       = os
 
@@ -387,6 +388,7 @@ function _M.init_worker(config)
   _M.plugin_open_telemetry_environment                          = config.plugin_open_telemetry_environment
   _M.plugin_open_telemetry_set_traceresponse                    = config.plugin_open_telemetry_set_traceresponse
   _M.plugin_open_telemetry_strip_traceresponse                  = config.plugin_open_telemetry_strip_traceresponse
+  _M.plugin_open_telemetry_captured_request_headers             = shopify_utils.parse_http_header_list(config.plugin_open_telemetry_captured_request_headers)
 
   local tracer_samplers = {
     VerbositySamplerTracer = verbosity_sampler.new(_M.plugin_open_telemetry_shopify_verbosity_sampler_percentage),
@@ -609,7 +611,24 @@ function _M.log()
       ngx_ctx.opentelemetry.request_span_ctx.sp:set_status(span_status.error)
     end
 
-    ngx.ctx.opentelemetry.request_span_ctx.sp:set_attributes(attr.int("http.status_code", status))
+    local headers = ngx.req.get_headers()
+    local req_span_attrs = {attr.int("http.status_code", status)}
+    for lowercased_attr, underscored_attr in pairs(_M.plugin_open_telemetry_captured_request_headers) do
+      local header_value = headers[lowercased_attr]
+
+      -- If multiple values for the same header are present, openresty puts them into a table; in this situation
+      -- we concatenate and join with a semicolon. See https://openresty-reference.readthedocs.io/en/latest/Lua_Nginx_API/#ngxreqget_headers.
+      if type(header_value) == "table" then
+        header_value = table.concat(header_value, ";")
+      end
+
+      if header_value then
+        -- upstream doesn't have attr limits, so we do here; see https://github.com/yangxikun/opentelemetry-lua/issues/73
+        local truncated_value = string.sub(header_value, 0, 128)
+        table.insert(req_span_attrs, attr.string("http.request.header." .. underscored_attr, truncated_value))
+      end
+    end
+    ngx_ctx.opentelemetry.request_span_ctx.sp:set_attributes(unpack(req_span_attrs))
     ngx_ctx.opentelemetry.request_span_ctx.sp:finish()
   end
 

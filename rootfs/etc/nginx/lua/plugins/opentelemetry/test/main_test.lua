@@ -37,7 +37,8 @@ local function make_config()
         plugin_open_telemetry_deferred_sampling_upstreams = "",
         plugin_open_telemetry_shopify_verbosity_sampler_percentage = "1.0",
         plugin_open_telemetry_set_traceresponse = true,
-        plugin_open_telemetry_strip_traceresponse = false
+        plugin_open_telemetry_strip_traceresponse = false,
+        plugin_open_telemetry_captured_request_headers = ""
     }
 end
 
@@ -54,6 +55,7 @@ main.plugin_open_telemetry_enabled                              = true
 main.plugin_open_telemetry_bsp_max_queue_size                   = 2048
 main.plugin_open_telemetry_traces_sampler                       = "ShopifyVerbositySampler"
 main.plugin_open_telemetry_traces_sampler_arg                   = "0.5"
+main.plugin_open_telemetry_captured_request_headers               = {}
 
 describe("should_force_sample_buffered_spans", function()
     it("returns true if initial sampling decision was record_and_sample", function()
@@ -334,8 +336,10 @@ describe("plugin_mode", function()
 end)
 
 describe("log()", function()
+    local orig_get_headers = ngx.req.get_headers
     before_each(function()
         main.plugin_mode = function() return "VERBOSITY_SAMPLING" end
+        ngx.req.get_headers = function() return {} end
         main.span_buffering_processor = {
             send_spans = function(_, __) end
         }
@@ -358,6 +362,7 @@ describe("log()", function()
     after_each(function()
         recording_span.finish:revert()
         main.plugin_mode = orig_plugin_mode
+        ngx.req.get_headers = orig_get_headers
         ngx.ctx = {}
     end)
 
@@ -375,6 +380,69 @@ describe("log()", function()
         assert.is_true(req_span_has_http_status)
         assert.are_same(ngx.ctx.opentelemetry.request_span_ctx.sp.status.code, 2)
         assert.are_same(ngx.ctx.opentelemetry.proxy_span_ctx.sp.status.code, 2)
+    end)
+
+    it("records configured HTTP headers", function()
+        main.plugin_open_telemetry_captured_request_headers = { ["x-bar"] = "x_bar" }
+        ngx.req.get_headers = function() return { ["x-bar"] = "baz" } end
+
+        main.log()
+        local req_span = ngx.ctx.opentelemetry.request_span_ctx.sp
+        local req_span_has_header_attr = false
+        for i, attr in ipairs(req_span.attributes) do
+            if attr.key == "http.request.header.x_bar" and attr.value.string_value == "baz" then
+                req_span_has_header_attr = true
+            end
+        end
+
+        assert.is_true(req_span_has_header_attr)
+    end)
+
+    it("semicolon-concatenates HTTP headers when there are multiples", function()
+        main.plugin_open_telemetry_captured_request_headers = { ["x-bar"] = "x_bar" }
+        ngx.req.get_headers = function() return { ["x-bar"] = { "baz", "bat" } } end
+        main.log()
+        local req_span = ngx.ctx.opentelemetry.request_span_ctx.sp
+        local req_span_has_header_attr = false
+        for i, attr in ipairs(req_span.attributes) do
+            if attr.key == "http.request.header.x_bar" and attr.value.string_value == "baz;bat" then
+                req_span_has_header_attr = true
+            end
+        end
+
+        assert.is_true(req_span_has_header_attr)
+    end)
+
+    it("truncates long http header values", function()
+        main.plugin_open_telemetry_captured_request_headers = { ["x-bar"] = "x_bar" }
+        local long_header = string.rep("a", 200)
+        ngx.req.get_headers = function() return { ["x-bar"] = long_header } end
+
+        main.log()
+        local req_span = ngx.ctx.opentelemetry.request_span_ctx.sp
+        local req_span_has_header_attr = false
+        for i, attr in ipairs(req_span.attributes) do
+            if attr.key == "http.request.header.x_bar" and attr.value.string_value == string.sub(long_header, 0, 128) then
+                req_span_has_header_attr = true
+            end
+        end
+
+        assert.is_true(req_span_has_header_attr)
+    end)
+
+    it("does not add attribute when header is not present", function()
+        main.plugin_open_telemetry_captured_request_headers = { ["x-bar"] = "x_bar" }
+        ngx.req.get_headers = function() return { } end
+        main.log()
+        local req_span = ngx.ctx.opentelemetry.request_span_ctx.sp
+        local req_span_has_header_attr = false
+        for i, attr in ipairs(req_span.attributes) do
+            if attr.key == "http.request.header.x_bar" then
+                req_span_has_header_attr = true
+            end
+        end
+
+        assert.is_false(req_span_has_header_attr)
     end)
 
     describe("when spans are absent", function()

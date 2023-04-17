@@ -230,6 +230,7 @@ The following table shows a configuration option's name, type, and the default v
 |[plugin-opentelemetry-service](#plugin-opentelemetry-service)|string|"nginx"
 |[plugin-opentelemetry-strip-traceresponse](#plugin-opentelemetry-strip-traceresponse)|boolean|false
 |[plugin-opentelemetry-set-traceresponse](#plugin-opentelemetry-set-traceresponse)|boolean|false
+|[plugin-opentelemetry-captured-request-headers](#plugin-opentelemetry-captured-request-headers)|string|""
 
 ## add-headers
 
@@ -1408,3 +1409,7 @@ Boolean indicating whether or not to set a response header with a traceresponse.
 ### plugin-opentelemetry-strip-traceresponse
 
 Boolean indicating whether or not to strip upstream traceresponse response header before returning request to client. We strip the traceresponse even if the upstream is bypassed (see [`plugin-opentelemetry-bypassed-upstreams`](#plugin-opentelemetry-bypassed-upstreams)). We do not strip the trace response if the user supplies a `?debug_headers=anything` URL parameter.
+
+### plugin-opentelemetry-captured-request-headers
+
+Comma-separated list of http headers that, if present, will be added to nginx.request spans as attributes (key is `http.request.header.header_name_dashes_turned_to_underscores`, value is header value truncated to 128 characters). See: https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/trace/semantic_conventions/http.md#http-request-and-response-headers.

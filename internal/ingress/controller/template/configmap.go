@@ -81,6 +81,7 @@ const (
 	otelDropOnQueueFull                   = "plugin-opentelemetry-drop-on-queue-full"
 	otelShopifyVerbositySamplerPercentage = "plugin-opentelemetry-shopify-verbosity-sampler-percentage"
 	otelService                           = "plugin-opentelemetry-service"
+	otelCapturedRequestHeaders            = "plugin-opentelemetry-captured-request-headers"
 )
 
 var (

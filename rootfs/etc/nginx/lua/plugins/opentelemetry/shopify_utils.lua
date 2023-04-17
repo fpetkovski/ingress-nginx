@@ -180,6 +180,22 @@ function _M.parse_upstream_list(upstream_list_str)
   return list
 end
 
+
+--------------------------------------------------------------------------------
+-- Parses a comma-separated list of HTTP headers into a table
+--
+-- @param header_list_string A comma-separated list of http headers
+-- @return table
+--------------------------------------------------------------------------------
+function _M.parse_http_header_list(header_list_string)
+  local list = {}
+  for header in string.gmatch(header_list_string, "([^,|^%s]+)") do
+    local attr_name = string.lower(header)
+    list[attr_name] = string.gsub(attr_name, "%-", "_")
+  end
+  return list
+end
+
 --------------------------------------------------------------------------------
 -- Returns name of region from string that might contain -gcp
 --

@@ -117,3 +117,25 @@ describe("parse_region", function()
     assert.are.same(utils.parse_region("us-eagcpst-1"), "us-eagcpst-1")
   end)
 end)
+
+describe("parse_http_header_list", function()
+  it("returns empty table when arg is empty string", function()
+    assert.are.same(utils.parse_http_header_list(""), {})
+  end)
+
+  it("properly parses headers with dashes in them", function()
+    assert.are.same(utils.parse_http_header_list("X-Shopify-foo-header"),
+      { ["x-shopify-foo-header"] = "x_shopify_foo_header"})
+  end)
+
+  it("properly parses multiple headers with dashes in them", function()
+    assert.are.same(utils.parse_http_header_list("X-Shopify-foo-header,X-wat-OK"),
+      { ["x-shopify-foo-header"] = "x_shopify_foo_header", ["x-wat-ok"] = "x_wat_ok"})
+  end)
+
+  it("properly parses multiple headers without dashes in them", function()
+    assert.are.same(utils.parse_http_header_list("PIZZA,PIE"),
+      { ["pizza"] = "pizza", ["pie"] = "pie"})
+  end)
+end)
+
