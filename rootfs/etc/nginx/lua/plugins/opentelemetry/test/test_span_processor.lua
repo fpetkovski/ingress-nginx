@@ -1,7 +1,5 @@
 local _M = {}
 
-local _M = {}
-
 function _M.new()
     return setmetatable({
         spans = {}
