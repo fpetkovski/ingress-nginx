@@ -504,16 +504,7 @@ function _M.header_filter()
     return
   end
 
-  ngx_ctx.opentelemetry_proxy_span_end_time = otel_utils.gettimeofday_ms()
-
-  -- Start response span
-  local response_span = _M.tracer(ngx.ctx.opentelemetry_plugin_mode):start(
-    ngx_ctx.opentelemetry.request_span_ctx, "nginx.response", {
-    kind = span_kind.client,
-    attributes = {},
-  })
-  ngx_ctx.opentelemetry["response_span_ctx"] = response_span
-
+  ngx_ctx.opentelemetry_span_end_time = otel_utils.time_nano()
 
   if _M.plugin_open_telemetry_set_traceresponse then
     metrics_reporter:add_to_counter("otel.nginx.set_traceresponse", 1, { upstream = ngx.var.proxy_upstream_name or "unknown" })
@@ -591,11 +582,8 @@ function _M.log()
       ngx_ctx.opentelemetry.proxy_span_ctx.sp:set_status(span_status.error)
     end
 
-    ngx_ctx.opentelemetry.proxy_span_ctx.sp:finish(ngx_ctx.opentelemetry_proxy_span_end_time)
+    ngx_ctx.opentelemetry.proxy_span_ctx.sp:finish(ngx_ctx.opentelemetry_span_end_time)
   end
-
-  -- close response span if present
-  if ngx_ctx.opentelemetry.response_span_ctx then ngx_ctx.opentelemetry.response_span_ctx.sp:finish() end
 
   -- close request span if present
   -- See https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/trace/semantic_conventions/http.md#status
@@ -629,7 +617,7 @@ function _M.log()
       end
     end
     ngx_ctx.opentelemetry.request_span_ctx.sp:set_attributes(unpack(server_attributes))
-    ngx_ctx.opentelemetry.request_span_ctx.sp:finish()
+    ngx_ctx.opentelemetry.request_span_ctx.sp:finish(ngx_ctx.opentelemetry_span_end_time)
   end
 
   -- Handle deferred sampling
