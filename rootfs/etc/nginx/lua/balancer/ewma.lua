@@ -16,7 +16,6 @@ local pairs = pairs
 local ipairs = ipairs
 local tostring = tostring
 local string = string
-local tonumber = tonumber
 local setmetatable = setmetatable
 local string_format = string.format
 local table_insert = table.insert

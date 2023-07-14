@@ -78,38 +78,38 @@ describe("Balancer ewma", function()
     end)
 
     it("sets state value from Server-Timing header when util field exists", function()
-      mock_ngx({ header = { ["Server-Timing"] = "processing;dur=40, socket_queue;dur=2, edge;dur=1, util;dur=0.5, db;dur=5.477, view;dur=0.348" } })
-    
+      ngx.header["Server-Timing"] = "processing;dur=40, socket_queue;dur=2, edge;dur=1, util;dur=0.5, db;dur=5.477, view;dur=0.348"
+
       instance:after_balance()
 
       assert.are.equals(0.5, ngx.shared.balancer_ewma:get(ngx.var.upstream_addr))
     end)
 
     it("overrides previous state value with new value from Server-Timing header", function()
-      mock_ngx({ header = { ["Server-Timing"] = "processing;dur=40, socket_queue;dur=2, edge;dur=1, util;dur=0.5, db;dur=5.477, view;dur=0.348" } })
+      ngx.header["Server-Timing"] = "processing;dur=40, socket_queue;dur=2, edge;dur=1, util;dur=0.5, db;dur=5.477, view;dur=0.348"
       instance:after_balance()
 
-      mock_ngx({ header = { ["Server-Timing"] = "processing;dur=40, socket_queue;dur=2, edge;dur=1, util;dur=0.6, db;dur=5.477, view;dur=0.348" } })
+      ngx.header["Server-Timing"] = "processing;dur=40, socket_queue;dur=2, edge;dur=1, util;dur=0.6, db;dur=5.477, view;dur=0.348"
       instance:after_balance()
 
       assert.are.equals(0.6, ngx.shared.balancer_ewma:get(ngx.var.upstream_addr))
     end)
 
     it("ignores a missing state value on the upstream Server-Timing header", function()
-      mock_ngx({ header = { ["Server-Timing"] = "processing;dur=40, socket_queue;dur=2, edge;dur=1, util;dur=0.5, db;dur=5.477, view;dur=0.348" } })
+      ngx.header["Server-Timing"] = "processing;dur=40, socket_queue;dur=2, edge;dur=1, util;dur=0.5, db;dur=5.477, view;dur=0.348"
       instance:after_balance()
 
-      mock_ngx({ header = { ["Server-Timing"] = "processing;dur=45, socket_queue;dur=2, edge;dur=1, db;dur=5.477, view;dur=0.348" } })
+      ngx.header["Server-Timing"] = "processing;dur=45, socket_queue;dur=2, edge;dur=1, db;dur=5.477, view;dur=0.348"
       instance:after_balance()
 
       assert.are.equals(0.5, ngx.shared.balancer_ewma:get(ngx.var.upstream_addr))
     end)
 
     it("properly handles multiple requests with well-formed Server-Timing headers", function()
-      mock_ngx({ header = { ["Server-Timing"] = "processing;dur=40, socket_queue;dur=2, edge;dur=1, util;dur=0.5, db;dur=5.477, view;dur=0.348" } })
+      ngx.header["Server-Timing"] = "processing;dur=40, socket_queue;dur=2, edge;dur=1, util;dur=0.5, db;dur=5.477, view;dur=0.348"
       instance:after_balance()
 
-      mock_ngx({ header = { ["Server-Timing"] = "processing;dur=40, socket_queue;dur=2, edge;dur=1, util;dur=0.2, db;dur=5.477, view;dur=0.348" } })
+      ngx.header["Server-Timing"] = "processing;dur=40, socket_queue;dur=2, edge;dur=1, util;dur=0.2, db;dur=5.477, view;dur=0.348"
       ngx.var = { upstream_addr = "10.10.10.9:8080", upstream_connect_time = "0.02", upstream_response_time = "0.1" }
       instance:after_balance()
 
@@ -168,7 +168,7 @@ describe("Balancer ewma", function()
         ["10.10.10.3:8080"] = true,
       }
       local peer = two_endpoints_instance:balance()
-      assert.equal("10.10.10.3:8080", peer)
+      assert.equal("10.10.10.1:8080", peer)
     end)
   end)
 

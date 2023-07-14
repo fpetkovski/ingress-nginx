@@ -1,4 +1,7 @@
 local _M = {}
+local string = string
+local type = type
+local tonumber = tonumber
 
 local function durations(rawheader)
   local durationTable = {}
