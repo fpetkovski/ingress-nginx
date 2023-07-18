@@ -13,13 +13,14 @@ local string_len = string.len
 local udp = ngx.socket.udp
 
 local util = require("util")
-local defer_to_timer = require("plugins.opentelemetry.defer_to_timer")
+local defer_to_timer = require("plugins.statsd.defer_to_timer")
 
 local util_tablelength = util.tablelength
 
 local _M = {}
-local default_tag_string = "|#"
+local default_tag_string = ""
 
+local DEFAULT_SAMPLING_RATE = 0.1
 local METRIC_COUNTER      = "c"
 local METRIC_DISTRIBUTION = "d"
 local METRIC_GAUGE        = "g"
@@ -29,8 +30,7 @@ local MICROSECONDS        = 1000000
 
 local ENV_TAGS = {
   kube_namespace = os.getenv("POD_NAMESPACE"),
-  deploy_stage = os.getenv("DEPLOY_STAGE"),
-  service = "nginx"
+  deploy_stage = os.getenv("DEPLOY_STAGE")
 }
 
 local function create_udp_socket(host, port)
@@ -111,8 +111,13 @@ local function generate_packet(metric, key, value, tags, sampling_rate)
     sampling_rate = string_format("|@%g", sampling_rate)
   end
 
+  local tag_str = generate_tag_string(tags)
+  if tag_str ~= "" then
+    tag_str = "|#" .. tag_str
+  end
+
   return string_format("%s:%s|%s%s%s", key, tostring(value),
-    metric, sampling_rate, generate_tag_string(tags))
+    metric, sampling_rate, tag_str)
 end
 
 local function metric(metric_type, key, value, tags, sample_rate)
@@ -148,6 +153,7 @@ local function send_metrics(...)
   if not ok and err then
     ngx.log(ngx.WARN, "failed logging to statsd: " .. tostring(err))
   end
+
   return ok, err
 end
 
@@ -163,6 +169,7 @@ local function log_metric(...)
     ngx.log(ngx.ERR, msg)
     return nil, msg
   end
+
   return true
 end
 
@@ -200,6 +207,21 @@ function _M.measure(key, f, tags)
   return unpack(ret)
 end
 
+function _M.measure_distribution(key, f, tags)
+  local ret, time = _M.time(f)
+  _M.distribution(key, time, tags or {})
+  return unpack(ret)
+end
+
+-- same as measure but reject samples that were too fast; threshold is in microseconds
+function _M.measure_when_over_threshold(key, threshold, f, tags)
+  local ret, time = _M.time(f)
+  if time > threshold then
+    _M.histogram(key, time, tags or {})
+  end
+  return unpack(ret)
+end
+
 _M.defer_to_timer = defer_to_timer
 
 local address = os.getenv("STATSD_ADDR")
@@ -212,21 +234,15 @@ else
   statsd_port = os.getenv("STATSD_PORT")
 end
 
--- SDK version has to be set manually because we are not using luarocks to
--- install opentelemetry-lua in the Docker image.
 _M.config = {
   host = statsd_host,
   port = statsd_port,
-  sampling_rate = 0.1,
+  sampling_rate = tonumber(os.getenv("STATSD_SAMPLING_RATE")) or DEFAULT_SAMPLING_RATE,
   enabled = true,
-  tags = {
-    ["telemetry.sdk.version"] = '0.2.2',
-    ["telemetry.sdk.language"] = 'lua'
-  },
 }
 
 if not _M.config.host or not _M.config.port then
-  ngx.log(ngx.ERR, "Either STATSD_ADDR or (STATSD_HOST and STATSD_PORT) env variables must be set")
+  ngx.log(ngx.WARN, "Either STATSD_ADDR or (STATSD_HOST and STATSD_PORT) env variables must be set")
   _M.config.enabled = false
 end
 
@@ -234,6 +250,10 @@ expand_default_tags()
 
 if _M.config.tags and util_tablelength(_M.config.tags) > 0 then
   default_tag_string = generate_tag_string(_M.config.tags)
+end
+
+function _M.init_worker()
+  defer_to_timer.init_worker()
 end
 
 return _M
