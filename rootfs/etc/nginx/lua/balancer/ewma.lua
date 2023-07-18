@@ -8,7 +8,6 @@
 local resty_lock = require("resty.lock")
 local util = require("util")
 local split = require("util.split")
-local duration_parser = require("util.duration_parsing")
 
 local ngx = ngx
 local math = math
@@ -16,16 +15,16 @@ local pairs = pairs
 local ipairs = ipairs
 local tostring = tostring
 local string = string
+local tonumber = tonumber
 local setmetatable = setmetatable
 local string_format = string.format
 local table_insert = table.insert
 local ngx_log = ngx.log
 local INFO = ngx.INFO
 
+local DECAY_TIME = 10 -- this value is in seconds
 local LOCK_KEY = ":ewma_key"
 local PICK_SET_SIZE = 2
-local SERVER_TIMING_HEADER = "Server-Timing"
-local SERVER_TIMING_UTIL = "util"
 
 local ewma_lock, ewma_lock_err = resty_lock:new("balancer_ewma_locks", {timeout = 0, exptime = 0.1})
 if not ewma_lock then
@@ -54,6 +53,15 @@ local function unlock()
   return err
 end
 
+local function decay_ewma(ewma, last_touched_at, rtt, now)
+  local td = now - last_touched_at
+  td = (td > 0) and td or 0
+  local weight = math.exp(-td/DECAY_TIME)
+
+  ewma = ewma * weight + rtt * (1.0 - weight)
+  return ewma
+end
+
 local function store_stats(upstream, ewma, now)
   local success, err, forcible = ngx.shared.balancer_ewma_last_touched_at:set(upstream, now)
   if not success then
@@ -72,7 +80,7 @@ local function store_stats(upstream, ewma, now)
   end
 end
 
-local function get_or_update_ewma(upstream, state, update)
+local function get_or_update_ewma(upstream, rtt, update)
   local lock_err = nil
   if update then
     lock_err = lock(upstream)
@@ -83,12 +91,14 @@ local function get_or_update_ewma(upstream, state, update)
   end
 
   local now = ngx.now()
+  local last_touched_at = ngx.shared.balancer_ewma_last_touched_at:get(upstream) or 0
+  ewma = decay_ewma(ewma, last_touched_at, rtt, now)
 
   if not update then
     return ewma, nil
   end
 
-  store_stats(upstream, state, now)
+  store_stats(upstream, ewma, now)
 
   unlock()
 
@@ -210,19 +220,16 @@ function _M.balance(self)
 end
 
 function _M.after_balance(_)
-  local upstream = split.get_first_value(ngx.var.upstream_addr)
-  local raw_server_timing = ngx.header[SERVER_TIMING_HEADER]
+  local response_time = tonumber(split.get_last_value(ngx.var.upstream_response_time)) or 0
+  local connect_time = tonumber(split.get_last_value(ngx.var.upstream_connect_time)) or 0
+  local rtt = connect_time + response_time
+  local upstream = split.get_last_value(ngx.var.upstream_addr)
 
-  if util.is_blank(upstream) or util.is_blank(raw_server_timing) then
+  if util.is_blank(upstream) then
     return
   end
 
-  local state, err = duration_parser.duration(raw_server_timing, SERVER_TIMING_UTIL)
-  if err ~= nil then
-    return
-  end
-
-  get_or_update_ewma(upstream, state, true)
+  get_or_update_ewma(upstream, rtt, true)
 end
 
 function _M.sync(self, backend)

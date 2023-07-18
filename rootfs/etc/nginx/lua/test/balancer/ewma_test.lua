@@ -57,64 +57,29 @@ describe("Balancer ewma", function()
     flush_all_ewma_stats()
   end)
 
-  -- describe("after_balance()", function()
-  --   it("updates EWMA stats", function()
-  --     ngx.var = { upstream_addr = "10.10.10.2:8080", upstream_connect_time = "0.02", upstream_response_time = "0.1" }
-
-  --     instance:after_balance()
-
-  --     local weight = math.exp(-5 / 10)
-  --     local expected_ewma = 0.3 * weight + 0.12 * (1.0 - weight)
-  --
-  --      assert.are.equals(expected_ewma, ngx.shared.balancer_ewma:get(ngx.var.upstream_addr))
-  --      assert.are.equals(ngx_now, ngx.shared.balancer_ewma_last_touched_at:get(ngx.var.upstream_addr))
-  --    end)
-  --    end)
-  --  end)
-
   describe("after_balance()", function()
-    before_each(function()
-      ngx.var = { upstream_addr = "10.10.10.8:8080", upstream_connect_time = "0.02", upstream_response_time = "0.1" }
+    it("updates EWMA stats", function()
+      ngx.var = { upstream_addr = "10.10.10.2:8080", upstream_connect_time = "0.02", upstream_response_time = "0.1" }
+
+      instance:after_balance()
+
+      local weight = math.exp(-5 / 10)
+      local expected_ewma = 0.3 * weight + 0.12 * (1.0 - weight)
+
+      assert.are.equals(expected_ewma, ngx.shared.balancer_ewma:get(ngx.var.upstream_addr))
+      assert.are.equals(ngx_now, ngx.shared.balancer_ewma_last_touched_at:get(ngx.var.upstream_addr))
     end)
 
-    it("sets state value from Server-Timing header when util field exists", function()
-      ngx.header["Server-Timing"] = "processing;dur=40, socket_queue;dur=2, edge;dur=1, util;dur=0.5, db;dur=5.477, view;dur=0.348"
+    it("updates EWMA stats with the latest result", function()
+      ngx.var = { upstream_addr = "10.10.10.1:8080, 10.10.10.2:8080", upstream_connect_time = "0.05, 0.02", upstream_response_time = "0.2, 0.1" }
 
       instance:after_balance()
 
-      assert.are.equals(0.5, ngx.shared.balancer_ewma:get(ngx.var.upstream_addr))
-    end)
+      local weight = math.exp(-5 / 10)
+      local expected_ewma = 0.3 * weight + 0.12 * (1.0 - weight)
 
-    it("overrides previous state value with new value from Server-Timing header", function()
-      ngx.header["Server-Timing"] = "processing;dur=40, socket_queue;dur=2, edge;dur=1, util;dur=0.5, db;dur=5.477, view;dur=0.348"
-      instance:after_balance()
-
-      ngx.header["Server-Timing"] = "processing;dur=40, socket_queue;dur=2, edge;dur=1, util;dur=0.6, db;dur=5.477, view;dur=0.348"
-      instance:after_balance()
-
-      assert.are.equals(0.6, ngx.shared.balancer_ewma:get(ngx.var.upstream_addr))
-    end)
-
-    it("ignores a missing state value on the upstream Server-Timing header", function()
-      ngx.header["Server-Timing"] = "processing;dur=40, socket_queue;dur=2, edge;dur=1, util;dur=0.5, db;dur=5.477, view;dur=0.348"
-      instance:after_balance()
-
-      ngx.header["Server-Timing"] = "processing;dur=45, socket_queue;dur=2, edge;dur=1, db;dur=5.477, view;dur=0.348"
-      instance:after_balance()
-
-      assert.are.equals(0.5, ngx.shared.balancer_ewma:get(ngx.var.upstream_addr))
-    end)
-
-    it("properly handles multiple requests with well-formed Server-Timing headers", function()
-      ngx.header["Server-Timing"] = "processing;dur=40, socket_queue;dur=2, edge;dur=1, util;dur=0.5, db;dur=5.477, view;dur=0.348"
-      instance:after_balance()
-
-      ngx.header["Server-Timing"] = "processing;dur=40, socket_queue;dur=2, edge;dur=1, util;dur=0.2, db;dur=5.477, view;dur=0.348"
-      ngx.var = { upstream_addr = "10.10.10.9:8080", upstream_connect_time = "0.02", upstream_response_time = "0.1" }
-      instance:after_balance()
-
-      assert.are.equals(0.5, ngx.shared.balancer_ewma:get("10.10.10.8:8080"))
-      assert.are.equals(0.2, ngx.shared.balancer_ewma:get("10.10.10.9:8080"))
+      assert.are.equals(expected_ewma, ngx.shared.balancer_ewma:get("10.10.10.2:8080"))
+      assert.are.equals(ngx_now, ngx.shared.balancer_ewma_last_touched_at:get("10.10.10.2:8080"))
     end)
   end)
 
@@ -140,9 +105,9 @@ describe("Balancer ewma", function()
 
       -- even though 10.10.10.1:8080 has a lower ewma score
       -- algorithm picks 10.10.10.3:8080 because its decayed score is even lower
-      -- assert.equal("10.10.10.3:8080", peer)
-      -- assert.equal(true, ngx.ctx.balancer_ewma_tried_endpoints["10.10.10.3:8080"])
-      -- assert.are.equals(0.16240233988393523723, ngx.var.balancer_ewma_score)
+      assert.equal("10.10.10.3:8080", peer)
+      assert.equal(true, ngx.ctx.balancer_ewma_tried_endpoints["10.10.10.3:8080"])
+      assert.are.equals(0.16240233988393523723, ngx.var.balancer_ewma_score)
     end)
 
     it("doesn't pick the tried endpoint while retry", function()
@@ -168,7 +133,7 @@ describe("Balancer ewma", function()
         ["10.10.10.3:8080"] = true,
       }
       local peer = two_endpoints_instance:balance()
-      assert.equal("10.10.10.1:8080", peer)
+      assert.equal("10.10.10.3:8080", peer)
     end)
   end)
 
