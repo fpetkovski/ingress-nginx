@@ -222,6 +222,10 @@ function _M.after_balance(_)
 
   local state, err = duration_parser.duration(raw_server_timing, SERVER_TIMING_UTIL)
   if err ~= nil then
+    ngx.log(
+      ngx.WARN,
+      string.format("Server timing balancer unable to parse header: %s", tostring(err))
+    )
     return
   end
 
