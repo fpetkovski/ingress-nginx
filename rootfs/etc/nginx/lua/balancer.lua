@@ -10,6 +10,7 @@ local chashboundedloads = require("balancer.chashboundedloads")
 local sticky_balanced = require("balancer.sticky_balanced")
 local sticky_persistent = require("balancer.sticky_persistent")
 local ewma = require("balancer.ewma")
+local ewma_server_timing = require("balancer.ewma_server_timing")
 local string = string
 local ipairs = ipairs
 local table = table
@@ -34,6 +35,7 @@ local IMPLEMENTATIONS = {
   sticky_balanced = sticky_balanced,
   sticky_persistent = sticky_persistent,
   ewma = ewma,
+  ewma_server_timing = ewma_server_timing,
 }
 
 local PROHIBITED_LOCALHOST_PORT = configuration.prohibited_localhost_port or '10246'
