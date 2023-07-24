@@ -2,7 +2,7 @@
 -- This module is a wrapper around statsd and defer_to_timer, which were
 -- copy/pasta'd from statsd_monitor.
 --------------------------------------------------------------------------------
-local statsd = require("plugins.opentelemetry.statsd")
+local statsd = require("plugins.statsd.main")
 
 local _M = { statsd = statsd }
 
