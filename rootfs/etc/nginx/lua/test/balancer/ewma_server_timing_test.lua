@@ -101,6 +101,16 @@ describe("Balancer ewma", function()
       assert.are.equals(0.5, ngx.shared.balancer_ewma_server_timing:get("10.10.10.8:8080"))
       assert.are.equals(0.2, ngx.shared.balancer_ewma_server_timing:get("10.10.10.9:8080"))
     end)
+
+    it("prefers ngx.ctx.server_timing_internal when present", function()
+      ngx.header["Server-Timing"] = "processing;dur=40"
+      ngx.ctx.server_timing_internal = "processing;dur=40, socket_queue;dur=2, edge;dur=1, util;dur=0.2, db;dur=5.477, view;dur=0.348"
+      ngx.var = { upstream_addr = "10.10.10.9:8080", upstream_connect_time = "0.02", upstream_response_time = "0.1" }
+
+      instance:after_balance()
+
+      assert.are.equals(0.2, ngx.shared.balancer_ewma_server_timing:get("10.10.10.9:8080"))
+    end)
   end)
 
   describe("balance()", function()

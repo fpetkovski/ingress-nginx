@@ -214,7 +214,12 @@ end
 
 function _M.after_balance(_)
   local upstream = split.get_first_value(ngx.var.upstream_addr)
-  local raw_server_timing = ngx.header[SERVER_TIMING_HEADER]
+  local raw_server_timing = ngx.ctx.server_timing_internal or ngx.header[SERVER_TIMING_HEADER]
+
+  ngx.log(
+    ngx.DEBUG,
+    string.format("Read header `%s`: %s", SERVER_TIMING_HEADER, tostring(raw_server_timing))
+  )
 
   if util.is_blank(upstream) or util.is_blank(raw_server_timing) then
     return
