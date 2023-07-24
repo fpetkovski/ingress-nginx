@@ -32,7 +32,6 @@ describe("plugins.statsd.main", function()
     ctx = {},
     WARN = 1,
     ERR = 2,
-    now = function() return os.time() end,
     socket = {
       udp = udp_mock,
     },
@@ -196,22 +195,27 @@ describe("plugins.statsd.main", function()
   end)
 
   it("measure accurately measures time", function()
-    local called = false
-    ngx.now = spy.new(function(self)
-      if called then
-        return 10000000 -- future seconds
-      else
-        called = true
-        return 5000000
+    local gettime_called = false
+    local gettime_mock = mock({
+      gettimeofday = function()
+        if gettime_called then
+          return 10000000
+        else
+          gettime_called = true
+          return 5000000
+        end
       end
-    end)
+    })
+    package.loaded['plugins.statsd.time'] = gettime_mock
+    package.loaded["plugins.statsd.main"] = nil
+    statsd = require("plugins.statsd.main")
 
     local ret = statsd.measure("test", function()
       return 1
     end)
     statsd.defer_to_timer.flush_queue()
 
-    assert.are.equal(packet, "test:5000000000000|h") -- diff in microseconds
+    assert.are.equal(packet, "test:5000000|h") -- diff in microseconds
     assert.are.equal(1, ret)
   end)
 

@@ -14,6 +14,7 @@ local udp = ngx.socket.udp
 
 local util = require("util")
 local defer_to_timer = require("plugins.statsd.defer_to_timer")
+local gettimeofday = require("plugins.statsd.time").gettimeofday
 
 local util_tablelength = util.tablelength
 
@@ -26,7 +27,6 @@ local METRIC_DISTRIBUTION = "d"
 local METRIC_GAUGE        = "g"
 local METRIC_HISTOGRAM    = "h"
 local METRIC_SET          = "s"
-local MICROSECONDS        = 1000000
 
 local ENV_TAGS = {
   kube_namespace = os.getenv("POD_NAMESPACE"),
@@ -196,9 +196,9 @@ function _M.set(key, value, tags, ...)
 end
 
 function _M.time(f)
-  local start_time = ngx.now()
+  local start_time = gettimeofday()
   local ret = { f() }
-  return ret, (ngx.now() - start_time) * MICROSECONDS
+  return ret, (gettimeofday() - start_time) -- microseconds
 end
 
 function _M.measure(key, f, tags)
