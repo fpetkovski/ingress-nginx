@@ -214,7 +214,12 @@ end
 
 function _M.after_balance(_)
   local upstream = split.get_first_value(ngx.var.upstream_addr)
-  local raw_server_timing = ngx.header[SERVER_TIMING_HEADER]
+  local raw_server_timing = ngx.ctx.server_timing_internal or ngx.header[SERVER_TIMING_HEADER]
+
+  ngx.log(
+    ngx.DEBUG,
+    string.format("Read header `%s`: %s", SERVER_TIMING_HEADER, tostring(raw_server_timing))
+  )
 
   if util.is_blank(upstream) or util.is_blank(raw_server_timing) then
     return
@@ -222,10 +227,16 @@ function _M.after_balance(_)
 
   local state, err = duration_parser.duration(raw_server_timing, SERVER_TIMING_UTIL)
   if err ~= nil then
+    --[[
+    Disabling this for now - turns out the util value is missing from the header ~half the time.
+    If the algo works well we will work to improve that, for now the value often being missing is
+    expected.
+
     ngx.log(
       ngx.WARN,
       string.format("Server timing balancer unable to parse header: %s", tostring(err))
     )
+    --]]
     return
   end
 
