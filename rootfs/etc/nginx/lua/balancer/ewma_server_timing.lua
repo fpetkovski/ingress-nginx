@@ -227,10 +227,16 @@ function _M.after_balance(_)
 
   local state, err = duration_parser.duration(raw_server_timing, SERVER_TIMING_UTIL)
   if err ~= nil then
+    --[[
+    Disabling this for now - turns out the util value is missing from the header ~half the time.
+    If the algo works well we will work to improve that, for now the value often being missing is
+    expected.
+
     ngx.log(
       ngx.WARN,
       string.format("Server timing balancer unable to parse header: %s", tostring(err))
     )
+    --]]
     return
   end
 
