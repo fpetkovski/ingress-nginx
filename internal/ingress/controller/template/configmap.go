@@ -96,6 +96,7 @@ var (
 		"balancer_ewma_server_timing":                 10240,
 		"balancer_ewma_server_timing_last_touched_at": 10240,
 		"balancer_ewma_server_timing_locks":           1024,
+		"balancer_least_requests":                     10240,
 		"certificate_servers":                         5120,
 		"ocsp_response_cache":                         5120, // keep this same as certificate_servers
 		"global_throttle_cache":                       10240,
