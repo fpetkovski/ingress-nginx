@@ -14,6 +14,7 @@ end
 local function flush_all_ewma_stats()
   ngx.shared.balancer_ewma:flush_all()
   ngx.shared.balancer_ewma_last_touched_at:flush_all()
+  ngx.ctx.balancer_ewma_tried_endpoints = nil
 end
 
 local function store_ewma_stats(endpoint_string, ewma, touched_at)
@@ -36,6 +37,7 @@ describe("Balancer ewma", function()
     mock_ngx({ now = function() return ngx_now end, var = { balancer_ewma_score = -1 } })
     package.loaded["balancer.ewma"] = nil
     balancer_ewma = require("balancer.ewma")
+    ngx.ctx.balancer_ewma_tried_endpoints = nil
 
     backend = {
       name = "namespace-service-port", ["load-balance"] = "ewma",
@@ -134,6 +136,50 @@ describe("Balancer ewma", function()
       }
       local peer = two_endpoints_instance:balance()
       assert.equal("10.10.10.3:8080", peer)
+    end)
+
+    it("discards high outlier endpoints", function()
+      local six_endpoints_backend = util.deepcopy(backend)
+
+      for i = 4, 6 do
+        table.insert(
+          six_endpoints_backend.endpoints,
+            { address = "10.10.10." .. i, port = "8080", maxFails = 0, failTimeout = 0 }
+          )
+      end
+
+      store_ewma_stats("10.10.10.1:8080", 0.1, ngx_now - 1)
+      store_ewma_stats("10.10.10.2:8080", 0.2, ngx_now - 1)
+      store_ewma_stats("10.10.10.3:8080", 0.3, ngx_now - 1)
+      store_ewma_stats("10.10.10.4:8080", 0.4, ngx_now - 1)
+      store_ewma_stats("10.10.10.5:8080", 0.5, ngx_now - 1)
+      store_ewma_stats("10.10.10.6:8080", 0.5, ngx_now - 1)
+
+      local six_endpoints_instance = balancer_ewma:new(six_endpoints_backend)
+      local peer = six_endpoints_instance:balance()
+
+      assert.equal(2, #ngx.ctx.balancer_ewma_outlier_endpoints)
+      assert.equal("10.10.10.6", ngx.ctx.balancer_ewma_outlier_endpoints[1].address)
+      assert.equal("10.10.10.5", ngx.ctx.balancer_ewma_outlier_endpoints[2].address)
+    end)
+
+    it("discards no endpoints when no scores exist", function()
+      local five_endpoints_backend = util.deepcopy(backend)
+      table.insert(
+        five_endpoints_backend.endpoints,
+        { address = "10.10.10.4", port = "8080", maxFails = 0, failTimeout = 0 }
+      )
+      table.insert(
+        five_endpoints_backend.endpoints,
+        { address = "10.10.10.5", port = "8080", maxFails = 0, failTimeout = 0 }
+      )
+
+      flush_all_ewma_stats()
+
+      local five_endpoints_instance = balancer_ewma:new(five_endpoints_backend)
+      local peer = five_endpoints_instance:balance()
+
+      assert.equal(0, #ngx.ctx.balancer_ewma_outlier_endpoints)
     end)
   end)
 

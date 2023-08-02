@@ -8,6 +8,7 @@
 local resty_lock = require("resty.lock")
 local util = require("util")
 local split = require("util.split")
+local stats = require("util.stats")
 
 local ngx = ngx
 local math = math
@@ -19,12 +20,16 @@ local tonumber = tonumber
 local setmetatable = setmetatable
 local string_format = string.format
 local table_insert = table.insert
+local table_remove = table.remove
 local ngx_log = ngx.log
 local INFO = ngx.INFO
 
 local DECAY_TIME = 10 -- this value is in seconds
 local LOCK_KEY = ":ewma_key"
 local PICK_SET_SIZE = 2
+
+-- Temporary check, to allow for conditional enabling in production while we evaluate
+local DISCARD_OUTLIERS = os.getenv('EWMA_DISCARD_OUTLIERS') or os.getenv('BUSTED_ARGS')
 
 local ewma_lock, ewma_lock_err = resty_lock:new("balancer_ewma_locks", {timeout = 0, exptime = 0.1})
 if not ewma_lock then
@@ -131,7 +136,44 @@ local function shuffle_peers(peers, k)
   -- peers[1 .. k] will now contain a randomly selected k from #peers
 end
 
+local function discard_high_outliers(peers)
+  -- defined as more than 1 stddev above the mean
+  local scores = {}
+  for i, peer in ipairs(peers) do
+    scores[i] = score(peer)
+  end
+
+  local one_above_mean = stats.stddev(scores, 1)
+  ngx.log(ngx.INFO, string.format("Considered %d peers, threshold is %.6f", #peers, one_above_mean))
+  ngx.ctx.balancer_ewma_outlier_endpoints = {}
+
+  for i = #scores, 1, -1 do
+    -- iterating backwards so we can safely remove elements on each iteration
+    local peer_score = scores[i]
+
+    -- ensure at least PICK_SET_SIZE peers remain - this is guaranteed when PICK_SET_SIZE is 2
+    -- but could not be if that value was raised.
+    if #peers >= PICK_SET_SIZE and peer_score > one_above_mean then
+      ngx.log(
+        ngx.INFO,
+        string.format(
+          "Removing peer %s with a score of %.6f",
+          get_upstream_name(peers[i]),
+          peer_score
+        )
+      )
+      table_insert(
+        ngx.ctx.balancer_ewma_outlier_endpoints,
+        table_remove(peers, i)
+      )
+    end
+  end
+end
+
 local function pick_and_score(peers, k)
+  if DISCARD_OUTLIERS then
+    discard_high_outliers(peers)
+  end
   shuffle_peers(peers, k)
   local lowest_score_index = 1
   local lowest_score = score(peers[lowest_score_index])
