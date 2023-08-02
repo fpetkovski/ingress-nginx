@@ -45,7 +45,11 @@ describe('DC Header Updates', function()
   after_each(function()
     reset_ngx()
   end)
-  
+
+  teardown(function()
+    os.getenv = original_os_getenv
+  end)
+
   it('sets X-Dc to current location', function()
     mock_current_location('gcp-us-east1')
     local datacenter_header = require('plugins.datacenter_header.main')

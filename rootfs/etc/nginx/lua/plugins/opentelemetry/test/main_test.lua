@@ -478,6 +478,10 @@ describe("init_worker", function()
         ngx.ctx.opentelemetry_tracer = nil
     end)
 
+    teardown(function()
+      os.getenv = old_getenv
+    end)
+
     it("does not attach env-var sourced attributes when absent ", function()
         local main = require("plugins.opentelemetry.main")
         main.init_worker(test_utils.make_config())

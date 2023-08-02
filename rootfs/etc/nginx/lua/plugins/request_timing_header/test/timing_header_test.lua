@@ -46,6 +46,10 @@ describe('DC Header Updates', function()
     reset_ngx()
   end)
 
+  teardown(function()
+    os.getenv = original_os_getenv
+  end)
+
   it('sets X-Shopify-Request-Timing for first hop', function()
     mock_location_and_namespace('gcp-us-east1', 'global-proxy-cloudflare-production')
     local request_timing_header = require('plugins.request_timing_header.main')

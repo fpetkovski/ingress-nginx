@@ -14,6 +14,7 @@ end
 local function flush_all_ewma_stats()
   ngx.shared.balancer_ewma:flush_all()
   ngx.shared.balancer_ewma_last_touched_at:flush_all()
+  ngx.ctx.balancer_ewma_tried_endpoints = nil
 end
 
 local function store_ewma_stats(endpoint_string, ewma, touched_at)
@@ -36,6 +37,7 @@ describe("Balancer ewma", function()
     mock_ngx({ now = function() return ngx_now end, var = { balancer_ewma_score = -1 } })
     package.loaded["balancer.ewma"] = nil
     balancer_ewma = require("balancer.ewma")
+    ngx.ctx.balancer_ewma_tried_endpoints = nil
 
     backend = {
       name = "namespace-service-port", ["load-balance"] = "ewma",
