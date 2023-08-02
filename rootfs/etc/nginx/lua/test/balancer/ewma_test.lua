@@ -181,7 +181,6 @@ describe("Balancer ewma", function()
 
       assert.equal(0, #ngx.ctx.balancer_ewma_outlier_endpoints)
     end)
-
   end)
 
   describe("sync()", function()

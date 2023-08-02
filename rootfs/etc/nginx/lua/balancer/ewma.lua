@@ -150,7 +150,10 @@ local function discard_high_outliers(peers)
   for i = #scores, 1, -1 do
     -- iterating backwards so we can safely remove elements on each iteration
     local peer_score = scores[i]
-    if peer_score > one_above_mean then
+
+    -- ensure at least PICK_SET_SIZE peers remain - this is guaranteed when PICK_SET_SIZE is 2
+    -- but could not be if that value was raised.
+    if #peers >= PICK_SET_SIZE and peer_score > one_above_mean then
       ngx.log(
         ngx.INFO,
         string.format(
