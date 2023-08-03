@@ -77,6 +77,8 @@ local function get_implementation(backend)
     ngx.log(ngx.WARN, backend["load-balance"], " is not supported, ",
             "falling back to ", DEFAULT_LB_ALG)
     implementation = IMPLEMENTATIONS[DEFAULT_LB_ALG]
+  else
+    ngx.log(ngx.INFO, "Using ", name, " balancer algorithm for backend ", backend["name"])
   end
 
   return implementation
