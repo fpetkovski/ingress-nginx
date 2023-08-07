@@ -866,6 +866,34 @@ type Configuration struct {
 	////////////////////////////////////////////////////////////////////////////
 	// End OpenTelemetry configuration
 	////////////////////////////////////////////////////////////////////////////
+
+	////////////////////////////////////////////////////////////////////////////
+	// Start Magellan configuration
+	////////////////////////////////////////////////////////////////////////////
+
+	// PluginMagellanEndpoint is the endpoint to which the magellan plugin will
+	// send magellan related requests
+	PluginMagellanEndpoint string `json:"plugin-magellan-endpoint"`
+
+	// PluginMagellanKeepaliveTimeout is the keepalive idle timeout in miliseconds
+	// which the plugin will attempt to reuse connections to the magellan endpoint
+	PluginMagellanKeepaliveTimeout int `json:"plugin-magellan-keepalive-timeout"`
+
+	// PluginMagellanKeepalivePoolSize is the maximum size of the keepalive pool
+	PluginMagellanKeepalivePoolSize int `json:"plugin-magellan-keepalive-pool-size"`
+
+	// PluginMagellanServiceIdentifier is the service identifier that will be used
+	// to construct the service name in magellan, in the form:
+	// <PluginMagellanServiceEnvironment>_<PluginMagellanServiceIdentifier>_servicename
+	PluginMagellanServiceIdentifier string `json:"plugin-magellan-service-identifier"`
+
+	// PluginMagellanTimerPollInterval is the time in seconds between polls of the
+	// magellan service
+	PluginMagellanTimerPollInterval float32 `json:"plugin-magellan-timer-poll-interval"`
+
+	////////////////////////////////////////////////////////////////////////////
+	// End Magellan configuration
+	////////////////////////////////////////////////////////////////////////////
 }
 
 // NewDefault returns the default nginx configuration
@@ -1047,6 +1075,11 @@ func NewDefault() Configuration {
 		PluginOpenTelemetryService:                           "nginx",
 		PluginOpenTelemetryEnvironment:                       "production",
 		DebugConnections:                                     []string{},
+		PluginMagellanEndpoint:                               "http://magellan:8080",
+		PluginMagellanKeepaliveTimeout:                       5000,
+		PluginMagellanKeepalivePoolSize:                      100,
+		PluginMagellanServiceIdentifier:                      "nginx",
+		PluginMagellanTimerPollInterval:                      1.0,
 	}
 
 	if klog.V(5).Enabled() {
