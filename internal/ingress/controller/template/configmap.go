@@ -88,19 +88,16 @@ var (
 	validRedirectCodes    = sets.NewInt([]int{301, 302, 307, 308}...)
 	dictSizeRegex         = regexp.MustCompile(`^(\d+)([kKmM])?$`)
 	defaultLuaSharedDicts = map[string]int{
-		"configuration_data":                          20480,
-		"certificate_data":                            20480,
-		"balancer_ewma":                               10240,
-		"balancer_ewma_last_touched_at":               10240,
-		"balancer_ewma_locks":                         1024,
-		"balancer_ewma_server_timing":                 10240,
-		"balancer_ewma_server_timing_last_touched_at": 10240,
-		"balancer_ewma_server_timing_locks":           1024,
-		"balancer_least_requests":                     10240,
-		"certificate_servers":                         5120,
-		"ocsp_response_cache":                         5120, // keep this same as certificate_servers
-		"global_throttle_cache":                       10240,
-		"high_throughput_tracker":                     10240,
+		"configuration_data":            20480,
+		"certificate_data":              20480,
+		"balancer_ewma":                 10240,
+		"balancer_ewma_last_touched_at": 10240,
+		"balancer_ewma_locks":           1024,
+		"balancer_least_requests":       10240,
+		"certificate_servers":           5120,
+		"ocsp_response_cache":           5120, // keep this same as certificate_servers
+		"global_throttle_cache":         10240,
+		"high_throughput_tracker":       10240,
 	}
 	defaultGlobalAuthRedirectParam = "rd"
 )
