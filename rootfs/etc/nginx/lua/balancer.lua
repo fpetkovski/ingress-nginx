@@ -12,6 +12,7 @@ local sticky_persistent = require("balancer.sticky_persistent")
 local ewma = require("balancer.ewma")
 local ewma_server_timing = require("balancer.ewma_server_timing")
 local least_requests = require("balancer.least_requests")
+local random = require("balancer.random")
 local string = string
 local ipairs = ipairs
 local table = table
@@ -38,6 +39,7 @@ local IMPLEMENTATIONS = {
   ewma = ewma,
   ewma_server_timing = ewma_server_timing,
   least_requests = least_requests,
+  random = random,
 }
 
 local PROHIBITED_LOCALHOST_PORT = configuration.prohibited_localhost_port or '10246'
