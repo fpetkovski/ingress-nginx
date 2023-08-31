@@ -141,7 +141,7 @@ local function should_drop_request(controller, level_value, statsd_tags)
   return false
 end
 
-local function call_access_phase(upstream, controller, request_priority, level_value, statsd_tags)
+local function call_rewrite_phase(upstream, controller, request_priority, level_value, statsd_tags)
   ngx.req.set_header("X-Request-Priority", request_priority)
 
   -- get latest ewma because it could have been updated by another worker
@@ -331,12 +331,12 @@ local function setup(upstream_name)
   return controller, pod_id, shop_id, statsd_tags
 end
 
-function _M.access()
+function _M.rewrite()
   local upstream_name = ngx.var.proxy_upstream_name
   if not should_run(upstream_name) then return end
 
   local controller, _, _, statsd_tags = setup(upstream_name)
-  call_access_phase(
+  call_rewrite_phase(
     upstream_name,
     controller,
     ngx.ctx.load_shedder_priority,
