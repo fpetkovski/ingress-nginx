@@ -10,7 +10,6 @@ local chashboundedloads = require("balancer.chashboundedloads")
 local sticky_balanced = require("balancer.sticky_balanced")
 local sticky_persistent = require("balancer.sticky_persistent")
 local ewma = require("balancer.ewma")
-local ewma_server_timing = require("balancer.ewma_server_timing")
 local least_requests = require("balancer.least_requests")
 local random = require("balancer.random")
 local string = string
@@ -37,7 +36,6 @@ local IMPLEMENTATIONS = {
   sticky_balanced = sticky_balanced,
   sticky_persistent = sticky_persistent,
   ewma = ewma,
-  ewma_server_timing = ewma_server_timing,
   least_requests = least_requests,
   random = random,
 }
@@ -77,6 +75,8 @@ local function get_implementation(backend)
     ngx.log(ngx.WARN, backend["load-balance"], " is not supported, ",
             "falling back to ", DEFAULT_LB_ALG)
     implementation = IMPLEMENTATIONS[DEFAULT_LB_ALG]
+  else
+    ngx.log(ngx.INFO, "Using ", name, " balancer algorithm for backend ", backend["name"])
   end
 
   return implementation

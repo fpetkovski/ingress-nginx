@@ -9,6 +9,7 @@ local resty_lock = require("resty.lock")
 local util = require("util")
 local split = require("util.split")
 local stats = require("util.stats")
+local duration_parser = require("util.duration_parsing")
 
 local ngx = ngx
 local math = math
@@ -27,9 +28,53 @@ local INFO = ngx.INFO
 local DECAY_TIME = 10 -- this value is in seconds
 local LOCK_KEY = ":ewma_key"
 local PICK_SET_SIZE = 2
+local EWMA_TARGET_METRIC = os.getenv('EWMA_TARGET_METRIC') or 'rtt'
+local SERVER_TIMING_HEADER = "Server-Timing"
+local SERVER_TIMING_UTIL = "util"
 
 -- Temporary check, to allow for conditional enabling in production while we evaluate
-local DISCARD_OUTLIERS = os.getenv('EWMA_DISCARD_OUTLIERS') or os.getenv('BUSTED_ARGS')
+local DISCARD_OUTLIERS = os.getenv('EWMA_DISCARD_OUTLIERS')
+
+
+local function calc_rtt()
+  local response_time = tonumber(split.get_last_value(ngx.var.upstream_response_time)) or 0
+  local connect_time = tonumber(split.get_last_value(ngx.var.upstream_connect_time)) or 0
+  return connect_time + response_time
+end
+
+local function calc_server_timing()
+  local upstream = split.get_last_value(ngx.var.upstream_addr)
+  local raw_server_timing = ngx.ctx.server_timing_internal or ngx.header[SERVER_TIMING_HEADER]
+
+  ngx.log(
+    ngx.DEBUG,
+    string.format("Read header `%s`: %s", SERVER_TIMING_HEADER, tostring(raw_server_timing))
+  )
+
+  if util.is_blank(upstream) or util.is_blank(raw_server_timing) then
+    return
+  end
+
+  local value, err = duration_parser.duration(raw_server_timing, SERVER_TIMING_UTIL)
+  if err ~= nil then
+    ngx.log(
+      ngx.WARN,
+      string.format("Server timing balancer unable to parse header: %s", tostring(err))
+    )
+    return
+  end
+
+  return value
+end
+
+local target_metrics = {
+  ['rtt'] = calc_rtt,
+  ['server-timing'] = calc_server_timing,
+}
+
+if not target_metrics[EWMA_TARGET_METRIC] then
+  error("Unknown target metric: " .. EWMA_TARGET_METRIC)
+end
 
 local ewma_lock, ewma_lock_err = resty_lock:new("balancer_ewma_locks", {timeout = 0, exptime = 0.1})
 if not ewma_lock then
@@ -58,12 +103,12 @@ local function unlock()
   return err
 end
 
-local function decay_ewma(ewma, last_touched_at, rtt, now)
+local function decay_ewma(ewma, last_touched_at, score, now)
   local td = now - last_touched_at
   td = (td > 0) and td or 0
   local weight = math.exp(-td/DECAY_TIME)
 
-  ewma = ewma * weight + rtt * (1.0 - weight)
+  ewma = ewma * weight + score * (1.0 - weight)
   return ewma
 end
 
@@ -85,7 +130,7 @@ local function store_stats(upstream, ewma, now)
   end
 end
 
-local function get_or_update_ewma(upstream, rtt, update)
+local function get_or_update_ewma(upstream, score, update)
   local lock_err = nil
   if update then
     lock_err = lock(upstream)
@@ -97,7 +142,7 @@ local function get_or_update_ewma(upstream, rtt, update)
 
   local now = ngx.now()
   local last_touched_at = ngx.shared.balancer_ewma_last_touched_at:get(upstream) or 0
-  ewma = decay_ewma(ewma, last_touched_at, rtt, now)
+  ewma = decay_ewma(ewma, last_touched_at, score, now)
 
   if not update then
     return ewma, nil
@@ -262,16 +307,19 @@ function _M.balance(self)
 end
 
 function _M.after_balance(_)
-  local response_time = tonumber(split.get_last_value(ngx.var.upstream_response_time)) or 0
-  local connect_time = tonumber(split.get_last_value(ngx.var.upstream_connect_time)) or 0
-  local rtt = connect_time + response_time
+  local ewma_score = target_metrics[EWMA_TARGET_METRIC]()
   local upstream = split.get_last_value(ngx.var.upstream_addr)
 
   if util.is_blank(upstream) then
     return
   end
 
-  get_or_update_ewma(upstream, rtt, true)
+  if ewma_score == nil then
+    ngx.log(ngx.WARN, "New ewma score could not be calculated")
+    return
+  end
+
+  get_or_update_ewma(upstream, ewma_score, true)
 end
 
 function _M.sync(self, backend)

@@ -37,8 +37,5 @@ resty \
   --shdict "balancer_ewma_last_touched_at 1M" \
   --shdict "balancer_ewma_locks 512k" \
   --shdict "global_throttle_cache 5M" \
-  --shdict "balancer_ewma_server_timing 1M" \
-  --shdict "balancer_ewma_server_timing_last_touched_at 1M" \
-  --shdict "balancer_ewma_server_timing_locks 512k" \
   --shdict "balancer_least_requests 1M" \
   ./rootfs/etc/nginx/lua/test/run.lua ${BUSTED_ARGS} ./rootfs/etc/nginx/lua/test/ ./rootfs/etc/nginx/lua/plugins/**/test

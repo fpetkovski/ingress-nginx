@@ -27,14 +27,20 @@ local function assert_ewma_stats(endpoint_string, ewma, touched_at)
   assert.are.equals(touched_at, ngx.shared.balancer_ewma_last_touched_at:get(endpoint_string))
 end
 
+local original_os_getenv = os.getenv
+local function mock_getenv_call(mock_env)
+  os.getenv = function(key)
+    return mock_env[key]
+  end
+end
 
-describe("Balancer ewma", function()
-  local balancer_ewma = require("balancer.ewma")
+describe("Balancer ewma rtt", function()
   local ngx_now = 1543238266
   local backend, instance
 
   before_each(function()
     mock_ngx({ now = function() return ngx_now end, var = { balancer_ewma_score = -1 } })
+    mock_getenv_call({ ["EWMA_TARGET_METRIC"] = "rtt", ["EWMA_DISCARD_OUTLIERS"] = "1" })
     package.loaded["balancer.ewma"] = nil
     balancer_ewma = require("balancer.ewma")
     ngx.ctx.balancer_ewma_tried_endpoints = nil
@@ -57,6 +63,21 @@ describe("Balancer ewma", function()
   after_each(function()
     reset_ngx()
     flush_all_ewma_stats()
+    os.getenv = original_os_getenv
+  end)
+
+  describe("package load", function()
+    it("handles a bad EWMA_TARGET_METRIC value", function()
+      mock_getenv_call({ ["EWMA_TARGET_METRIC"] = "bogus" })
+      package.loaded["balancer.ewma"] = nil
+      assert.has_error(function() require("balancer.ewma") end, "Unknown target metric: bogus")
+    end)
+
+    it("handles a missing EWMA_TARGET_METRIC value", function()
+      mock_getenv_call({ ["EWMA_TARGET_METRIC"] = nil })
+      package.loaded["balancer.ewma"] = nil
+      assert.has_no_error(function() require("balancer.ewma") end)
+    end)
   end)
 
   describe("after_balance()", function()
@@ -258,6 +279,145 @@ describe("Balancer ewma", function()
       assert_ewma_stats("10.10.10.2:8080", nil, nil)
       assert_ewma_stats("10.10.10.3:8080", nil, nil)
       assert_ewma_stats("10.10.10.4:8080", nil, nil)
+    end)
+  end)
+end)
+
+describe("Balancer ewma server-timing", function()
+  local ngx_now = 1543238266
+  local backend, instance
+
+  teardown(function()
+    os.getenv = original_os_getenv
+  end)
+
+  before_each(function()
+    mock_ngx({ now = function() return ngx_now end, var = { balancer_ewma_score = -1 } })
+    mock_getenv_call({ ["EWMA_TARGET_METRIC"] = "server-timing", ["EWMA_DISCARD_OUTLIERS"] = "1" })
+    package.loaded["balancer.ewma"] = nil
+    balancer_ewma = require("balancer.ewma")
+    ngx.ctx.balancer_ewma_tried_endpoints = nil
+
+    backend = {
+      name = "namespace-service-port", ["load-balance"] = "ewma",
+      endpoints = {
+        { address = "10.10.10.1", port = "8080", maxFails = 0, failTimeout = 0 },
+        { address = "10.10.10.2", port = "8080", maxFails = 0, failTimeout = 0 },
+        { address = "10.10.10.3", port = "8080", maxFails = 0, failTimeout = 0 },
+      }
+    }
+    store_ewma_stats("10.10.10.1:8080", 0.2, ngx_now - 1)
+    store_ewma_stats("10.10.10.2:8080", 0.3, ngx_now - 5)
+    store_ewma_stats("10.10.10.3:8080", 1.2, ngx_now - 20)
+
+    instance = balancer_ewma:new(backend)
+  end)
+
+  after_each(function()
+    reset_ngx()
+    flush_all_ewma_stats()
+    os.getenv = original_os_getenv
+  end)
+
+  describe("after_balance()", function()
+    before_each(function()
+      flush_all_ewma_stats()
+      ngx.var = { upstream_addr = "10.10.10.8:8080", upstream_connect_time = "0.02", upstream_response_time = "0.1" }
+    end)
+
+    it("sets state value from Server-Timing header when util field exists", function()
+      ngx.header["Server-Timing"] = "processing;dur=39, socket_queue;dur=2, edge;dur=1, util;dur=0.5, db;dur=5.477, view;dur=0.348"
+
+      instance:after_balance()
+
+      assert.are.equals(0.5, ngx.shared.balancer_ewma:get(ngx.var.upstream_addr))
+    end)
+
+    it("overrides previous state value with new value from Server-Timing header", function()
+      ngx.header["Server-Timing"] = "processing;dur=38, socket_queue;dur=2, edge;dur=1, util;dur=0.5, db;dur=5.477, view;dur=0.348"
+      instance:after_balance()
+
+      ngx.header["Server-Timing"] = "processing;dur=41, socket_queue;dur=2, edge;dur=1, util;dur=0.6, db;dur=5.477, view;dur=0.348"
+      instance:after_balance()
+
+      -- 0.5 because the value is decayed on the way in. I'm not sure this is right, and will investigate separately
+      assert.are.equals(0.5, ngx.shared.balancer_ewma:get(ngx.var.upstream_addr))
+    end)
+
+    it("ignores a missing state value on the upstream Server-Timing header", function()
+      ngx.header["Server-Timing"] = "processing;dur=42, socket_queue;dur=2, edge;dur=1, util;dur=0.5, db;dur=5.477, view;dur=0.348"
+      instance:after_balance()
+
+      ngx.header["Server-Timing"] = "processing;dur=45, socket_queue;dur=2, edge;dur=1, db;dur=5.477, view;dur=0.348"
+      instance:after_balance()
+
+      assert.are.equals(0.5, ngx.shared.balancer_ewma:get(ngx.var.upstream_addr))
+    end)
+
+    it("properly handles multiple requests with well-formed Server-Timing headers", function()
+      ngx.header["Server-Timing"] = "processing;dur=43, socket_queue;dur=2, edge;dur=1, util;dur=0.5, db;dur=5.477, view;dur=0.348"
+      instance:after_balance()
+
+      ngx.header["Server-Timing"] = "processing;dur=44, socket_queue;dur=2, edge;dur=1, util;dur=0.2, db;dur=5.477, view;dur=0.348"
+      ngx.var = { upstream_addr = "10.10.10.9:8080", upstream_connect_time = "0.02", upstream_response_time = "0.1" }
+      instance:after_balance()
+
+      assert.are.equals(0.5, ngx.shared.balancer_ewma:get("10.10.10.8:8080"))
+      assert.are.equals(0.2, ngx.shared.balancer_ewma:get("10.10.10.9:8080"))
+    end)
+
+    it("prefers ngx.ctx.server_timing_internal when present", function()
+      ngx.header["Server-Timing"] = "processing;dur=40"
+      ngx.ctx.server_timing_internal = "processing;dur=45, socket_queue;dur=2, edge;dur=1, util;dur=0.2, db;dur=5.477, view;dur=0.348"
+      ngx.var = { upstream_addr = "10.10.10.9:8080", upstream_connect_time = "0.02", upstream_response_time = "0.1" }
+
+      instance:after_balance()
+
+      assert.are.equals(0.2, ngx.shared.balancer_ewma:get("10.10.10.9:8080"))
+    end)
+  end)
+
+  describe("balance()", function()
+    it("returns single endpoint when the given backend has only one endpoint", function()
+      local single_endpoint_backend = util.deepcopy(backend)
+      table.remove(single_endpoint_backend.endpoints, 3)
+      table.remove(single_endpoint_backend.endpoints, 2)
+      local single_endpoint_instance = balancer_ewma:new(single_endpoint_backend)
+
+      local peer = single_endpoint_instance:balance()
+
+      assert.are.equals("10.10.10.1:8080", peer)
+      assert.are.equals(-1, ngx.var.balancer_ewma_score)
+    end)
+
+    it("doesn't pick the tried endpoint while retry", function()
+      local two_endpoints_backend = util.deepcopy(backend)
+      table.remove(two_endpoints_backend.endpoints, 2)
+      local two_endpoints_instance = balancer_ewma:new(two_endpoints_backend)
+
+      ngx.ctx.balancer_ewma_tried_endpoints = {
+        ["10.10.10.3:8080"] = true,
+      }
+      local peer = two_endpoints_instance:balance()
+      assert.equal("10.10.10.1:8080", peer)
+      assert.equal(true, ngx.ctx.balancer_ewma_tried_endpoints["10.10.10.1:8080"])
+    end)
+
+    it("all the endpoints are tried, pick the one with lowest score", function()
+      local two_endpoints_backend = util.deepcopy(backend)
+      table.remove(two_endpoints_backend.endpoints, 2)
+      local two_endpoints_instance = balancer_ewma:new(two_endpoints_backend)
+
+      ngx.ctx.balancer_ewma_tried_endpoints = {
+        ["10.10.10.1:8080"] = true,
+        ["10.10.10.3:8080"] = true,
+      }
+
+      store_ewma_stats("10.10.10.1:8080", 0.2, ngx_now - 1)
+      store_ewma_stats("10.10.10.3:8080", 1.2, ngx_now - 1)
+
+      local peer = two_endpoints_instance:balance()
+      assert.equal("10.10.10.1:8080", peer)
     end)
   end)
 end)
