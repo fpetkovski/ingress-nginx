@@ -34,6 +34,7 @@ local SERVER_TIMING_UTIL = "util"
 
 -- Temporary check, to allow for conditional enabling in production while we evaluate
 local DISCARD_OUTLIERS = os.getenv('EWMA_DISCARD_OUTLIERS')
+local DISCARD_OUTLIERS_THRESHOLD = tonumber(os.getenv('EWMA_DISCARD_OUTLIERS_THRESHOLD') or '1')
 
 
 local function calc_rtt()
@@ -182,14 +183,14 @@ local function shuffle_peers(peers, k)
 end
 
 local function discard_high_outliers(peers)
-  -- defined as more than 1 stddev above the mean
+  -- defined as more than `DISCARD_OUTLIERS_THRESHOLD` stddev above the mean
   local scores = {}
   for i, peer in ipairs(peers) do
     scores[i] = score(peer)
   end
 
-  local one_above_mean = stats.stddev(scores, 1)
-  ngx.log(ngx.INFO, string.format("Considered %d peers, threshold is %.6f", #peers, one_above_mean))
+  local threshold = stats.stddev(scores, DISCARD_OUTLIERS_THRESHOLD)
+  ngx.log(ngx.INFO, string.format("Considered %d peers, threshold is %.6f", #peers, threshold))
   ngx.ctx.balancer_ewma_outlier_endpoints = {}
 
   for i = #scores, 1, -1 do
@@ -198,7 +199,7 @@ local function discard_high_outliers(peers)
 
     -- ensure at least PICK_SET_SIZE peers remain - this is guaranteed when PICK_SET_SIZE is 2
     -- but could not be if that value was raised.
-    if #peers >= PICK_SET_SIZE and peer_score > one_above_mean then
+    if #peers >= PICK_SET_SIZE and peer_score > threshold then
       ngx.log(
         ngx.INFO,
         string.format(
