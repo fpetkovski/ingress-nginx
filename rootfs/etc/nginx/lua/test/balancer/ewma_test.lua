@@ -184,6 +184,39 @@ describe("Balancer ewma rtt", function()
       assert.equal("10.10.10.5", ngx.ctx.balancer_ewma_outlier_endpoints[2].address)
     end)
 
+    it("discard outlier threshold is configurable #dw", function()
+      mock_getenv_call({
+        -- A threshold of zero is equal to the mean
+        ["EWMA_DISCARD_OUTLIERS"] = "1", ["EWMA_DISCARD_OUTLIERS_THRESHOLD"] = "0.1"
+      })
+      package.loaded["balancer.ewma"] = nil
+      balancer_ewma = require("balancer.ewma")
+
+      local six_endpoints_backend = util.deepcopy(backend)
+
+      for i = 4, 6 do
+        table.insert(
+          six_endpoints_backend.endpoints,
+            { address = "10.10.10." .. i, port = "8080", maxFails = 0, failTimeout = 0 }
+          )
+      end
+
+      store_ewma_stats("10.10.10.1:8080", 0.1, ngx_now - 1)
+      store_ewma_stats("10.10.10.2:8080", 0.2, ngx_now - 1)
+      store_ewma_stats("10.10.10.3:8080", 0.3, ngx_now - 1)
+      store_ewma_stats("10.10.10.4:8080", 0.4, ngx_now - 1)
+      store_ewma_stats("10.10.10.5:8080", 0.5, ngx_now - 1)
+      store_ewma_stats("10.10.10.6:8080", 0.5, ngx_now - 1)
+
+      local six_endpoints_instance = balancer_ewma:new(six_endpoints_backend)
+      local peer = six_endpoints_instance:balance()
+
+      assert.equal(3, #ngx.ctx.balancer_ewma_outlier_endpoints)
+      assert.equal("10.10.10.6", ngx.ctx.balancer_ewma_outlier_endpoints[1].address)
+      assert.equal("10.10.10.5", ngx.ctx.balancer_ewma_outlier_endpoints[2].address)
+      assert.equal("10.10.10.4", ngx.ctx.balancer_ewma_outlier_endpoints[3].address)
+    end)
+
     it("discards no endpoints when no scores exist", function()
       local five_endpoints_backend = util.deepcopy(backend)
       table.insert(
