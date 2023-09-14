@@ -11,7 +11,7 @@ local table = table
 
 local queue = {}
 local MAX_QUEUE_SIZE = 10000
-local FLUSH_INTERVAL = 1
+local FLUSH_INTERVAL = 0.5
 
 local _M = {}
 
