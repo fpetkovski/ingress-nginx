@@ -519,8 +519,14 @@ function _M.header_filter()
   ngx_ctx.opentelemetry_should_force_sample_buffered_spans = _M.should_force_sample_buffered_spans(
     ngx.resp, ngx_ctx.opentelemetry.initial_sampling_decision, ngx.ctx.opentelemetry_plugin_mode)
 
+  -- Cache tracesampling-p, since we may strip the header
+  if ngx_ctx.opentelemetry_should_force_sample_buffered_spans then
+    ngx_ctx.opentelemetry_tracesampling_p = ngx.resp.get_headers()["x-shopify-tracesampling-p"]
+  end
+
   if should_strip_traceresponse() then
     ngx.header["traceresponse"] = nil
+    ngx.header["x-shopify-tracesampling-p"] = nil
   end
 
   local header_end = otel_utils.gettimeofday_ms()
@@ -622,6 +628,12 @@ function _M.log()
 
   -- Handle deferred sampling
   if  ngx_ctx.opentelemetry_should_force_sample_buffered_spans then
+    -- set p to be consistent with upstream consistent probability sampling
+    if ngx_ctx.opentelemetry_tracesampling_p then
+      for _, s in ipairs(_M.span_buffering_processor.spans()) do
+        s:context().trace_state:set("p", ngx_ctx.opentelemetry_tracesampling_p)
+      end
+    end
     _M.span_buffering_processor:send_spans(true)
   else
     _M.span_buffering_processor:send_spans(false)

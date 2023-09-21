@@ -61,6 +61,10 @@ function _M:send_spans(update_span_ctx)
     end
 end
 
+function _M.spans()
+    return ngx.ctx.opentelemetry_spans or {}
+end
+
 ------------------------------------------------------------------------------------------------------------------------
 -- Handle shutdown signals by forwarding to next span processor.
 ------------------------------------------------------------------------------------------------------------------------

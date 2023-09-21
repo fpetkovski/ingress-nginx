@@ -271,12 +271,27 @@ describe("deferred sampling", function()
         it("samples in and adds context headers when traceresponse is present and 01", function()
             local prop_headers = make_propagation_headers(nil, "unsampled")
             local result = simulate_request(
-                config, prop_headers, nil, { traceresponse = "00-cdc9d461ab73f5a441fca78f6a970154-562144007775f2ec-01"})
+                config, prop_headers, nil, { traceresponse = "00-cdc9d461ab73f5a441fca78f6a970154-562144007775f2ec-01", ["x-shopify-tracesampling-p"] = "63" })
             assert.are_same(2, #result.finished_spans)
             assert.are_same(make_propagation_headers(result.proxy_span, "unsampled"), result.req_headers_added)
 
             for _, v in ipairs(result.finished_spans) do
                 assert.is_true(v:context():is_sampled())
+                assert.are_same("63", v:context().trace_state:get("p"))
+            end
+            assert.are_same({}, result.resp_headers_added)
+        end)
+
+        it("does not update P when response header is absent", function()
+            local prop_headers = make_propagation_headers(nil, "unsampled")
+            local result = simulate_request(
+                config, prop_headers, nil, { traceresponse = "00-cdc9d461ab73f5a441fca78f6a970154-562144007775f2ec-01" })
+            assert.are_same(2, #result.finished_spans)
+            assert.are_same(make_propagation_headers(result.proxy_span, "unsampled"), result.req_headers_added)
+
+            for _, v in ipairs(result.finished_spans) do
+                assert.is_true(v:context():is_sampled())
+                assert.are_equal("", v:context().trace_state:get("p"))
             end
             assert.are_same({}, result.resp_headers_added)
         end)
