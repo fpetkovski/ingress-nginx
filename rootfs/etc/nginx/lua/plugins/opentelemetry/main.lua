@@ -631,7 +631,11 @@ function _M.log()
     -- set p to be consistent with upstream consistent probability sampling
     if ngx_ctx.opentelemetry_tracesampling_p then
       for _, s in ipairs(_M.span_buffering_processor.spans()) do
-        s:context().trace_state:set("p", ngx_ctx.opentelemetry_tracesampling_p)
+        -- This is clobbering upstream ot vendor tag
+        -- OK for now, since we're not really using the ot vendor tag for anything besides
+        -- consistent probability sampling and this is happening AFTER trace propagation,
+        -- but we should make this smarter.
+        s:context().trace_state:set("ot", "p:" .. ngx_ctx.opentelemetry_tracesampling_p)
       end
     end
     _M.span_buffering_processor:send_spans(true)

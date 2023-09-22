@@ -277,7 +277,7 @@ describe("deferred sampling", function()
 
             for _, v in ipairs(result.finished_spans) do
                 assert.is_true(v:context():is_sampled())
-                assert.are_same("63", v:context().trace_state:get("p"))
+                assert.are_same("p:63", v:context().trace_state:get("ot"))
             end
             assert.are_same({}, result.resp_headers_added)
         end)
@@ -291,7 +291,7 @@ describe("deferred sampling", function()
 
             for _, v in ipairs(result.finished_spans) do
                 assert.is_true(v:context():is_sampled())
-                assert.are_equal("", v:context().trace_state:get("p"))
+                assert.are_equal("", v:context().trace_state:get("ot"))
             end
             assert.are_same({}, result.resp_headers_added)
         end)
