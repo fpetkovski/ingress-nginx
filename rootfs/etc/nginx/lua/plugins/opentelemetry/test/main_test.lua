@@ -103,35 +103,6 @@ describe("make_propagation_header_metric_tags", function()
     end)
 end)
 
-describe("propagation_context", function()
-    it("returns proxy context when proxy context is sampled", function()
-        local sampled            = 1
-        local proxy_span_context = span_context.new("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "aaaaaaaaaaaaaaaa", sampled, "",
-            false)
-        local proxy_ctx          = context:with_span_context(proxy_span_context)
-        local request_ctx        = context.new()
-        assert.are.same(proxy_ctx, main.propagation_context(request_ctx, proxy_ctx, "VERBOSITY_SAMPLING"))
-    end)
-
-    it("returns request context when proxy context is not sampled and plugin mode is VERBOSITY_SAMPLING", function()
-        local sampled            = 0
-        local proxy_span_context = span_context.new("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "aaaaaaaaaaaaaaaa", sampled, "",
-            false)
-        local proxy_ctx          = context:with_span_context(proxy_span_context)
-        local request_ctx        = context.new()
-        assert.are.same(request_ctx, main.propagation_context(request_ctx, proxy_ctx, "VERBOSITY_SAMPLING"))
-    end)
-
-    it("returns proxy context when proxy context is not sampled and plugin mode is deferred sampling", function()
-        local sampled            = 0
-        local proxy_span_context = span_context.new("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "aaaaaaaaaaaaaaaa", sampled, "",
-            false)
-        local proxy_ctx          = context:with_span_context(proxy_span_context)
-        local request_ctx        = context.new()
-        assert.are.same(proxy_ctx, main.propagation_context(request_ctx, proxy_ctx, "DEFERRED_SAMPLING"))
-    end)
-end)
-
 describe("parse_upstream_addr", function()
     it("returns table with addr and port when it contains a single colon", function()
         local input = "foo:8080"
@@ -320,15 +291,13 @@ describe("log()", function()
             send_spans = function(_, __) end
         }
         stub(recording_span, "finish")
-        local proxy_span = recording_span.new(
-            nil, nil, span_context.new(), "test_span", { kind = span_kind.server })
+
         local request_span = recording_span.new(
             nil, nil, span_context.new(), "test_span", { kind = span_kind.server })
         local response_span = recording_span.new(
             nil, nil, span_context.new(), "test_span", { kind = span_kind.server })
         ngx.ctx = {
             opentelemetry = {
-                proxy_span_ctx = { sp = proxy_span },
                 request_span_ctx = { sp = request_span },
                 response_span_ctx = { sp = response_span }
             }
@@ -355,7 +324,6 @@ describe("log()", function()
 
         assert.is_true(req_span_has_http_status)
         assert.are_same(ngx.ctx.opentelemetry.request_span_ctx.sp.status.code, 2)
-        assert.are_same(ngx.ctx.opentelemetry.proxy_span_ctx.sp.status.code, 2)
     end)
 
     it("records configured HTTP headers", function()

@@ -257,22 +257,6 @@ function _M.plugin_mode(proxy_upstream_name)
   return ngx.ctx.opentelemetry_plugin_mode
 end
 
--- This is a hack, but we'll fully replace the verbosity sampler with deferred
--- sampling soon anyway. If the proxy span is sampled, we always propagate. If
--- the proxy_span_ctx is not sampled and we're in verbosity sampling mode, then
--- we use the request span for context (since that means we're throwing the
--- proxy span away). If we're in deferred sampling mode, we propagate the proxy
--- span.
-function _M.propagation_context(request_span_ctx, proxy_span_ctx, plugin_mode)
-  if proxy_span_ctx:span_context():is_sampled() then
-    return proxy_span_ctx
-  elseif plugin_mode == VERBOSITY_SAMPLING then
-    return request_span_ctx
-  else
-    return proxy_span_ctx
-  end
-end
-
 --------------------------------------------------------------------------------
 -- Function to return a tracer stored on _M. We can't just set _M.tracer per
 -- request because multiple requests share _M's state. We cache on ngx.ctx
@@ -442,19 +426,14 @@ function _M.rewrite()
     kind = span_kind.server,
   })
 
-  local proxy_span_ctx = tracer:start(request_span_ctx, "nginx.proxy", {
-    kind = span_kind.client,
-  })
-
   composite_propagator:inject(
-    _M.propagation_context(request_span_ctx, proxy_span_ctx, plugin_mode),
+    request_span_ctx,
     ngx.req)
 
   ngx.ctx["opentelemetry"] = {
     initial_sampling_decision = request_span_ctx:span_context():is_sampled() and result.record_and_sample or
         result.record_only,
     request_span_ctx          = request_span_ctx,
-    proxy_span_ctx            = proxy_span_ctx,
   }
 
   local rewrite_end = otel_utils.gettimeofday_ms()
@@ -548,62 +527,43 @@ function _M.log()
   end
   local ngx_var = ngx.var
 
-  -- Assemble attributes
-
-  -- Attributes aspire to align with HTTP and network semantic conventions
-  -- https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/trace/semantic_conventions/http.md
-  -- https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/trace/semantic_conventions/span-general.md
-  -- http.target is supposed to have query params attached to it, but we exclude them since they might contain PII
-  local common_attributes = {
-    attr.string("http.target", ngx_var.uri),
-    attr.string("http.flavor", string.gsub(ngx_var.server_protocol or "unknown", "HTTP/", "")),
-    attr.string("http.method", ngx_var.request_method),
-    attr.string("http.scheme", ngx_var.scheme),
-    attr.string("http.user_agent", ngx_var.http_user_agent),
-    attr.string("nginx.proxy_upstream_name", ngx.var.proxy_upstream_name or "unknown"),
-    attr.string("nginx.request_id", ngx.var.http_x_request_id or "unknown")
-  }
-
-  -- close proxy span using end time from header_filter, if present
-  -- See https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/trace/semantic_conventions/http.md#status
-  -- for rules on which spans should be marked as having error status
-  if ngx_ctx.opentelemetry.proxy_span_ctx then
-    -- Assemble additional nginx.proxy span attributes
-
-    -- This is not in semconv, but we capture the full upstream addr as an attribute for debugging purposes
-    local proxy_span_attrs = shopify_utils.shallow_copy(common_attributes)
-    table.insert(proxy_span_attrs, attr.string("nginx.upstream_addr", ngx_var.upstream_addr))
-    table.insert(proxy_span_attrs, attr.string("net.peer.name", ngx_var.proxy_host))
-    local parsed_upstream = _M.parse_upstream_addr(ngx_var.upstream_addr)
-    if parsed_upstream.addr then
-      table.insert(proxy_span_attrs, attr.string("net.sock.peer.addr", parsed_upstream.addr))
-    end
-    if parsed_upstream.port then
-      table.insert(proxy_span_attrs, attr.int("net.peer.port", parsed_upstream.port))
-    end
-
-    ngx_ctx.opentelemetry.proxy_span_ctx.sp:set_attributes(unpack(proxy_span_attrs))
-
-    if status >= 400 then
-      ngx_ctx.opentelemetry.proxy_span_ctx.sp:set_status(span_status.error)
-    end
-
-    ngx_ctx.opentelemetry.proxy_span_ctx.sp:finish(ngx_ctx.opentelemetry_span_end_time)
-  end
-
   -- close request span if present
   -- See https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/trace/semantic_conventions/http.md#status
   -- for rules on which spans should be marked as having error status
   if ngx_ctx.opentelemetry.request_span_ctx then
+    -- parse upstream
+    local parsed_upstream = _M.parse_upstream_addr(ngx_var.upstream_addr)
+
+    -- Assemble attributes
+
+    -- Attributes aspire to align with HTTP and network semantic conventions
+    -- https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/trace/semantic_conventions/http.md
+    -- https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/trace/semantic_conventions/span-general.md
+    -- http.target is supposed to have query params attached to it, but we exclude them since they might contain PII
+    local attributes = {
+      attr.string("http.target", ngx_var.uri),
+      attr.string("http.flavor", string.gsub(ngx_var.server_protocol or "unknown", "HTTP/", "")),
+      attr.string("http.method", ngx_var.request_method),
+      attr.string("http.scheme", ngx_var.scheme),
+      attr.string("http.user_agent", ngx_var.http_user_agent),
+      attr.string("nginx.proxy_upstream_name", ngx_var.proxy_upstream_name or "unknown"),
+      attr.string("http.request.header.x_request_id", ngx_var.http_x_request_id or "unknown"),
+      attr.string("net.peer.name", ngx_var.proxy_host),
+      attr.string("net.host.name", ngx_var.server_name),
+      attr.int("net.host.port", tonumber(ngx_var.server_port)),
+      attr.int("http.status_code", status)
+    }
+
+    if parsed_upstream.addr then
+      table.insert(attributes, attr.string("net.sock.peer.addr", parsed_upstream.addr))
+    end
+    if parsed_upstream.port then
+      table.insert(attributes, attr.int("net.peer.port", parsed_upstream.port))
+    end
+
     if status >= 500 then
       ngx_ctx.opentelemetry.request_span_ctx.sp:set_status(span_status.error)
     end
-
-    -- Assemble additional nginx.request span attributes
-    local server_attributes = shopify_utils.shallow_copy(common_attributes)
-    table.insert(server_attributes, attr.string("net.host.name", ngx_var.server_name))
-    table.insert(server_attributes, attr.int("net.host.port", tonumber(ngx_var.server_port)))
-    table.insert(server_attributes, attr.int("http.status_code", status))
 
     -- add header attributes, if configured
     local headers = ngx.req.get_headers()
@@ -619,10 +579,10 @@ function _M.log()
       if header_value then
         -- upstream doesn't have attr limits, so we do here; see https://github.com/yangxikun/opentelemetry-lua/issues/73
         local truncated_value = string.sub(header_value, 0, 128)
-        table.insert(server_attributes, attr.string("http.request.header." .. underscored_attr, truncated_value))
+        table.insert(attributes, attr.string("http.request.header." .. underscored_attr, truncated_value))
       end
     end
-    ngx_ctx.opentelemetry.request_span_ctx.sp:set_attributes(unpack(server_attributes))
+    ngx_ctx.opentelemetry.request_span_ctx.sp:set_attributes(unpack(attributes))
     ngx_ctx.opentelemetry.request_span_ctx.sp:finish(ngx_ctx.opentelemetry_span_end_time)
   end
 

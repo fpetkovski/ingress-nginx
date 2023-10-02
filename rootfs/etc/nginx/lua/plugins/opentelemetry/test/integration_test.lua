@@ -107,7 +107,7 @@ local function simulate_request(config, request_headers, ngx_var, response_heade
         finished_spans = finished_spans,
         req_headers_added = req_headers_added,
         resp_headers_added = resp_headers_added,
-        proxy_span = span_by_name("nginx.proxy", finished_spans),
+        request_span = span_by_name("nginx.request", finished_spans),
     }
 end
 
@@ -147,9 +147,9 @@ describe("when upstream is in VERBOSITY_SAMPLING mode", function()
         local span = recording_span.new(nil, nil, new_span_context, "test_span", {})
         local propagation_headers = make_propagation_headers(span, "sampled")
         local result = simulate_request(nil, propagation_headers, nil)
-        assert.are_same(2, #result.finished_spans)        assert.are_same(2, #result.finished_spans)
-        assert.are_same(trace_id, result.proxy_span:context().trace_id)
-        assert.are_same(make_propagation_headers(result.proxy_span, "sampled"), result.req_headers_added)
+        assert.are_same(1, #result.finished_spans)
+        assert.are_same(trace_id, result.request_span:context().trace_id)
+        assert.are_same(make_propagation_headers(result.request_span, "sampled"), result.req_headers_added)
         assert.are_same({}, result.resp_headers_added)
     end)
 
@@ -173,8 +173,8 @@ describe("deferred sampling", function()
     describe("when trace context headers are not on inbound request", function()
         it("samples out when tracesponse is malformed", function()
             local result = simulate_request(config, {}, nil, { traceresponse = "lalalalalala"})
-            assert.are_same(2, #result.finished_spans)
-            assert.are_same(make_propagation_headers(result.proxy_span, "unsampled"), result.req_headers_added)
+            assert.are_same(1, #result.finished_spans)
+            assert.are_same(make_propagation_headers(result.request_span, "unsampled"), result.req_headers_added)
             for _, v in ipairs(result.finished_spans) do
                 assert.is_false(v:context():is_sampled())
             end
@@ -183,8 +183,8 @@ describe("deferred sampling", function()
 
         it("adds context headers but samples out traces when traceresponse is absent", function()
             local result = simulate_request(config, {})
-            assert.are_same(2, #result.finished_spans)
-            assert.are_same(make_propagation_headers(result.proxy_span, "unsampled"), result.req_headers_added)
+            assert.are_same(1, #result.finished_spans)
+            assert.are_same(make_propagation_headers(result.request_span, "unsampled"), result.req_headers_added)
             for _, v in ipairs(result.finished_spans) do
                 assert.is_false(v:context():is_sampled())
             end
@@ -194,19 +194,19 @@ describe("deferred sampling", function()
         it("adds context headers and samples in traces when traceresponse is present and 01", function()
             local result = simulate_request(
                 config, {}, ngx_var, { traceresponse = "00-cdc9d461ab73f5a441fca78f6a970154-562144007775f2ec-01"})
-            assert.are_same(2, #result.finished_spans)
+            assert.are_same(1, #result.finished_spans)
             for _, v in ipairs(result.finished_spans) do
                 assert.is_true(v:context():is_sampled())
             end
-            assert.are_same(make_propagation_headers(result.proxy_span, "unsampled"), result.req_headers_added)
+            assert.are_same(make_propagation_headers(result.request_span, "unsampled"), result.req_headers_added)
             assert.are_same({}, result.resp_headers_added)
         end)
 
         it("adds context headers and samples out traces when traceresponse is present and 00", function()
             local result = simulate_request(
                 config, {}, nil, { traceresponse = "00-cdc9d461ab73f5a441fca78f6a970154-562144007775f2ec-00"})
-            assert.are_same(2, #result.finished_spans)
-            assert.are_same(make_propagation_headers(result.proxy_span, "unsampled"), result.req_headers_added)
+            assert.are_same(1, #result.finished_spans)
+            assert.are_same(make_propagation_headers(result.request_span, "unsampled"), result.req_headers_added)
 
             for _, v in ipairs(result.finished_spans) do
                 assert.is_false(v:context():is_sampled())
@@ -220,8 +220,8 @@ describe("deferred sampling", function()
             local prop_headers = make_propagation_headers(nil, "sampled")
             local result = simulate_request(
                 nil, prop_headers, nil, { traceresponse = "00-cdc9d461ab73f5a441fca78f6a970154-562144007775f2ec-00"})
-            assert.are_same(2, #result.finished_spans)
-            assert.are_same(make_propagation_headers(result.proxy_span, "sampled"), result.req_headers_added)
+            assert.are_same(1, #result.finished_spans)
+            assert.are_same(make_propagation_headers(result.request_span, "sampled"), result.req_headers_added)
             for _, v in ipairs(result.finished_spans) do
                 assert.is_true(v:context():is_sampled())
             end
@@ -232,8 +232,8 @@ describe("deferred sampling", function()
             local prop_headers = make_propagation_headers(nil, "sampled")
             local result = simulate_request(
                 nil, prop_headers, nil, { traceresponse = "00-cdc9d461ab73f5a441fca78f6a970154-562144007775f2ec-01"})
-            assert.are_same(2, #result.finished_spans)
-            assert.are_same(make_propagation_headers(result.proxy_span, "sampled"), result.req_headers_added)
+            assert.are_same(1, #result.finished_spans)
+            assert.are_same(make_propagation_headers(result.request_span, "sampled"), result.req_headers_added)
 
             for _, v in ipairs(result.finished_spans) do
                 assert.is_true(v:context():is_sampled())
@@ -244,8 +244,8 @@ describe("deferred sampling", function()
         it("samples in and adds context headers when traceresponse is absent", function()
             local prop_headers = make_propagation_headers(nil, "sampled")
             local result = simulate_request(nil, prop_headers, nil, {})
-            assert.are_same(2, #result.finished_spans)
-            assert.are_same(make_propagation_headers(result.proxy_span, "sampled"), result.req_headers_added)
+            assert.are_same(1, #result.finished_spans)
+            assert.are_same(make_propagation_headers(result.request_span, "sampled"), result.req_headers_added)
 
             for _, v in ipairs(result.finished_spans) do
                 assert.is_true(v:context():is_sampled())
@@ -259,8 +259,8 @@ describe("deferred sampling", function()
             local prop_headers = make_propagation_headers(nil, "unsampled")
             local result = simulate_request(
                 config, prop_headers, nil, { traceresponse = "00-cdc9d461ab73f5a441fca78f6a970154-562144007775f2ec-00"})
-            assert.are_same(2, #result.finished_spans)
-            assert.are_same(make_propagation_headers(result.proxy_span, "unsampled"), result.req_headers_added)
+            assert.are_same(1, #result.finished_spans)
+            assert.are_same(make_propagation_headers(result.request_span, "unsampled"), result.req_headers_added)
 
             for _, v in ipairs(result.finished_spans) do
                 assert.is_false(v:context():is_sampled())
@@ -272,8 +272,8 @@ describe("deferred sampling", function()
             local prop_headers = make_propagation_headers(nil, "unsampled")
             local result = simulate_request(
                 config, prop_headers, nil, { traceresponse = "00-cdc9d461ab73f5a441fca78f6a970154-562144007775f2ec-01", ["x-shopify-tracesampling-p"] = "63" })
-            assert.are_same(2, #result.finished_spans)
-            assert.are_same(make_propagation_headers(result.proxy_span, "unsampled"), result.req_headers_added)
+            assert.are_same(1, #result.finished_spans)
+            assert.are_same(make_propagation_headers(result.request_span, "unsampled"), result.req_headers_added)
 
             for _, v in ipairs(result.finished_spans) do
                 assert.is_true(v:context():is_sampled())
@@ -286,8 +286,8 @@ describe("deferred sampling", function()
             local prop_headers = make_propagation_headers(nil, "unsampled")
             local result = simulate_request(
                 config, prop_headers, nil, { traceresponse = "00-cdc9d461ab73f5a441fca78f6a970154-562144007775f2ec-01" })
-            assert.are_same(2, #result.finished_spans)
-            assert.are_same(make_propagation_headers(result.proxy_span, "unsampled"), result.req_headers_added)
+            assert.are_same(1, #result.finished_spans)
+            assert.are_same(make_propagation_headers(result.request_span, "unsampled"), result.req_headers_added)
 
             for _, v in ipairs(result.finished_spans) do
                 assert.is_true(v:context():is_sampled())
@@ -299,8 +299,8 @@ describe("deferred sampling", function()
         it("samples out and adds context headers when traceresponse is absent", function()
             local prop_headers = make_propagation_headers(nil, "unsampled")
             local result = simulate_request(config, prop_headers, nil, {})
-            assert.are_same(2, #result.finished_spans)
-            assert.are_same(make_propagation_headers(result.proxy_span, "unsampled"), result.req_headers_added)
+            assert.are_same(1, #result.finished_spans)
+            assert.are_same(make_propagation_headers(result.request_span, "unsampled"), result.req_headers_added)
 
             for _, v in ipairs(result.finished_spans) do
                 assert.is_false(v:context():is_sampled())
