@@ -85,6 +85,7 @@ const (
 	otelCapturedRequestHeaders            = "plugin-opentelemetry-captured-request-headers"
 	otelCapturedResponseHeaders           = "plugin-opentelemetry-captured-response-headers"
 	otelRecordP                           = "plugin-opentelemetry-record-p"
+	otelAddCloudflareSpan                 = "plugin-opentelemetry-add-cloudflare-span"
 )
 
 var (

@@ -137,5 +137,43 @@ describe("parse_http_header_list", function()
     assert.are.same(utils.parse_http_header_list("PIZZA,PIE"),
       { ["pizza"] = "pizza", ["pie"] = "pie"})
   end)
+
+  describe("parse timing header", function()
+    it("returns nil when timing header is absent", function()
+      assert.are.same(utils.cloudflare_start_from_timing_header(nil), nil)
+    end)
+
+    it("returns nil when timing header does not have cloudflare start time", function()
+      assert.are.same(utils.cloudflare_start_from_timing_header("humbug"), nil)
+    end)
+
+    it("returns timestamp when timing header has cloudflare start time", function()
+      assert.are.same(
+        utils.cloudflare_start_from_timing_header("cf;t=1697231466.646, global-proxy-cloudflare-production;desc=gcp-asia-east1;t=1697231466.660"),
+        1697231466645999900)
+    end)
+
+    it("returns nil when timing header has invalid cloudflare start time", function()
+      assert.are.same(
+        utils.cloudflare_start_from_timing_header("cf;t=.., global-proxy-cloudflare-production;desc=gcp-asia-east1;t=1697231466.660"),
+        nil)
+    end)
+
+    it("returns nil when timing header has very big cloudflare start time", function()
+      assert.are.same(
+        utils.cloudflare_start_from_timing_header("cf;t=111111111697231466.646, global-proxy-cloudflare-production;desc=gcp-asia-east1;t=1697231466.660"),
+        nil)
+    end)
+
+    it("returns nil when timing header has malformed cloudflare start time", function()
+      assert.are.same(
+        utils.cloudflare_start_from_timing_header("cf;t=pizza, global-proxy-cloudflare-production;desc=gcp-asia-east1;t=1697231466.660"),
+        nil)
+    end)
+
+    it("returns nil when argument is not a string", function()
+      assert.are.same(utils.cloudflare_start_from_timing_header(123), nil)
+    end)
+  end)
 end)
 

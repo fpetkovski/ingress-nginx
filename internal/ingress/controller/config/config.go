@@ -946,6 +946,11 @@ type Configuration struct {
 	// during deferred sampling.
 	PluginOpenTelemetryRecordP bool `json:"plugin-opentelemetry-record-p"`
 
+	// PluginOpenTelemetryAddCloudflareSpan indicates whether or not the plugin
+	// should create a span representing cloudflare's portion of the request using
+	// the x-shopify-request-timing header.
+	PluginOpenTelemetryAddCloudflareSpan bool `json:"plugin-opentelemetry-add-cloudflare-span"`
+
 	////////////////////////////////////////////////////////////////////////////
 	// End OpenTelemetry configuration
 	////////////////////////////////////////////////////////////////////////////
@@ -1154,8 +1159,8 @@ func NewDefault() Configuration {
 		GlobalRateLimitMemcachedMaxIdleTimeout:               10000,
 		GlobalRateLimitMemcachedPoolSize:                     50,
 		GlobalRateLimitStatucCode:                            429,
-		DebugConnections:                                     []string{},
 		StrictValidatePathType:                               false, // TODO: This will be true in future releases
+		DebugConnections:                                     []string{},
 		PluginOpenTelemetryBypassedUpstreams:                 "all",
 		PluginOpenTelemetryFirehoseUpstreams:                 "",
 		PluginOpenTelemetrySetTraceresponse:                  false,
@@ -1173,6 +1178,7 @@ func NewDefault() Configuration {
 		PluginOpenTelemetryService:                           "nginx",
 		PluginOpenTelemetryEnvironment:                       "production",
 		PluginOpenTelemetryRecordP:                           false,
+		PluginOpenTelemetryAddCloudflareSpan:                 false,
 		PluginMagellanEndpoint:                               "http://magellan:8080",
 		PluginMagellanKeepaliveTimeout:                       5000,
 		PluginMagellanKeepalivePoolSize:                      100,
