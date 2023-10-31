@@ -35,8 +35,9 @@ import (
 )
 
 // getEndpoints returns a list of Endpoint structs for a given service/target port combination.
-func getEndpointsFromSlices(s *corev1.Service, port *corev1.ServicePort, proto corev1.Protocol,
-	getServiceEndpointsSlices func(string) ([]*discoveryv1.EndpointSlice, error)) []ingress.Endpoint {
+func getEndpointsFromSlices(s *corev1.Service, port *corev1.ServicePort, proto corev1.Protocol, useNodePort bool,
+	getServiceEndpointsSlices func(string) ([]*discoveryv1.EndpointSlice, error),
+	getNode func(string) (*corev1.Node, error)) []ingress.Endpoint {
 
 	upsServers := []ingress.Endpoint{}
 
@@ -84,7 +85,9 @@ func getEndpointsFromSlices(s *corev1.Service, port *corev1.ServicePort, proto c
 	// loop over all endpointSlices generated for service
 	for _, eps := range epss {
 		var ports []int32
-		if len(eps.Ports) == 0 && port.TargetPort.Type == intstr.Int {
+		if useNodePort {
+			ports = append(ports, port.NodePort)
+		} else if len(eps.Ports) == 0 && port.TargetPort.Type == intstr.Int {
 			// When ports is empty, it indicates that there are no defined ports, using svc targePort if it's a number
 			klog.V(3).Infof("No ports found on endpointSlice, using service TargetPort %v for Service %q", port.String(), svcKey)
 			ports = append(ports, port.TargetPort.IntVal)
@@ -123,6 +126,21 @@ func getEndpointsFromSlices(s *corev1.Service, port *corev1.ServicePort, proto c
 					hostPort := net.JoinHostPort(epAddress, strconv.Itoa(int(epPort)))
 					if _, exists := processedUpstreamServers[hostPort]; exists {
 						continue
+					}
+					if useNodePort {
+						// if using nodePort, we need to use the node IP as address
+						node, err := getNode(*ep.NodeName)
+						if err != nil {
+							klog.Warningf("Error obtaining nodeIP for Service %q: %v", svcKey, err)
+							continue
+						}
+
+						for _, nodeIp := range node.Status.Addresses {
+							if nodeIp.Type == corev1.NodeInternalIP {
+								epAddress = nodeIp.Address
+								break
+							}
+						}
 					}
 					ups := ingress.Endpoint{
 						Address: epAddress,

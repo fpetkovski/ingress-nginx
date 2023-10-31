@@ -104,6 +104,9 @@ type Storer interface {
 
 	// GetIngressClass validates given ingress against ingress class configuration and returns the ingress class.
 	GetIngressClass(ing *networkingv1.Ingress, icConfig *ingressclass.IngressClassConfiguration) (string, error)
+
+	// GetNode returns the Node matching key.
+	GetNode(key string) (*corev1.Node, error)
 }
 
 // EventType type of event associated with an informer
@@ -135,6 +138,7 @@ type Informer struct {
 	Secret        cache.SharedIndexInformer
 	ConfigMap     cache.SharedIndexInformer
 	Namespace     cache.SharedIndexInformer
+	Node          cache.SharedIndexInformer
 }
 
 // Lister contains object listers (stores).
@@ -147,6 +151,7 @@ type Lister struct {
 	ConfigMap             ConfigMapLister
 	Namespace             NamespaceLister
 	IngressWithAnnotation IngressWithAnnotationsLister
+	Node                  NodeLister
 }
 
 // NotExistsError is returned when an object does not exist in a local store.
@@ -166,6 +171,7 @@ func (i *Informer) Run(stopCh chan struct{}) {
 	}
 	go i.Service.Run(stopCh)
 	go i.ConfigMap.Run(stopCh)
+	go i.Node.Run(stopCh)
 
 	// wait for all involved caches to be synced before processing items
 	// from the queue
@@ -173,6 +179,7 @@ func (i *Informer) Run(stopCh chan struct{}) {
 		i.Service.HasSynced,
 		i.Secret.HasSynced,
 		i.ConfigMap.HasSynced,
+		i.Node.HasSynced,
 	) {
 		runtime.HandleError(fmt.Errorf("timed out waiting for caches to sync"))
 	}
@@ -341,6 +348,9 @@ func New(
 
 	store.informers.Service = infFactory.Core().V1().Services().Informer()
 	store.listers.Service.Store = store.informers.Service.GetStore()
+
+	store.informers.Node = infFactory.Core().V1().Nodes().Informer()
+	store.listers.Node.Store = store.informers.Node.GetStore()
 
 	// avoid caching namespaces at cluster scope when watching single namespace
 	if namespaceSelector != nil && !namespaceSelector.Empty() {
@@ -792,6 +802,34 @@ func New(
 		},
 	}
 
+	nodeHandler := cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			updateCh.In() <- Event{
+				Type: CreateEvent,
+				Obj:  obj,
+			}
+		},
+		DeleteFunc: func(obj interface{}) {
+			updateCh.In() <- Event{
+				Type: DeleteEvent,
+				Obj:  obj,
+			}
+		},
+		UpdateFunc: func(old, cur interface{}) {
+			oldNode := old.(*corev1.Node)
+			curNode := cur.(*corev1.Node)
+
+			if reflect.DeepEqual(oldNode, curNode) {
+				return
+			}
+
+			updateCh.In() <- Event{
+				Type: UpdateEvent,
+				Obj:  cur,
+			}
+		},
+	}
+
 	store.informers.Ingress.AddEventHandler(ingEventHandler)
 	if !icConfig.IgnoreIngressClass {
 		store.informers.IngressClass.AddEventHandler(ingressClassEventHandler)
@@ -800,6 +838,7 @@ func New(
 	store.informers.Secret.AddEventHandler(secrEventHandler)
 	store.informers.ConfigMap.AddEventHandler(cmEventHandler)
 	store.informers.Service.AddEventHandler(serviceHandler)
+	store.informers.Node.AddEventHandler(nodeHandler)
 
 	// do not wait for informers to read the configmap configuration
 	ns, name, _ := k8s.ParseNameNS(configmap)
@@ -1046,6 +1085,10 @@ func (s *k8sStore) GetConfigMap(key string) (*corev1.ConfigMap, error) {
 
 func (s *k8sStore) GetServiceEndpointsSlices(key string) ([]*discoveryv1.EndpointSlice, error) {
 	return s.listers.EndpointSlice.MatchByKey(key)
+}
+
+func (s *k8sStore) GetNode(key string) (*corev1.Node, error) {
+	return s.listers.Node.ByKey(key)
 }
 
 // GetAuthCertificate is used by the auth-tls annotations to get a cert from a secret

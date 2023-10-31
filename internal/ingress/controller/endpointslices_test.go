@@ -660,7 +660,7 @@ func TestGetEndpointsFromSlices(t *testing.T) {
 
 	for _, testCase := range tests {
 		t.Run(testCase.name, func(t *testing.T) {
-			result := getEndpointsFromSlices(testCase.svc, testCase.port, testCase.proto, testCase.fn)
+			result := getEndpointsFromSlices(testCase.svc, testCase.port, testCase.proto, false, testCase.fn, nil)
 			if len(testCase.result) != len(result) {
 				t.Errorf("Expected %d Endpoints but got %d", len(testCase.result), len(result))
 			}
