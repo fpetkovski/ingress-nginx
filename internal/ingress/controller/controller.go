@@ -1086,6 +1086,7 @@ func (n *NGINXController) serviceEndpoints(svcKey, backendPort string, useNodePo
 
 	if useNodePort && svc.Spec.Type != apiv1.ServiceTypeNodePort {
 		klog.Warningf("turning off use-node-port because Service %q is not of type NodePort.", svcKey)
+		useNodePort = false
 	}
 
 	klog.V(3).Infof("Obtaining ports information for Service %q", svcKey)
