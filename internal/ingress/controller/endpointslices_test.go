@@ -18,6 +18,7 @@ package controller
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -29,19 +30,25 @@ import (
 
 func TestGetEndpointsFromSlices(t *testing.T) {
 	tests := []struct {
-		name   string
-		svc    *corev1.Service
-		port   *corev1.ServicePort
-		proto  corev1.Protocol
-		fn     func(string) ([]*discoveryv1.EndpointSlice, error)
-		result []ingress.Endpoint
+		name        string
+		svc         *corev1.Service
+		port        *corev1.ServicePort
+		proto       corev1.Protocol
+		useNodePort bool
+		fn          func(string) ([]*discoveryv1.EndpointSlice, error)
+		getNodeFn   func(string) (*corev1.Node, error)
+		result      []ingress.Endpoint
 	}{
 		{
 			"no service should return 0 endpoint",
 			nil,
 			nil,
 			corev1.ProtocolTCP,
+			false,
 			func(string) ([]*discoveryv1.EndpointSlice, error) {
+				return nil, nil
+			},
+			func(string) (*corev1.Node, error) {
 				return nil, nil
 			},
 			[]ingress.Endpoint{},
@@ -51,7 +58,11 @@ func TestGetEndpointsFromSlices(t *testing.T) {
 			&corev1.Service{},
 			nil,
 			corev1.ProtocolTCP,
+			false,
 			func(string) ([]*discoveryv1.EndpointSlice, error) {
+				return nil, nil
+			},
+			func(string) (*corev1.Node, error) {
 				return nil, nil
 			},
 			[]ingress.Endpoint{},
@@ -61,8 +72,12 @@ func TestGetEndpointsFromSlices(t *testing.T) {
 			&corev1.Service{},
 			&corev1.ServicePort{Name: "default"},
 			corev1.ProtocolTCP,
+			false,
 			func(string) ([]*discoveryv1.EndpointSlice, error) {
 				return []*discoveryv1.EndpointSlice{}, nil
+			},
+			func(string) (*corev1.Node, error) {
+				return nil, nil
 			},
 			[]ingress.Endpoint{},
 		},
@@ -75,8 +90,12 @@ func TestGetEndpointsFromSlices(t *testing.T) {
 			},
 			&corev1.ServicePort{Name: "default"},
 			corev1.ProtocolTCP,
+			false,
 			func(string) ([]*discoveryv1.EndpointSlice, error) {
 				return []*discoveryv1.EndpointSlice{}, nil
+			},
+			func(string) (*corev1.Node, error) {
+				return nil, nil
 			},
 			[]ingress.Endpoint{},
 		},
@@ -99,8 +118,12 @@ func TestGetEndpointsFromSlices(t *testing.T) {
 				TargetPort: intstr.FromInt(80),
 			},
 			corev1.ProtocolTCP,
+			false,
 			func(string) ([]*discoveryv1.EndpointSlice, error) {
 				return []*discoveryv1.EndpointSlice{}, nil
+			},
+			func(string) (*corev1.Node, error) {
+				return nil, nil
 			},
 			[]ingress.Endpoint{},
 		},
@@ -123,8 +146,12 @@ func TestGetEndpointsFromSlices(t *testing.T) {
 				TargetPort: intstr.FromInt(80),
 			},
 			corev1.ProtocolTCP,
+			false,
 			func(string) ([]*discoveryv1.EndpointSlice, error) {
 				return []*discoveryv1.EndpointSlice{}, nil
+			},
+			func(string) (*corev1.Node, error) {
+				return nil, nil
 			},
 			[]ingress.Endpoint{},
 		},
@@ -134,21 +161,19 @@ func TestGetEndpointsFromSlices(t *testing.T) {
 				Spec: corev1.ServiceSpec{
 					Type:         corev1.ServiceTypeExternalName,
 					ExternalName: "www.google.com",
-					Ports: []corev1.ServicePort{
-						{
-							Name:       "default",
-							TargetPort: intstr.FromInt(443),
-						},
-					},
 				},
 			},
 			&corev1.ServicePort{
 				Name:       "default",
-				TargetPort: intstr.FromInt(80),
+				TargetPort: intstr.FromInt(443),
 			},
 			corev1.ProtocolTCP,
+			false,
 			func(string) ([]*discoveryv1.EndpointSlice, error) {
 				return []*discoveryv1.EndpointSlice{}, nil
+			},
+			func(string) (*corev1.Node, error) {
+				return nil, nil
 			},
 			[]ingress.Endpoint{
 				{
@@ -163,25 +188,23 @@ func TestGetEndpointsFromSlices(t *testing.T) {
 				Spec: corev1.ServiceSpec{
 					Type:         corev1.ServiceTypeExternalName,
 					ExternalName: "www.google.com.",
-					Ports: []corev1.ServicePort{
-						{
-							Name:       "default",
-							TargetPort: intstr.FromInt(80),
-						},
-					},
 				},
 			},
 			&corev1.ServicePort{
 				Name:       "default",
-				TargetPort: intstr.FromInt(80),
+				TargetPort: intstr.FromInt(443),
 			},
 			corev1.ProtocolTCP,
+			false,
 			func(string) ([]*discoveryv1.EndpointSlice, error) {
 				return []*discoveryv1.EndpointSlice{}, nil
 			},
+			func(string) (*corev1.Node, error) {
+				return nil, nil
+			},
 			[]ingress.Endpoint{
 				{
-					Address: "www.google.com",
+					Address: "www.google.com.",
 					Port:    "443",
 				},
 			},
@@ -205,8 +228,12 @@ func TestGetEndpointsFromSlices(t *testing.T) {
 				TargetPort: intstr.FromInt(80),
 			},
 			corev1.ProtocolTCP,
+			false,
 			func(string) ([]*discoveryv1.EndpointSlice, error) {
 				return []*discoveryv1.EndpointSlice{}, nil
+			},
+			func(string) (*corev1.Node, error) {
+				return nil, nil
 			},
 			[]ingress.Endpoint{},
 		},
@@ -229,8 +256,12 @@ func TestGetEndpointsFromSlices(t *testing.T) {
 				TargetPort: intstr.FromInt(80),
 			},
 			corev1.ProtocolTCP,
+			false,
 			func(string) ([]*discoveryv1.EndpointSlice, error) {
 				return nil, fmt.Errorf("unexpected error")
+			},
+			func(string) (*corev1.Node, error) {
+				return nil, nil
 			},
 			[]ingress.Endpoint{},
 		},
@@ -253,6 +284,7 @@ func TestGetEndpointsFromSlices(t *testing.T) {
 				TargetPort: intstr.FromInt(80),
 			},
 			corev1.ProtocolTCP,
+			false,
 			func(string) ([]*discoveryv1.EndpointSlice, error) {
 				return []*discoveryv1.EndpointSlice{{
 					ObjectMeta: metav1.ObjectMeta{
@@ -275,6 +307,9 @@ func TestGetEndpointsFromSlices(t *testing.T) {
 					},
 				}}, nil
 			},
+			func(string) (*corev1.Node, error) {
+				return nil, nil
+			},
 			[]ingress.Endpoint{},
 		},
 		{
@@ -296,6 +331,7 @@ func TestGetEndpointsFromSlices(t *testing.T) {
 				TargetPort: intstr.FromInt(80),
 			},
 			corev1.ProtocolTCP,
+			false,
 			func(string) ([]*discoveryv1.EndpointSlice, error) {
 				return []*discoveryv1.EndpointSlice{{
 					ObjectMeta: metav1.ObjectMeta{
@@ -318,6 +354,9 @@ func TestGetEndpointsFromSlices(t *testing.T) {
 					},
 				}}, nil
 			},
+			func(string) (*corev1.Node, error) {
+				return nil, nil
+			},
 			[]ingress.Endpoint{},
 		},
 		{
@@ -339,6 +378,7 @@ func TestGetEndpointsFromSlices(t *testing.T) {
 				TargetPort: intstr.FromString("port-1"),
 			},
 			corev1.ProtocolTCP,
+			false,
 			func(string) ([]*discoveryv1.EndpointSlice, error) {
 				return []*discoveryv1.EndpointSlice{{
 					ObjectMeta: metav1.ObjectMeta{
@@ -360,6 +400,9 @@ func TestGetEndpointsFromSlices(t *testing.T) {
 						},
 					},
 				}}, nil
+			},
+			func(string) (*corev1.Node, error) {
+				return nil, nil
 			},
 			[]ingress.Endpoint{},
 		},
@@ -382,6 +425,7 @@ func TestGetEndpointsFromSlices(t *testing.T) {
 				TargetPort: intstr.FromInt(80),
 			},
 			corev1.ProtocolTCP,
+			false,
 			func(string) ([]*discoveryv1.EndpointSlice, error) {
 				return []*discoveryv1.EndpointSlice{{
 					ObjectMeta: metav1.ObjectMeta{
@@ -403,6 +447,9 @@ func TestGetEndpointsFromSlices(t *testing.T) {
 						},
 					},
 				}}, nil
+			},
+			func(string) (*corev1.Node, error) {
+				return nil, nil
 			},
 			[]ingress.Endpoint{
 				{
@@ -430,6 +477,7 @@ func TestGetEndpointsFromSlices(t *testing.T) {
 				TargetPort: intstr.FromInt(80),
 			},
 			corev1.ProtocolTCP,
+			false,
 			func(string) ([]*discoveryv1.EndpointSlice, error) {
 				return []*discoveryv1.EndpointSlice{{
 					ObjectMeta: metav1.ObjectMeta{
@@ -451,6 +499,9 @@ func TestGetEndpointsFromSlices(t *testing.T) {
 						},
 					},
 				}}, nil
+			},
+			func(string) (*corev1.Node, error) {
+				return nil, nil
 			},
 			[]ingress.Endpoint{
 				{
@@ -478,6 +529,7 @@ func TestGetEndpointsFromSlices(t *testing.T) {
 				TargetPort: intstr.FromString("port-1"),
 			},
 			corev1.ProtocolTCP,
+			false,
 			func(string) ([]*discoveryv1.EndpointSlice, error) {
 				return []*discoveryv1.EndpointSlice{
 					{
@@ -522,6 +574,9 @@ func TestGetEndpointsFromSlices(t *testing.T) {
 					},
 				}, nil
 			},
+			func(string) (*corev1.Node, error) {
+				return nil, nil
+			},
 			[]ingress.Endpoint{
 				{
 					Address: "1.1.1.1",
@@ -552,6 +607,7 @@ func TestGetEndpointsFromSlices(t *testing.T) {
 				TargetPort: intstr.FromString("port-1"),
 			},
 			corev1.ProtocolTCP,
+			false,
 			func(string) ([]*discoveryv1.EndpointSlice, error) {
 				return []*discoveryv1.EndpointSlice{
 					{
@@ -596,6 +652,9 @@ func TestGetEndpointsFromSlices(t *testing.T) {
 					},
 				}, nil
 			},
+			func(string) (*corev1.Node, error) {
+				return nil, nil
+			},
 			[]ingress.Endpoint{
 				{
 					Address: "1.1.1.1",
@@ -622,6 +681,7 @@ func TestGetEndpointsFromSlices(t *testing.T) {
 				TargetPort: intstr.FromString("port-1"),
 			},
 			corev1.ProtocolTCP,
+			false,
 			func(string) ([]*discoveryv1.EndpointSlice, error) {
 				return []*discoveryv1.EndpointSlice{{
 					ObjectMeta: metav1.ObjectMeta{
@@ -649,6 +709,9 @@ func TestGetEndpointsFromSlices(t *testing.T) {
 					},
 				}}, nil
 			},
+			func(string) (*corev1.Node, error) {
+				return nil, nil
+			},
 			[]ingress.Endpoint{
 				{
 					Address: "1.1.1.1",
@@ -656,13 +719,74 @@ func TestGetEndpointsFromSlices(t *testing.T) {
 				},
 			},
 		},
+		{
+			"should return endpoint with corresponding node's internal IP when useNodePort is true",
+			&corev1.Service{
+				Spec: corev1.ServiceSpec{
+					Type: corev1.ServiceTypeNodePort,
+				},
+			},
+			&corev1.ServicePort{
+				Name:       "port-1",
+				Port:       80,
+				TargetPort: intstr.FromString("8080"),
+				NodePort:   3000,
+			},
+			corev1.ProtocolTCP,
+			true,
+			func(string) ([]*discoveryv1.EndpointSlice, error) {
+				return []*discoveryv1.EndpointSlice{{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: map[string]string{discoveryv1.LabelServiceName: "default"},
+					},
+					Endpoints: []discoveryv1.Endpoint{
+						{
+							Addresses: []string{"1.1.1.1"},
+							Conditions: discoveryv1.EndpointConditions{
+								Ready: &[]bool{true}[0],
+							},
+							NodeName: &[]string{"node-1"}[0],
+						},
+					},
+					Ports: []discoveryv1.EndpointPort{
+						{
+							Protocol: &[]corev1.Protocol{corev1.ProtocolTCP}[0],
+							Port:     &[]int32{8080}[0],
+						},
+					},
+				}}, nil
+			},
+			func(string) (*corev1.Node, error) {
+				return &corev1.Node{
+					Status: corev1.NodeStatus{
+						Addresses: []corev1.NodeAddress{
+							{
+								Type:    corev1.NodeInternalIP,
+								Address: "9.9.9.9",
+							},
+						},
+					},
+				}, nil
+			},
+			[]ingress.Endpoint{
+				{
+					Address: "9.9.9.9",
+					Port:    "3000",
+				},
+			},
+		},
 	}
 
 	for _, testCase := range tests {
 		t.Run(testCase.name, func(t *testing.T) {
-			result := getEndpointsFromSlices(testCase.svc, testCase.port, testCase.proto, testCase.fn)
+			result := getEndpointsFromSlices(testCase.svc, testCase.port, testCase.proto, testCase.useNodePort, testCase.fn, testCase.getNodeFn)
+
 			if len(testCase.result) != len(result) {
 				t.Errorf("Expected %d Endpoints but got %d", len(testCase.result), len(result))
+			}
+
+			if !reflect.DeepEqual(testCase.result, result) {
+				t.Errorf("Expected %v Endpoints but got %v", testCase.result, result)
 			}
 		})
 	}

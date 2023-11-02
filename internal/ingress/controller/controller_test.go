@@ -114,6 +114,10 @@ func (fakeIngressStore) GetDefaultBackend() defaults.Backend {
 	return defaults.Backend{}
 }
 
+func (fakeIngressStore) GetNode(key string) (*corev1.Node, error) {
+	return nil, fmt.Errorf("test error")
+}
+
 func (fakeIngressStore) Run(stopCh chan struct{}) {}
 
 type testNginxTestCommand struct {
