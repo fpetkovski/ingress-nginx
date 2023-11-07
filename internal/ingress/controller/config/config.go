@@ -863,6 +863,10 @@ type Configuration struct {
 	// running (e.g. "production").
 	PluginOpenTelemetryEnvironment string `json:"plugin-opentelemetry-environment"`
 
+	// PluginOpenTelemetryRecordP dictates whether or not to record `p` on spans' tracestate
+	// during deferred sampling.
+	PluginOpenTelemetryRecordP bool `json:"plugin-opentelemetry-record-p"`
+
 	////////////////////////////////////////////////////////////////////////////
 	// End OpenTelemetry configuration
 	////////////////////////////////////////////////////////////////////////////
@@ -1074,6 +1078,7 @@ func NewDefault() Configuration {
 		PluginOpenTelemetryShopifyVerbositySamplerPercentage: 0.0,
 		PluginOpenTelemetryService:                           "nginx",
 		PluginOpenTelemetryEnvironment:                       "production",
+		PluginOpenTelemetryRecordP:                           false,
 		DebugConnections:                                     []string{},
 		PluginMagellanEndpoint:                               "http://magellan:8080",
 		PluginMagellanKeepaliveTimeout:                       5000,

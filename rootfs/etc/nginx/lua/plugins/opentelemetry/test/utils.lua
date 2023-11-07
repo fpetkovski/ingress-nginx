@@ -21,7 +21,8 @@ function _M.make_config(overrides)
         plugin_open_telemetry_set_traceresponse = false,
         plugin_open_telemetry_shopify_verbosity_sampler_percentage = 1,
         plugin_open_telemetry_strip_traceresponse = false,
-        plugin_open_telemetry_captured_request_headers = ""
+        plugin_open_telemetry_captured_request_headers = "",
+        plugin_open_telemetry_record_p = false
     }
     for k, v in pairs(overrides or {}) do
         default[k] = v

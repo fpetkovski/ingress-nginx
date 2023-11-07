@@ -373,6 +373,7 @@ function _M.init_worker(config)
   _M.plugin_open_telemetry_set_traceresponse                    = config.plugin_open_telemetry_set_traceresponse
   _M.plugin_open_telemetry_strip_traceresponse                  = config.plugin_open_telemetry_strip_traceresponse
   _M.plugin_open_telemetry_captured_request_headers             = shopify_utils.parse_http_header_list(config.plugin_open_telemetry_captured_request_headers)
+  _M.plugin_open_telemetry_record_p                             = config.plugin_open_telemetry_record_p
 
   local tracer_samplers = {
     VerbositySamplerTracer = verbosity_sampler.new(_M.plugin_open_telemetry_shopify_verbosity_sampler_percentage),
@@ -589,7 +590,7 @@ function _M.log()
   -- Handle deferred sampling
   if  ngx_ctx.opentelemetry_should_force_sample_buffered_spans then
     -- set p to be consistent with upstream consistent probability sampling
-    if ngx_ctx.opentelemetry_tracesampling_p then
+    if ngx_ctx.opentelemetry_tracesampling_p and _M.plugin_open_telemetry_record_p then
       for _, s in ipairs(_M.span_buffering_processor.spans()) do
         -- This is clobbering upstream ot vendor tag
         -- OK for now, since we're not really using the ot vendor tag for anything besides

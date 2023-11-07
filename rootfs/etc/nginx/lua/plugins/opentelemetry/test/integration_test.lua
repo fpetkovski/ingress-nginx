@@ -269,6 +269,7 @@ describe("deferred sampling", function()
         end)
 
         it("samples in and adds context headers when traceresponse is present and 01", function()
+            local config = test_utils.make_config({plugin_open_telemetry_record_p = true, plugin_open_telemetry_deferred_sampling_upstreams = "all"})
             local prop_headers = make_propagation_headers(nil, "unsampled")
             local result = simulate_request(
                 config, prop_headers, nil, { traceresponse = "00-cdc9d461ab73f5a441fca78f6a970154-562144007775f2ec-01", ["x-shopify-tracesampling-p"] = "63" })

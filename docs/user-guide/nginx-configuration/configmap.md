@@ -1413,3 +1413,7 @@ Boolean indicating whether or not to strip upstream traceresponse response heade
 ### plugin-opentelemetry-captured-request-headers
 
 Comma-separated list of http headers that, if present, will be added to nginx.request spans as attributes (key is `http.request.header.header_name_dashes_turned_to_underscores`, value is header value truncated to 128 characters). See: https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/trace/semantic_conventions/http.md#http-request-and-response-headers.
+
+### plugin-opentelemetry-record-p
+
+Boolean indicating whether or not to record `p` in tracestate when doing deferred sampling.
