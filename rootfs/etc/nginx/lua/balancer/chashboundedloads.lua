@@ -157,7 +157,7 @@ local function get_consistent_endpoint(self, hash_by_value)
   -- `self.ring_seed`, which can be initialized randomly per instance allows that.
   index = util.array_mod(index + self.ring_seed, self.total_endpoints)
 
-  return index, endpoint
+  return index, self.endpoints[index]
 end
 
 local function find_eligible_endpoint(self, consistent_index)
@@ -270,15 +270,15 @@ function _M.balance(self)
 
   self.seen_hash_by_values:set(hash_by_value, true)
 
-  local index, first_endpoint = get_consistent_endpoint(self, hash_by_value)
-  local endpoint, attempt, current, allowed = find_eligible_endpoint(self, index)
+  local consistent_index, consistent_endpoint = get_consistent_endpoint(self, hash_by_value)
+  local endpoint, attempt, current, allowed = find_eligible_endpoint(self, consistent_index)
   if endpoint then
     ngx.var.chashbl_debug = string_format(
       "attempt=%d score=%d allowed=%d total_requests=%d hash_by_value=%s",
       attempt, current, allowed, self.total_requests, hash_by_value)
   else
-    ngx.var.chashbl_debug = "fallback_first_endpoint"
-    endpoint = first_endpoint -- TODO: this is likely a bug, should be self.endpoints[index], but should be fixed in get_consistent_endpoint
+    ngx.var.chashbl_debug = "fallback_to_consistent_endpoint"
+    endpoint = consistent_endpoint
   end
 
   incr_req_stats(self, endpoint)
