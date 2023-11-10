@@ -30,9 +30,7 @@ local ipairs = ipairs
 local ngx = ngx
 
 local DEBUG_PARAM_NAME = "debug_headers"
-
 local DEFAULT_HASH_BALANCE_FACTOR = 2
-
 local HOST_SEED = util.get_host_seed()
 
 -- Controls how many "tenants" we'll keep track of
@@ -138,7 +136,7 @@ end
 
 -- this is an extra sanity check for the rollout and it will be gone by final iteration
 local function debug_header(self, endpoint)
-  if ngx.req.get_uri_args()[DEBUG_PARAM_NAME] then
+  if ngx.var["arg_"..DEBUG_PARAM_NAME] then
     ngx.header["X-Served-By"] =
       "served-by;desc=" .. endpoint .. ";ring_seed=" .. tostring(self.ring_seed)
   end
@@ -170,7 +168,6 @@ function _M.new(self, backend)
   if err ~= nil then
     ngx_log(ngx_ERR, "could not parse the value of the upstream-hash-by: ", err)
   end
-  -- seed-by-hostname
 
   local o = {
     name = "chashboundedloads",
