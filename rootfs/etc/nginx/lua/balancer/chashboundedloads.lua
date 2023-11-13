@@ -277,7 +277,7 @@ function _M.balance(self)
       "attempt=%d score=%d allowed=%d total_requests=%d hash_by_value=%s",
       attempt, current, allowed, self.total_requests, hash_by_value)
   else
-    ngx.var.chashbl_debug = "fallback_to_consistent_endpoint"
+    ngx.var.chashbl_debug = "fallback_consistent_endpoint"
     endpoint = consistent_endpoint
   end
 
