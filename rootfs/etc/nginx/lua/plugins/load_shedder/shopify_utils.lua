@@ -44,6 +44,23 @@ function _M.get_request_header(header_name)
   return ngx.var[_M.convert_header_name_to_var_name(header_name)]
 end
 
+function _M.is_content_present_in_header(header_key, content)
+  local header_value = _M.get_request_header(header_key)
+
+  -- ngx.req.get_headers can return a string or a table
+  -- https://openresty-reference.readthedocs.io/en/latest/Lua_Nginx_API/#ngxreqget_headers
+  if type(header_value) == "string" and string.find(header_value, content) ~= nil then
+    return true
+  elseif type(header_value) == "table" then
+    for _, value in ipairs(header_value) do
+      if string.find(value, content) ~= nil then
+        return true
+      end
+    end
+  end
+  return false
+end
+
 function _M.merge_tables_by_key(t1, t2)
   for k,v in pairs(t2) do
     t1[k] = v
