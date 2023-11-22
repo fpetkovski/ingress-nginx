@@ -122,6 +122,8 @@ RUN pip install "yamllint==$YAML_LINT_VERSION"
 ARG YAMALE_VERSION
 RUN pip install "yamale==$YAMALE_VERSION"
 
+COPY ./error-pages /etc/nginx/lua/plugins/load_shedder/error-pages
+
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 
 WORKDIR $GOPATH

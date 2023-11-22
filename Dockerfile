@@ -5,7 +5,7 @@
 ARG BASE_IMAGE
 
 # This first stage replaces a call to `make build`. If build/build.sh or build/run-in-docker.sh changes, this might need to be updated
-FROM gcr.io/shopify-docker-images/apps/ci/nginx-e2e-test-runner:814123722a68c2824f8edc8fb50c7e0cf65315cf as go_builder
+FROM gcr.io/shopify-docker-images/apps/ci/nginx-e2e-test-runner:06e61cce867e7e237e822558c2daab85b32122f0 as go_builder
 
 ARG TARGETARCH
 ARG VERSION

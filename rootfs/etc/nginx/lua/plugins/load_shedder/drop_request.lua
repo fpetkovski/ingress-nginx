@@ -20,33 +20,29 @@ local tostring = tostring
 local DROPPED_REQUEST_EXIT_CODE = ngx.HTTP_SERVICE_UNAVAILABLE
 local RETRY_AFTER_HEADER = "Retry-After"
 
-local ERROR_PAGE_DIRECTORY = "/etc/nginx/lua/plugins/load_shedder/error-pages"
-local ERROR_PAGE_JSON = "503.json"
-local ERROR_PAGE_HTML = "503.html"
-
-local error_page_content = {
-  ERROR_PAGE_JSON = nil,
-  ERROR_PAGE_HTML = nil,
-}
-
-for _, i in ipairs(error_page_content) do
-  local h, err = io.open(ERROR_PAGE_DIRECTORY .. "/" .. i)
-  if err ~= nil then
-    ngx.log(ngx.ERR, string.format("Unable to open error page %s: %s", i, err))
-    return
-  end
-  error_page_content[i] = h:read("*a")
-  h:close()
-end
-
 local function static_errors()
   local accepts_json = shopify_utils.is_content_present_in_header("Accept", "application/json")
   local content
 
+  local ERROR_PAGE = "/etc/nginx/lua/plugins/load_shedder/error-pages/503"
+  local error_page_extensions = {"json","html"}
+  local error_page_content = {}
+
+  for _, value in ipairs(error_page_extensions) do
+    local file, err = io.open(ERROR_PAGE .. "." .. value)
+    if err ~= nil then
+      ngx.log(ngx.ERR, string.format("Unable to open error page %s: %s", value, err))
+      return
+    end
+    io.input(file)
+    error_page_content[value] = io.read("*a")
+    io.close(file)
+  end
+
   if accepts_json then
-    content = error_page_content[ERROR_PAGE_JSON]
+    content = error_page_content["json"]
   else
-    content = error_page_content[ERROR_PAGE_HTML]
+    content = error_page_content["html"]
   end
 
   if content then
