@@ -152,6 +152,28 @@ describe("Balancer chashboundedloads", function()
     assert.are.equals(0, instance.total_requests)
   end)
 
+  it("starts tracking tried endpoints", function ()
+    assert.is_nil(ngx.ctx.balancer_chashbl_tried_endpoints)
+
+    ngx.var = { request_uri = "/alma/armud" }
+
+    local endpoint = instance:balance()
+
+    assert.are.same({[endpoint]=true}, ngx.ctx.balancer_chashbl_tried_endpoints)
+  end)
+
+  it("continues to keep track of tried endpoints", function ()
+    local first_endpoint = endpoint_for_hash(instance, "/alma/armud")
+
+    ngx.ctx.balancer_chashbl_tried_endpoints = {[first_endpoint]=true}
+
+    ngx.var = { request_uri = "/alma/armud" }
+
+    local second_endpoint = instance:balance()
+
+    assert.are.same({[first_endpoint]=true, [second_endpoint]=true}, ngx.ctx.balancer_chashbl_tried_endpoints)
+  end)
+
   it("skips tried endpoint", function()
     ngx.var = { request_uri = "/alma/armud" }
 
