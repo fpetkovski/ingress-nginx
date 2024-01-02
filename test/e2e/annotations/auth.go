@@ -19,9 +19,9 @@ package annotations
 import (
 	"context"
 	"fmt"
+	"golang.org/x/crypto/bcrypt"
 	"net/http"
 	"net/url"
-	"os/exec"
 	"regexp"
 	"strings"
 	"time"
@@ -139,6 +139,34 @@ var _ = framework.DescribeAnnotation("auth-*", func() {
 			Expect().
 			Status(http.StatusUnauthorized).
 			Body().Contains("401 Authorization Required")
+	})
+
+	ginkgo.It("should return status code 401 and cors headers when authentication and cors is configured but Authorization header is not configured", func() {
+		host := "auth"
+
+		s := f.EnsureSecret(buildSecret("foo", "bar", "test", f.Namespace))
+
+		annotations := map[string]string{
+			"nginx.ingress.kubernetes.io/auth-type":   "basic",
+			"nginx.ingress.kubernetes.io/auth-secret": s.Name,
+			"nginx.ingress.kubernetes.io/auth-realm":  "test auth",
+			"nginx.ingress.kubernetes.io/enable-cors": "true",
+		}
+
+		ing := framework.NewSingleIngress(host, "/", host, f.Namespace, framework.EchoService, 80, annotations)
+		f.EnsureIngress(ing)
+
+		f.WaitForNginxServer(host,
+			func(server string) bool {
+				return strings.Contains(server, "server_name auth")
+			})
+
+		f.HTTPTestClient().
+			GET("/").
+			WithHeader("Host", host).
+			Expect().
+			Status(http.StatusUnauthorized).
+			Header("Access-Control-Allow-Origin").Equal("*")
 	})
 
 	ginkgo.It("should return status code 200 when authentication is configured and Authorization header is sent", func() {
@@ -871,7 +899,8 @@ http {
 //   Auth error
 
 func buildSecret(username, password, name, namespace string) *corev1.Secret {
-	out, err := exec.Command("openssl", "passwd", "-crypt", password).CombinedOutput()
+	//out, err := exec.Command("openssl", "passwd", "-crypt", password).CombinedOutput()
+	out, err := bcrypt.GenerateFromPassword([]byte(password), 14)
 	encpass := fmt.Sprintf("%v:%s\n", username, out)
 	assert.Nil(ginkgo.GinkgoT(), err)
 
@@ -889,7 +918,8 @@ func buildSecret(username, password, name, namespace string) *corev1.Secret {
 }
 
 func buildMapSecret(username, password, name, namespace string) *corev1.Secret {
-	out, err := exec.Command("openssl", "passwd", "-crypt", password).CombinedOutput()
+	//out, err := exec.Command("openssl", "passwd", "-crypt", password).CombinedOutput()
+	out, err := bcrypt.GenerateFromPassword([]byte(password), 14)
 	assert.Nil(ginkgo.GinkgoT(), err)
 
 	return &corev1.Secret{

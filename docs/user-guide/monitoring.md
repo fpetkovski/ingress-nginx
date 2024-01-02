@@ -170,7 +170,7 @@ According to the above example, this URL will be http://10.192.0.3:31086
   - By default request metrics are labeled with the hostname. When you have a wildcard domain ingress, then there will be no metrics for that ingress (to prevent the metrics from exploding in cardinality). To get metrics in this case you need to run the ingress controller with `--metrics-per-host=false` (you will lose labeling by hostname, but still have labeling by ingress).
 
 ### Grafana dashboard using ingress resource
-  - If you want to expose the dashboard for grafana using a ingress resource, then you can :
+  - If you want to expose the dashboard for grafana using an ingress resource, then you can :
     - change the service type of the prometheus-server service and the grafana service to "ClusterIP" like this :
     ```
     kubectl -n ingress-nginx edit svc grafana
@@ -178,8 +178,8 @@ According to the above example, this URL will be http://10.192.0.3:31086
     - This will open the currently deployed service grafana in the default editor configured in your shell (vi/nvim/nano/other)
     - scroll down to line 34 that looks like "type: NodePort"
     - change it to look like "type: ClusterIP". Save and exit.
-    - create a ingress resource with backend as "grafana" and port as "3000"
-  - Similarly, you can edit the service "prometheus-server" and add a ingress resource.
+    - create an ingress resource with backend as "grafana" and port as "3000"
+  - Similarly, you can edit the service "prometheus-server" and add an ingress resource.
 
 ## Prometheus and Grafana installation using Service Monitors
 This document assumes you're using helm and using the kube-prometheus-stack package to install Prometheus and Grafana.
@@ -355,56 +355,40 @@ Prometheus metrics are exposed on port 10254.
 
 ### Request metrics
 
-* `nginx_ingress_controller_request_duration_seconds` Histogram
-
-  The request processing time in milliseconds (affected by client speed)
-
+* `nginx_ingress_controller_request_duration_seconds` Histogram\
+  The request processing (time elapsed between the first bytes were read from the client and the log write after the last bytes were sent to the client) time in seconds (affected by client speed).\
   nginx var: `request_time`
 
-* `nginx_ingress_controller_response_duration_seconds` Histogram
-
-  The time spent on receiving the response from the upstream server (affected by client speed)
-
+* `nginx_ingress_controller_response_duration_seconds` Histogram\
+  The time spent on receiving the response from the upstream server in seconds (affected by client speed when the response is bigger than proxy buffers).\
+  Note: can be up to several millis bigger than the `nginx_ingress_controller_request_duration_seconds` because of the different measuring method.
   nginx var: `upstream_response_time`
 
-* `nginx_ingress_controller_header_duration_seconds` Histogram
-
-  The time spent on receiving first header from the upstream server
-
+* `nginx_ingress_controller_header_duration_seconds` Histogram\
+  The time spent on receiving first header from the upstream server\
   nginx var: `upstream_header_time`
 
-* `nginx_ingress_controller_connect_duration_seconds` Histogram
-
-  The time spent on establishing a connection with the upstream server
-
+* `nginx_ingress_controller_connect_duration_seconds` Histogram\
+  The time spent on establishing a connection with the upstream server\
   nginx var: `upstream_connect_time`
 
-* `nginx_ingress_controller_response_size` Histogram
-
-  The response length (including request line, header, and request body)
-
+* `nginx_ingress_controller_response_size` Histogram\
+  The response length (including request line, header, and request body)\
   nginx var: `bytes_sent`
 
-* `nginx_ingress_controller_request_size` Histogram
-
-  The request length (including request line, header, and request body)
-
+* `nginx_ingress_controller_request_size` Histogram\
+  The request length (including request line, header, and request body)\
   nginx var: `request_length`
 
-* `nginx_ingress_controller_requests` Counter
-
+* `nginx_ingress_controller_requests` Counter\
   The total number of client requests
 
-* `nginx_ingress_controller_bytes_sent` Histogram
-
-  The number of bytes sent to a client. **Deprecated**, use `nginx_ingress_controller_response_size`
-
+* `nginx_ingress_controller_bytes_sent` Histogram\
+  The number of bytes sent to a client. **Deprecated**, use `nginx_ingress_controller_response_size`\
   nginx var: `bytes_sent`
 
-* `nginx_ingress_controller_ingress_upstream_latency_seconds` Summary
-
-  Upstream service latency per Ingress. **Deprecated**, use `nginx_ingress_controller_connect_duration_seconds`
-
+* `nginx_ingress_controller_ingress_upstream_latency_seconds` Summary\
+  Upstream service latency per Ingress. **Deprecated**, use `nginx_ingress_controller_connect_duration_seconds`\
   nginx var: `upstream_connect_time`
 
 ```
@@ -469,6 +453,8 @@ Prometheus metrics are exposed on port 10254.
 # TYPE nginx_ingress_controller_ssl_certificate_info gauge
 # HELP nginx_ingress_controller_success Cumulative number of Ingress controller reload operations
 # TYPE nginx_ingress_controller_success counter
+# HELP nginx_ingress_controller_orphan_ingress Gauge reporting status of ingress orphanity, 1 indicates orphaned ingress. 'namespace' is the string used to identify namespace of ingress, 'ingress' for ingress name and 'type' for 'no-service' or 'no-endpoint' of orphanity
+# TYPE nginx_ingress_controller_orphan_ingress gauge
 ```
 
 ### Admission metrics
