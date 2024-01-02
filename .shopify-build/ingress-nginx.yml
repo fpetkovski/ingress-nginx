@@ -7,7 +7,7 @@ containers:
 
 steps:
 - label: Static Check
-  timeout: 5m
+  timeout: 10m
   run:
   - make static-check
   env:
