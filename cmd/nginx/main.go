@@ -133,7 +133,7 @@ func main() {
 
 	mc := metric.NewDummyCollector()
 	if conf.EnableMetrics {
-		mc, err = metric.NewCollector(conf.MetricsPerHost, conf.ReportStatusClasses, reg, conf.IngressClassConfiguration.Controller, *conf.MetricsBuckets)
+		mc, err = metric.NewCollector(conf.MetricsPerHost, conf.ReportStatusClasses, reg, conf.IngressClassConfiguration.Controller, *conf.MetricsBuckets, conf.ExcludeSocketMetrics)
 		if err != nil {
 			klog.Fatalf("Error creating prometheus collector:  %v", err)
 		}
@@ -143,7 +143,7 @@ func main() {
 	mc.Start(conf.ValidationWebhook)
 
 	if conf.EnableProfiling {
-		go metrics.RegisterProfiler("127.0.0.1", nginx.ProfilerPort)
+		go metrics.RegisterProfiler(nginx.ProfilerAddress, nginx.ProfilerPort)
 	}
 
 	ngx := controller.NewNGINXController(conf, mc)

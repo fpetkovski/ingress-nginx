@@ -34,9 +34,9 @@ import (
 	"k8s.io/ingress-nginx/pkg/apis/ingress"
 )
 
-// getEndpoints returns a list of Endpoint structs for a given service/target port combination.
-func getEndpointsFromSlices(s *corev1.Service, port *corev1.ServicePort, proto corev1.Protocol, useNodePort bool,
-	getServiceEndpointsSlices func(string) ([]*discoveryv1.EndpointSlice, error),
+// getEndpointsFromSlices returns a list of Endpoint structs for a given service/target port combination.
+func getEndpointsFromSlices(s *corev1.Service, port *corev1.ServicePort, proto corev1.Protocol, zoneForHints string,
+	useNodePort bool, getServiceEndpointsSlices func(string) ([]*discoveryv1.EndpointSlice, error),
 	getNode func(string) (*corev1.Node, error)) []ingress.Endpoint {
 
 	upsServers := []ingress.Endpoint{}
@@ -50,6 +50,7 @@ func getEndpointsFromSlices(s *corev1.Service, port *corev1.ServicePort, proto c
 	processedUpstreamServers := make(map[string]struct{})
 
 	svcKey := k8s.MetaNamespaceKey(s)
+	var useTopologyHints bool
 
 	// ExternalName services
 	if s.Spec.Type == corev1.ServiceTypeExternalName {
@@ -114,12 +115,38 @@ func getEndpointsFromSlices(s *corev1.Service, port *corev1.ServicePort, proto c
 				ports = append(ports, targetPort)
 			}
 		}
+		useTopologyHints = false
+		if zoneForHints != emptyZone {
+			useTopologyHints = true
+			// check if all endpointslices has zone hints
+			for _, ep := range eps.Endpoints {
+				if ep.Hints == nil || len(ep.Hints.ForZones) == 0 {
+					useTopologyHints = false
+					break
+				}
+			}
+			if useTopologyHints {
+				klog.V(3).Infof("All endpoint slices has zone hint, using zone %q for Service %q", zoneForHints, svcKey)
+			}
+		}
+
 		for _, ep := range eps.Endpoints {
-			if !(*ep.Conditions.Ready) {
+			if (ep.Conditions.Ready != nil) && !(*ep.Conditions.Ready) {
 				continue
 			}
+			epHasZone := false
+			if useTopologyHints {
+				for _, epzone := range ep.Hints.ForZones {
+					if epzone.Name == zoneForHints {
+						epHasZone = true
+						break
+					}
+				}
+			}
 
-			// ep.Hints
+			if useTopologyHints && !epHasZone {
+				continue
+			}
 
 			for _, epPort := range ports {
 				for _, epAddress := range ep.Addresses {
