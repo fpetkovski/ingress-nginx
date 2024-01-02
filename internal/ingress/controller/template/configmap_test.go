@@ -186,7 +186,7 @@ func TestMergeConfigMapToStruct(t *testing.T) {
 	def.PluginOpenTelemetryService = "test-service"
 	def.PluginOpenTelemetryEnvironment = "production"
 
-	hash, err = hashstructure.Hash(def, &hashstructure.HashOptions{
+	hash, err = hashstructure.Hash(def, hashstructure.FormatV1, &hashstructure.HashOptions{
 		TagName: "json",
 	})
 	if err != nil {
