@@ -44,6 +44,7 @@ var (
 	implSpecific = networking.PathTypeImplementationSpecific
 )
 
+// ValidatePathType checks if the pathType is valid for each path in each rule
 func ValidatePathType(ing *networking.Ingress) error {
 	if ing == nil {
 		return fmt.Errorf("received null ingress")

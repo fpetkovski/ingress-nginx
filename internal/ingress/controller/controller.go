@@ -256,7 +256,7 @@ func (n *NGINXController) syncIngress(interface{}) error {
 	return nil
 }
 
-// GetWarnings returns a list of warnings an Ingress gets when being created.
+// CheckWarning returns a list of warnings an Ingress gets when being created.
 // The warnings are going to be used in an admission webhook, and they represent
 // a list of messages that users need to be aware (like deprecation notices)
 // when creating a new ingress object
