@@ -33,7 +33,7 @@ import (
 
 	"github.com/eapache/channels"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
+
 	discoveryv1 "k8s.io/api/discovery/v1"
 	networking "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -48,7 +48,6 @@ import (
 	"k8s.io/ingress-nginx/internal/ingress/annotations/parser"
 	"k8s.io/ingress-nginx/internal/ingress/annotations/proxyssl"
 	"k8s.io/ingress-nginx/internal/ingress/annotations/sessionaffinity"
-	"k8s.io/ingress-nginx/internal/ingress/controller/config"
 	ngx_config "k8s.io/ingress-nginx/internal/ingress/controller/config"
 	"k8s.io/ingress-nginx/internal/ingress/controller/ingressclass"
 	"k8s.io/ingress-nginx/internal/ingress/controller/store"
@@ -150,7 +149,7 @@ func (ntc testNginxTestCommand) Test(cfg string) ([]byte, error) {
 
 type fakeTemplate struct{}
 
-func (fakeTemplate) Write(conf config.TemplateConfig) ([]byte, error) {
+func (fakeTemplate) Write(conf ngx_config.TemplateConfig) ([]byte, error) {
 	r := []byte{}
 	for _, s := range conf.Servers {
 		if len(r) > 0 {
@@ -352,6 +351,113 @@ func TestCheckIngress(t *testing.T) {
 
 		if nginx.CheckIngress(ing) != nil {
 			t.Errorf("when the ingress is marked as deleted, no error should be returned")
+		}
+	})
+}
+
+func TestCheckWarning(t *testing.T) {
+
+	// Ensure no panic with wrong arguments
+	var nginx = &NGINXController{}
+
+	nginx.t = fakeTemplate{}
+	nginx.store = fakeIngressStore{
+		ingresses: []*ingress.Ingress{},
+	}
+
+	ing := &networking.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "test-ingress-warning",
+			Namespace:   "user-namespace",
+			Annotations: map[string]string{},
+		},
+		Spec: networking.IngressSpec{
+			Rules: []networking.IngressRule{
+				{
+					Host: "example.com",
+				},
+			},
+		},
+	}
+	t.Run("when a deprecated annotation is used a warning should be returned", func(t *testing.T) {
+		ing.ObjectMeta.Annotations[parser.GetAnnotationWithPrefix("enable-influxdb")] = "true"
+		defer func() {
+			ing.ObjectMeta.Annotations = map[string]string{}
+		}()
+
+		warnings, err := nginx.CheckWarning(ing)
+		if err != nil {
+			t.Errorf("no error should be returned, but %s was returned", err)
+		}
+		if len(warnings) != 1 {
+			t.Errorf("expected 1 warning to occur but %d occurred", len(warnings))
+		} else {
+			t.Logf("got warning %s correctly", warnings[0])
+		}
+	})
+
+	t.Run("When an invalid pathType is used, a warning should be returned", func(t *testing.T) {
+
+		rules := ing.Spec.DeepCopy().Rules
+		ing.Spec.Rules = []networking.IngressRule{
+			{
+				Host: "example.com",
+				IngressRuleValue: networking.IngressRuleValue{
+					HTTP: &networking.HTTPIngressRuleValue{
+						Paths: []networking.HTTPIngressPath{
+							{
+								Path:     "/xpto{$2}",
+								PathType: &pathTypePrefix,
+							},
+							{
+								Path:     "/ok",
+								PathType: &pathTypeExact,
+							},
+						},
+					},
+				},
+			},
+		}
+		defer func() {
+			ing.Spec.Rules = rules
+		}()
+
+		warnings, err := nginx.CheckWarning(ing)
+		if err != nil {
+			t.Errorf("no error should be returned, but %s was returned", err)
+		}
+		if len(warnings) != 1 {
+			t.Errorf("expected 1 warning to occur but %d occurred", len(warnings))
+		} else {
+			t.Logf("got warnings %v correctly", warnings)
+		}
+
+		t.Run("adding invalid annotations increases the warning count", func(t *testing.T) {
+			ing.ObjectMeta.Annotations[parser.GetAnnotationWithPrefix("enable-influxdb")] = "true"
+			ing.ObjectMeta.Annotations[parser.GetAnnotationWithPrefix("secure-verify-ca-secret")] = "true"
+			ing.ObjectMeta.Annotations[parser.GetAnnotationWithPrefix("influxdb-host")] = "blabla"
+			defer func() {
+				ing.ObjectMeta.Annotations = map[string]string{}
+			}()
+			warnings, err := nginx.CheckWarning(ing)
+			if err != nil {
+				t.Errorf("no error should be returned, but %s was returned", err)
+			}
+			if len(warnings) != 4 {
+				t.Errorf("expected 4 warning to occur but %d occurred", len(warnings))
+			} else {
+				t.Logf("got warnings %v correctly", warnings)
+			}
+		})
+	})
+
+	t.Run("When the ingress is marked as deleted", func(t *testing.T) {
+		ing.DeletionTimestamp = &metav1.Time{
+			Time: time.Now(),
+		}
+
+		if warnings, err := nginx.CheckWarning(ing); err != nil || len(warnings) != 0 {
+			t.Errorf("when the ingress is marked as deleted, no warning should be returned")
 		}
 	})
 }
@@ -1426,7 +1532,7 @@ func TestGetBackendServers(t *testing.T) {
 	testCases := []struct {
 		Ingresses    []*ingress.Ingress
 		Validate     func(ingresses []*ingress.Ingress, upstreams []*ingress.Backend, servers []*ingress.Server)
-		SetConfigMap func(namespace string) *v1.ConfigMap
+		SetConfigMap func(namespace string) *corev1.ConfigMap
 	}{
 		{
 			Ingresses: []*ingress.Ingress{
@@ -2196,8 +2302,8 @@ func TestGetBackendServers(t *testing.T) {
 					t.Errorf("location cafilename should be '%s', got '%s'", ingresses[1].ParsedAnnotations.ProxySSL.CAFileName, s.Locations[0].ProxySSL.CAFileName)
 				}
 			},
-			SetConfigMap: func(ns string) *v1.ConfigMap {
-				return &v1.ConfigMap{
+			SetConfigMap: func(ns string) *corev1.ConfigMap {
+				return &corev1.ConfigMap{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:     "config",
 						SelfLink: fmt.Sprintf("/api/v1/namespaces/%s/configmaps/config", ns),
@@ -2257,8 +2363,8 @@ func TestGetBackendServers(t *testing.T) {
 					t.Errorf("backend should be upstream-default-backend, got '%s'", s.Locations[0].Backend)
 				}
 			},
-			SetConfigMap: func(ns string) *v1.ConfigMap {
-				return &v1.ConfigMap{
+			SetConfigMap: func(ns string) *corev1.ConfigMap {
+				return &corev1.ConfigMap{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:     "config",
 						SelfLink: fmt.Sprintf("/api/v1/namespaces/%s/configmaps/config", ns),
@@ -2335,8 +2441,8 @@ func TestGetBackendServers(t *testing.T) {
 				}
 
 			},
-			SetConfigMap: func(ns string) *v1.ConfigMap {
-				return &v1.ConfigMap{
+			SetConfigMap: func(ns string) *corev1.ConfigMap {
+				return &corev1.ConfigMap{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:     "config",
 						SelfLink: fmt.Sprintf("/api/v1/namespaces/%s/configmaps/config", ns),
@@ -2356,8 +2462,8 @@ func TestGetBackendServers(t *testing.T) {
 	}
 }
 
-func testConfigMap(ns string) *v1.ConfigMap {
-	return &v1.ConfigMap{
+func testConfigMap(ns string) *corev1.ConfigMap {
+	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:     "config",
 			SelfLink: fmt.Sprintf("/api/v1/namespaces/%s/configmaps/config", ns),
@@ -2366,11 +2472,11 @@ func testConfigMap(ns string) *v1.ConfigMap {
 }
 
 func newNGINXController(t *testing.T) *NGINXController {
-	ns := v1.NamespaceDefault
+	ns := corev1.NamespaceDefault
 
 	clientSet := fake.NewSimpleClientset()
 
-	configMap := &v1.ConfigMap{
+	configMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:     "config",
 			SelfLink: fmt.Sprintf("/api/v1/namespaces/%s/configmaps/config", ns),
@@ -2437,8 +2543,8 @@ func fakeX509Cert(dnsNames []string) *x509.Certificate {
 	}
 }
 
-func newDynamicNginxController(t *testing.T, setConfigMap func(string) *v1.ConfigMap) *NGINXController {
-	ns := v1.NamespaceDefault
+func newDynamicNginxController(t *testing.T, setConfigMap func(string) *corev1.ConfigMap) *NGINXController {
+	ns := corev1.NamespaceDefault
 
 	clientSet := fake.NewSimpleClientset()
 	configMap := setConfigMap(ns)
