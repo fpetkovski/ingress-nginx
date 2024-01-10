@@ -4,6 +4,7 @@ containers:
     application: nginx
     dockerfile:
       dir: images/nginx/rootfs
+      platform: linux/amd64,linux/arm64
       build_timeout: 400m
       tag_using_path: images/nginx/rootfs/VERSION
   e2e:
