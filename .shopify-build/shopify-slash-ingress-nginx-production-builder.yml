@@ -12,9 +12,10 @@ containers:
     application: nginx-e2e-test-runner
     dockerfile:
       dir: images/test-runner/rootfs
-      build_timeout: 40m
+      platform: linux/amd64,linux/arm64
+      build_timeout: 60m
       build_args:
-        BASE_IMAGE: gcr.io/shopify-docker-images/apps/production/nginx:1.21.6.4
+        BASE_IMAGE: gcr.io/shopify-docker-images/apps/production/nginx:1.21.6.5
         GOLANG_VERSION: 1.20.5
         ETCD_VERSION: 3.4.3-0
         K8S_RELEASE: v1.26.0
@@ -31,9 +32,10 @@ containers:
   production:
     environment: production
     dockerfile:
-      build_timeout: 40m
+      platform: linux/amd64,linux/arm64
+      build_timeout: 60m
       build_args:
-        BASE_IMAGE: gcr.io/shopify-docker-images/apps/production/nginx:1.21.6.4
+        BASE_IMAGE: gcr.io/shopify-docker-images/apps/production/nginx:1.21.6.5
         TARGETARCH: amd64
         VERSION: $SHOPIFY_BUILD_COMMIT
         COMMIT_SHA: $SHOPIFY_BUILD_COMMIT
