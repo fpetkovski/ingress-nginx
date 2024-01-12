@@ -126,6 +126,8 @@ RUN pip install "yamllint==$YAML_LINT_VERSION"
 # Install Yamale YAML schema validator
 RUN pip install "yamale==$YAMALE_VERSION"
 
+COPY ./error-pages /etc/nginx/lua/plugins/load_shedder/error-pages
+
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 
 WORKDIR $GOPATH

@@ -54,6 +54,7 @@ local _ngx = {
     ctx = {},
     HTTP_BAD_REQUEST = 400,
     HTTP_INTERNAL_SERVER_ERROR = 500,
+    HTTP_SERVICE_UNAVAILABLE = 503,
     HTTP_GATEWAY_TIMEOUT = 504,
     upstream = {
       get_upstreams = function()
@@ -214,6 +215,10 @@ function _ngx.print(str)
 end
 
 function _ngx.send_headers() end
+
+function _ngx.exit(code)
+  _ngx.exit_code = code
+end
 
 function _ngx.quote_sql_str(str)
   return str

@@ -1,0 +1,10 @@
+{
+  "errors": [
+    {
+      "message": "There was a problem loading this website. Please try again.",
+      "extensions": {
+        "code": "SERVICE_UNAVAILABLE"
+      }
+    }
+  ]
+}
