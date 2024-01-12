@@ -30,9 +30,7 @@ local ipairs = ipairs
 local ngx = ngx
 
 local DEBUG_PARAM_NAME = "debug_headers"
-
 local DEFAULT_HASH_BALANCE_FACTOR = 2
-
 local HOST_SEED = util.get_host_seed()
 
 -- Controls how many "tenants" we'll keep track of
@@ -138,10 +136,51 @@ end
 
 -- this is an extra sanity check for the rollout and it will be gone by final iteration
 local function debug_header(self, endpoint)
-  if ngx.req.get_uri_args()[DEBUG_PARAM_NAME] then
+  if ngx.var["arg_"..DEBUG_PARAM_NAME] then
     ngx.header["X-Served-By"] =
       "served-by;desc=" .. endpoint .. ";ring_seed=" .. tostring(self.ring_seed)
   end
+end
+
+local function get_tried_endpoints()
+  if not ngx.ctx.balancer_chashbl_tried_endpoints then
+    ngx.ctx.balancer_chashbl_tried_endpoints = {}
+  end
+  return ngx.ctx.balancer_chashbl_tried_endpoints
+end
+
+local function get_consistent_endpoint(self, hash_by_value)
+  local endpoint = self.chash:find(hash_by_value)
+  local index = self.endpoints_reverse[endpoint]
+  -- By design, endpoint will always be the same for the same input across
+  -- all instances. However, sometimes we want to randomize that across instances.
+  -- `self.ring_seed`, which can be initialized randomly per instance allows that.
+  index = util.array_mod(index + self.ring_seed, self.total_endpoints)
+
+  return index, self.endpoints[index]
+end
+
+local function find_eligible_endpoint(self, consistent_index)
+  local tried_endpoints = get_tried_endpoints()
+
+  for i=0, self.total_endpoints-1 do
+    local j = util.array_mod(consistent_index + i, self.total_endpoints)
+    local endpoint = self.endpoints[j]
+
+    if not tried_endpoints[endpoint] then
+      local eligible, current, allowed = endpoint_eligible(self, endpoint)
+      if eligible then
+        tried_endpoints[endpoint] = true
+        return endpoint, i, current, allowed
+      end
+    end
+  end
+
+  -- Normally, this should never happen because with balance_factor > 1
+  -- there should always be an eligible endpoint.
+  -- This would get reached only if the number of endpoints is less or equal
+  -- than max Nginx retries and tried_endpoints contains all endpoints.
+  return nil, nil, nil
 end
 
 function _M.is_affinitized(self)
@@ -170,7 +209,6 @@ function _M.new(self, backend)
   if err ~= nil then
     ngx_log(ngx_ERR, "could not parse the value of the upstream-hash-by: ", err)
   end
-  -- seed-by-hostname
 
   local o = {
     name = "chashboundedloads",
@@ -223,7 +261,6 @@ end
 
 function _M.balance(self)
   local hash_by_value = get_hash_by_value(self)
-
   -- Tenant key not available, falling back to round-robin
   if not hash_by_value then
     local endpoint = self.roundrobin:find()
@@ -233,52 +270,21 @@ function _M.balance(self)
 
   self.seen_hash_by_values:set(hash_by_value, true)
 
-  local tried_endpoints
-  if not ngx.ctx.balancer_chashbl_tried_endpoints then
-    tried_endpoints = {}
-    ngx.ctx.balancer_chashbl_tried_endpoints = tried_endpoints
+  local consistent_index, consistent_endpoint = get_consistent_endpoint(self, hash_by_value)
+  local endpoint, attempt, current, allowed = find_eligible_endpoint(self, consistent_index)
+  if endpoint then
+    ngx.var.chashbl_debug = string_format(
+      "attempt=%d score=%d allowed=%d total_requests=%d hash_by_value=%s",
+      attempt, current, allowed, self.total_requests, hash_by_value)
   else
-    tried_endpoints = ngx.ctx.balancer_chashbl_tried_endpoints
+    ngx.var.chashbl_debug = "fallback_consistent_endpoint"
+    endpoint = consistent_endpoint
   end
 
-  local first_endpoint = self.chash:find(hash_by_value)
-  local index = self.endpoints_reverse[first_endpoint]
+  incr_req_stats(self, endpoint)
+  debug_header(self, endpoint)
 
-  -- By design, resty.chash always points to the same element of the ring,
-  -- regardless of the environment. In this algorithm, we want the consistency
-  -- to be "seeded" based on the host where it's running.
-  -- That's how both Envoy and Haproxy implement this.
-  -- For convenience, we keep resty.chash but manually introduce the seed.
-  index = util.array_mod(index + self.ring_seed, self.total_endpoints)
-
-  for i=0, self.total_endpoints-1 do
-    local j = util.array_mod(index + i, self.total_endpoints)
-    local endpoint = self.endpoints[j]
-
-    if not tried_endpoints[endpoint] then
-      local eligible, current, allowed = endpoint_eligible(self, endpoint)
-
-      if eligible then
-        ngx.var.chashbl_debug = string_format(
-          "attempt=%d score=%d allowed=%d total_requests=%d hash_by_value=%s",
-          i, current, allowed, self.total_requests, hash_by_value)
-
-        incr_req_stats(self, endpoint)
-        debug_header(self, endpoint)
-        tried_endpoints[endpoint] = true
-        return endpoint
-      end
-    end
-  end
-
-  -- Normally, this case should never be reach out because with balance_factor > 1
-  -- there should always be an eligible endpoint.
-  -- This would get reached only if the number of endpoints is less or equal
-  -- than max Nginx retries and tried_endpoints contains all endpoints.
-  incr_req_stats(self, first_endpoint)
-  ngx.var.chashbl_debug = "fallback_first_endpoint"
-  debug_header(self, first_endpoint)
-  return first_endpoint
+  return endpoint
 end
 
 function _M.after_balance(self)

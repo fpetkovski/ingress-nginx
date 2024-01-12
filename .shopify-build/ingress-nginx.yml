@@ -2,12 +2,12 @@
 
 containers:
   default:
-    docker: gcr.io/shopify-docker-images/apps/ci/nginx-e2e-test-runner:72511d01c98fca8772ac7fc7f5d7e7baf7c704d2
+    docker: gcr.io/shopify-docker-images/apps/ci/nginx-e2e-test-runner:70046c4b6694a7296fdc2021f718d899cf8af7fd
     workdir: /go/src/k8s.io/ingress-nginx
 
 steps:
 - label: Static Check
-  timeout: 5m
+  timeout: 10m
   run:
   - make static-check
   env:

@@ -155,7 +155,8 @@ apk add \
   mercurial \
   alpine-sdk \
   findutils \
-  curl ca-certificates \
+  curl \
+  ca-certificates \
   patch \
   libaio-dev \
   openssl \
