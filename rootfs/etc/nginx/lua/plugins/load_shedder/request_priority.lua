@@ -24,6 +24,7 @@ local _M = {
     POS_UA = "pos_user_agent",
     KNOWN_BOT_UA = "known_bot_user_agent",
     GENGHIS_UA = "genghis_user_agent",
+    PINGDOM_BOT_UA = "pingdom_user_agent",
     LOW_PRIORITY_URI = 'low_priority_uris',
     MED_PRIORITY_URI = 'medium_priority_uris',
     CHECKOUT_HOST = "checkout_host",
@@ -161,6 +162,14 @@ local GENGHIS_UAS = "Genghis/"
 
 local POS_UAS_RE = "Shopify POS.*"
 
+local PINGDOM_UA = "Pingdom.com_bot_version_"
+local PINGDOM_URIS = {
+  "/",
+  "/services/ping",
+  "/services/ping/shopify",
+}
+local PINGDOM_URIS_RES = shopify_utils.union_regexes(PINGDOM_URIS, "^", "$")
+
 local MED_PRIORITY_RESOURCE_STRINGS = {
   "blogs",
   "pages",
@@ -206,6 +215,24 @@ local function is_genghis_user_agent()
   local http_user_agent = ngx.var.http_user_agent
   if not http_user_agent then return end
   return shopify_utils.startswith(http_user_agent, GENGHIS_UAS)
+end
+
+local function is_pingdom_bot_user_agent()
+  local http_user_agent = ngx.var.http_user_agent
+  if not http_user_agent then return end
+
+  -- We rely on Cloudflare's verified bot heuristic to make sure attackers don't
+  -- abuse the elevated priority of Pingdom's user-agent to DDoS our platform
+  local edge_client_bot = ngx.req.get_headers()["edge_client_bot"]
+  if edge_client_bot ~= "true" then
+    return false
+  end
+
+  if not shopify_utils.startswith(http_user_agent, PINGDOM_UA) then
+    return false
+  end
+
+  return ngx.re.find(ngx.var.uri, PINGDOM_URIS_RES, "ijo")
 end
 
 local function is_storefront_renderer_reverse_verification()
@@ -255,6 +282,9 @@ function _M.get_priority_and_rule()
   end
   if is_genghis_user_agent() then
     return _M.PRIORITIES.LOW, _M.RULES.GENGHIS_UA
+  end
+  if is_pingdom_bot_user_agent() then
+    return _M.PRIORITIES.HIGH, _M.RULES.PINGDOM_BOT_UA
   end
 
   -------------------------------------------

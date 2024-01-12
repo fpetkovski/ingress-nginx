@@ -36,7 +36,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/runtime"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/informers"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -257,7 +256,8 @@ func New(
 	updateCh *channels.RingChannel,
 	disableCatchAll bool,
 	deepInspector bool,
-	icConfig *ingressclass.IngressClassConfiguration) Storer {
+	icConfig *ingressclass.IngressClassConfiguration,
+	disableSyncEvents bool) Storer {
 
 	store := &k8sStore{
 		informers:             &Informer{},
@@ -273,9 +273,11 @@ func New(
 
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(klog.Infof)
-	eventBroadcaster.StartRecordingToSink(&clientcorev1.EventSinkImpl{
-		Interface: client.CoreV1().Events(namespace),
-	})
+	if !disableSyncEvents {
+		eventBroadcaster.StartRecordingToSink(&clientcorev1.EventSinkImpl{
+			Interface: client.CoreV1().Events(namespace),
+		})
+	}
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{
 		Component: "nginx-ingress-controller",
 	})
@@ -708,7 +710,6 @@ func New(
 		},
 	}
 
-	// TODO: add e2e test to verify that changes to one or more configmap trigger an update
 	changeTriggerUpdate := func(name string) bool {
 		return name == configmap || name == tcp || name == udp
 	}
@@ -1179,7 +1180,7 @@ func (s *k8sStore) Run(stopCh chan struct{}) {
 var runtimeScheme = k8sruntime.NewScheme()
 
 func init() {
-	utilruntime.Must(networkingv1.AddToScheme(runtimeScheme))
+	runtime.Must(networkingv1.AddToScheme(runtimeScheme))
 }
 
 func toIngress(obj interface{}) (*networkingv1.Ingress, bool) {
