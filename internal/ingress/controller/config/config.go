@@ -934,6 +934,10 @@ type Configuration struct {
 	// headers that will be added to the nginx.request span as attributes.
 	PluginOpenTelemetryCapturedRequestHeaders string `json:"plugin-opentelemetry-captured-request-headers"`
 
+	// PluginOpenTelemetryCapturedResponseHeaders is a comma-separated string containing case-insensitive
+	// headers that will be added to the nginx.request span as attributes.
+	PluginOpenTelemetryCapturedResponseHeaders string `json:"plugin-opentelemetry-captured-response-headers"`
+
 	// PluginOpenTelemetryEnvironment denotes the environment in which nginx is
 	// running (e.g. "production").
 	PluginOpenTelemetryEnvironment string `json:"plugin-opentelemetry-environment"`

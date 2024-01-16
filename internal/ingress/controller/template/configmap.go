@@ -83,6 +83,7 @@ const (
 	otelShopifyVerbositySamplerPercentage = "plugin-opentelemetry-shopify-verbosity-sampler-percentage"
 	otelService                           = "plugin-opentelemetry-service"
 	otelCapturedRequestHeaders            = "plugin-opentelemetry-captured-request-headers"
+	otelCapturedResponseHeaders           = "plugin-opentelemetry-captured-response-headers"
 	otelRecordP                           = "plugin-opentelemetry-record-p"
 )
 

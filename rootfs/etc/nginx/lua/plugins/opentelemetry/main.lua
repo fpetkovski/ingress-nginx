@@ -375,6 +375,7 @@ function _M.init_worker(config)
   _M.plugin_open_telemetry_set_traceresponse                    = config.plugin_open_telemetry_set_traceresponse
   _M.plugin_open_telemetry_strip_traceresponse                  = config.plugin_open_telemetry_strip_traceresponse
   _M.plugin_open_telemetry_captured_request_headers             = shopify_utils.parse_http_header_list(config.plugin_open_telemetry_captured_request_headers)
+  _M.plugin_open_telemetry_captured_response_headers            = shopify_utils.parse_http_header_list(config.plugin_open_telemetry_captured_response_headers)
   _M.plugin_open_telemetry_record_p                             = config.plugin_open_telemetry_record_p
 
   local tracer_samplers = {
@@ -568,10 +569,10 @@ function _M.log()
       ngx_ctx.opentelemetry.request_span_ctx.sp:set_status(span_status.ERROR)
     end
 
-    -- add header attributes, if configured
-    local headers = ngx.req.get_headers()
+    -- add request header attributes, if configured
+    local req_headers = ngx.req.get_headers()
     for lowercased_attr, underscored_attr in pairs(_M.plugin_open_telemetry_captured_request_headers) do
-      local header_value = headers[lowercased_attr]
+      local header_value = req_headers[lowercased_attr]
 
       -- If multiple values for the same header are present, openresty puts them into a table; in this situation
       -- we concatenate and join with a semicolon. See https://openresty-reference.readthedocs.io/en/latest/Lua_Nginx_API/#ngxreqget_headers.
@@ -585,6 +586,27 @@ function _M.log()
         table.insert(attributes, attr.string("http.request.header." .. underscored_attr, truncated_value))
       end
     end
+
+    -- add response header attributes, if configured
+    if _M.plugin_open_telemetry_captured_response_headers then
+      local resp_headers = ngx.resp.get_headers()
+      for lowercased_attr, underscored_attr in pairs(_M.plugin_open_telemetry_captured_response_headers) do
+        local header_value = resp_headers[lowercased_attr]
+
+        -- If multiple values for the same header are present, openresty puts them into a table; in this situation
+        -- we concatenate and join with a semicolon. See https://openresty-reference.readthedocs.io/en/latest/Lua_Nginx_API/#ngxreqget_headers.
+        if type(header_value) == "table" then
+          header_value = table.concat(header_value, ";")
+        end
+
+        if header_value then
+          -- upstream doesn't have attr limits, so we do here; see https://github.com/yangxikun/opentelemetry-lua/issues/73
+          local truncated_value = string.sub(header_value, 0, 128)
+          table.insert(attributes, attr.string("http.response.header." .. underscored_attr, truncated_value))
+        end
+      end
+    end
+
     ngx_ctx.opentelemetry.request_span_ctx.sp:set_attributes(unpack(attributes))
     ngx_ctx.opentelemetry.request_span_ctx.sp:finish(ngx_ctx.opentelemetry_span_end_time)
   end

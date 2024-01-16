@@ -200,6 +200,7 @@ func TestMergeConfigMapToStruct(t *testing.T) {
 		"plugin-opentelemetry-bsp-max-export-batch-size":            "1000",
 		"plugin-opentelemetry-bsp-export-timeout":                   "10000",
 		"plugin-opentelemetry-captured-request-headers":             "",
+		"plugin-opentelemetry-captured-response-headers":            "",
 		"plugin-opentelemetry-exporter-otlp-headers":                "Hi=Everybody;",
 		"plugin-opentelemetry-bsp-inactive-timeout":                 "1",
 		"plugin-opentelemetry-drop-on-queue-full":                   "true",
