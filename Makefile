@@ -128,6 +128,12 @@ clean: ## Remove .gocache directory.
 static-check: ## Run verification script for boilerplate, codegen, gofmt, golint, lualint and chart-lint.
 	hack/verify-all.sh -v
 
+.PHONY: golint-check
+golint-check:
+	@build/run-in-docker.sh \
+	    MAC_OS=$(MAC_OS) \
+		hack/verify-golint.sh
+
 ###############################
 # Tests for ingress-nginx
 ###############################

@@ -97,7 +97,7 @@ func getEndpointsFromSlices(s *corev1.Service, port *corev1.ServicePort, proto c
 				if !reflect.DeepEqual(*epPort.Protocol, proto) {
 					continue
 				}
-				var targetPort int32 = 0
+				var targetPort int32
 				if port.Name == "" {
 					// port.Name is optional if there is only one port
 					targetPort = *epPort.Port
