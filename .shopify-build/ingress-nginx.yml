@@ -12,6 +12,7 @@ steps:
   - make static-check
   env:
     GOMODCACHE: /go/src/${PKG}/.modcache
+    SHOPIFY_BUILD_MEMORY_LIMIT: 10g
 
 - label: Lua Unit Test
   timeout: 5m
