@@ -902,6 +902,9 @@ func New(
 	if _, err := store.informers.Service.AddEventHandler(serviceHandler); err != nil {
 		klog.Errorf("Error adding service event handler: %v", err)
 	}
+	if _, err := store.informers.Node.AddEventHandler(nodeHandler); err != nil {
+		klog.Errorf("Error adding node event handler: %v", err)
+	}
 
 	// do not wait for informers to read the configmap configuration
 	ns, name, err := k8s.ParseNameNS(configmap)

@@ -24,20 +24,50 @@ import (
 	"k8s.io/ingress-nginx/internal/ingress/resolver"
 )
 
+const (
+	useNodePortAnnotation = "use-node-port"
+)
+
+var useNodePortAnnotations = parser.Annotation{
+	Group: "backend",
+	Annotations: parser.AnnotationFields{
+		useNodePortAnnotation: {
+			Validator:     parser.ValidateBool,
+			Scope:         parser.AnnotationScopeLocation,
+			Risk:          parser.AnnotationRiskLow,
+			Documentation: `This annotation enables using node port of a service in the backend`,
+		},
+	},
+}
+
 type useNodePort struct {
-	r resolver.Resolver
+	r                resolver.Resolver
+	annotationConfig parser.Annotation
 }
 
 // NewParser creates a new useNodePort annotation parser
 func NewParser(r resolver.Resolver) parser.IngressAnnotation {
-	return useNodePort{r}
+	return useNodePort{
+		r:                r,
+		annotationConfig: useNodePortAnnotations,
+	}
 }
 
-func (useNodePort) Parse(ing *networking.Ingress) (interface{}, error) {
-	val, err := parser.GetBoolAnnotation("use-node-port", ing)
+func (a useNodePort) Parse(ing *networking.Ingress) (interface{}, error) {
+	val, err := parser.GetBoolAnnotation(useNodePortAnnotation, ing, a.annotationConfig.Annotations)
+
 	if err == errors.ErrMissingAnnotations {
 		return false, nil
 	}
 
 	return val, nil
+}
+
+func (a useNodePort) GetDocumentation() parser.AnnotationFields {
+	return a.annotationConfig.Annotations
+}
+
+func (a useNodePort) Validate(anns map[string]string) error {
+	maxrisk := parser.StringRiskToRisk(a.r.GetSecurityConfiguration().AnnotationsRiskLevel)
+	return parser.CheckAnnotationRisk(anns, maxrisk, useNodePortAnnotations.Annotations)
 }
