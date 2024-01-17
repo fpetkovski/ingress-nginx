@@ -433,7 +433,7 @@ func buildPluginConfigForLua(input interface{}) string {
 	cfgVals := reflect.ValueOf(all)
 	cfgTypes := reflect.Indirect(cfgVals)
 
-	var pairs = make([]string, 0)
+	pairs := make([]string, 0)
 	for i := 0; i < cfgVals.NumField(); i++ {
 		fieldName := cfgTypes.Type().Field(i).Name
 

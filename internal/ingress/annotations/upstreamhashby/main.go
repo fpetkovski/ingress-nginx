@@ -130,7 +130,8 @@ func (a upstreamhashby) Parse(ing *networking.Ingress) (interface{}, error) {
 		upstreamHashBySubset,
 		upstreamHashbySubsetSize,
 		upstreamHashByBalanceFactor,
-		UpstreamHashByEnableSeedByHost}, nil
+		UpstreamHashByEnableSeedByHost,
+	}, nil
 }
 
 func (a upstreamhashby) GetDocumentation() parser.AnnotationFields {

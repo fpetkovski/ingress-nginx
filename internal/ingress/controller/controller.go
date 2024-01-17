@@ -1218,7 +1218,6 @@ func (n *NGINXController) serviceEndpoints(svcKey, backendPort string, useNodePo
 		if strconv.Itoa(int(servicePort.Port)) == backendPort ||
 			servicePort.TargetPort.String() == backendPort ||
 			servicePort.Name == backendPort {
-
 			endps := getEndpointsFromSlices(svc, &servicePort, apiv1.ProtocolTCP, zone, useNodePort, n.store.GetServiceEndpointsSlices, n.store.GetNode)
 			if len(endps) == 0 {
 				klog.Warningf("Service %q does not have any active Endpoint.", svcKey)

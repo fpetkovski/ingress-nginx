@@ -125,7 +125,7 @@ func (fakeIngressStore) GetDefaultBackend() defaults.Backend {
 	return defaults.Backend{}
 }
 
-func (fakeIngressStore) GetNode(key string) (*corev1.Node, error) {
+func (fakeIngressStore) GetNode(string) (*corev1.Node, error) {
 	return nil, fmt.Errorf("test error")
 }
 

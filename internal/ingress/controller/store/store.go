@@ -868,8 +868,14 @@ func New(
 			}
 		},
 		UpdateFunc: func(old, cur interface{}) {
-			oldNode := old.(*corev1.Node)
-			curNode := cur.(*corev1.Node)
+			oldNode, ok := old.(*corev1.Node)
+			if !ok {
+				klog.Errorf("unexpected type: %T", old)
+			}
+			curNode, ok := cur.(*corev1.Node)
+			if !ok {
+				klog.Errorf("unexpected type: %T", cur)
+			}
 
 			if reflect.DeepEqual(oldNode, curNode) {
 				return

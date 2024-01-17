@@ -67,7 +67,7 @@ const (
 	luaSharedDictsKey                     = "lua-shared-dicts"
 	plugins                               = "plugins"
 	debugConnections                      = "debug-connections"
-	otelBypassedUpstreams                 = "plugin-opentelemetry-bypassed-upstreams"
+	otelBypassedUpstreams                 = "plugin-opentelemetry-bypassed-upstreams" // #nosec G101
 	otelFirehoseUpstreams                 = "plugin-opentelemetry-firehose-upstreams"
 	otelSetTraceresponse                  = "plugin-opentelemetry-set-traceresponse"
 	otelStripTraceresponse                = "plugin-opentelemetry-strip-traceresponse"
