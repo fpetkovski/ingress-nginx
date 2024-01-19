@@ -6,10 +6,15 @@ local statsd = require("plugins.statsd.main")
 local shopify_utils = require("plugins.load_shedder.shopify_utils")
 local util = require("util")
 
+local magellan = require("plugins.magellan.main")
+magellan.register("key_accounts")
+
 local SFR_REVERSE_VERIFICATION_REQUEST = "X-Sfr-Reverse-Verification-Request"
 
 local CHECKOUT_DOMAIN = "checkout.shopify.com"
 local SHOP_APP_DOMAIN = "shop.app"
+local SORTING_HAT_SHOP_ID_HEADER = "X-Sorting-Hat-ShopId"
+
 
 local _M = {
   PRIORITIES = {
@@ -33,6 +38,7 @@ local _M = {
     SFR_VERIFICATION = "sfr_verification",
     OVERRIDDEN = "overridden",
     UNKNOWN = "unknown",
+    KEY_ACCOUNT = "key_account",
   },
 
   SECTIONS = {
@@ -192,6 +198,13 @@ local LOW_PRIORITY_URIS_RES = {
 }
 local LOW_PRIORITY_URIS_RE = shopify_utils.union_regexes(LOW_PRIORITY_URIS_RES, "^", "$")
 
+local KEY_ACCOUNT_URIS = {
+  "/admin/api",
+  "/admin",
+  "/api",
+}
+local KEY_ACCOUNT_URIS_RES = shopify_utils.union_regexes(KEY_ACCOUNT_URIS, "^", "/.*")
+
 local function is_checkout_host(host)
   return host == CHECKOUT_DOMAIN or host == SHOP_APP_DOMAIN
 end
@@ -247,6 +260,12 @@ local function is_low_priority_uri()
   return ngx.re.find(ngx.var.uri, LOW_PRIORITY_URIS_RE, "ijo")
 end
 
+local function is_key_account_request()
+  local shop_id = shopify_utils.get_request_header(SORTING_HAT_SHOP_ID_HEADER)
+  if not shop_id or not ngx.shared["key_accounts"]:get(shop_id) then return false end
+  return ngx.re.find(ngx.var.uri, KEY_ACCOUNT_URIS_RES, "ijo")
+end
+
 local function infer_priority_from_uri(dict)
   local uri_path = shopify_utils.normalize_uri_path(ngx.var.uri)
   for _,config in ipairs(dict) do
@@ -297,6 +316,10 @@ function _M.get_priority_and_rule()
   -- TODO: add test
   if is_checkout_host(util.get_hostname()) then
     return _M.PRIORITIES.UNSHEDDABLE, _M.RULES.CHECKOUT_HOST
+  end
+
+  if is_key_account_request() then
+    return _M.PRIORITIES.HIGH, _M.RULES.KEY_ACCOUNT
   end
 
   if is_medium_priority_uri() then

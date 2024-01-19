@@ -3,6 +3,9 @@ require("helpers.init")
 
 local busted = require('busted')
 local assert = require('luassert')
+local json = require("cjson")
+
+local load_shedder = require("plugins.load_shedder.main")
 local request = require("plugins.load_shedder.request_priority")
 
 local now
@@ -25,6 +28,17 @@ local function assert_get_matches(correct_priority, correct_rule)
   )
   assert.are.equal(request_priority, correct_priority, msg)
   assert.are.equal(request_rule, correct_rule, msg)
+end
+
+local function set_key_account(key, config)
+  if type(config) == "table" then
+    local ok, config = pcall(json.encode, config)
+    if not ok then
+      assert(false)
+    end
+  end
+
+  ngx.shared["key_accounts"]:set(key, config)
 end
 
 local function setup()
@@ -394,4 +408,19 @@ describe("plugins.load_shedder.request_priority", function()
     end
   end)
 
+  it("key_accounts_high_priority", function()
+    tests = { -- intentional to require trailing '/' ?
+      "/admin/api/",
+      "/admin/",
+      "/api/",
+    }
+
+    for _, uri in ipairs(tests) do
+      setup()
+      set_key_account("321", { ["name"] = "foobar" })
+      ngx.var.uri = uri
+      ngx.req.set_header(load_shedder.SORTING_HAT_SHOP_ID_HEADER, "321")
+      assert_get_matches(request.PRIORITIES.HIGH, request.RULES.KEY_ACCOUNT)
+    end
+  end)
 end)
