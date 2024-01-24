@@ -76,7 +76,10 @@ func TestAnnotationWhenTrue(t *testing.T) {
 	data[parser.GetAnnotationWithPrefix("use-node-port")] = "true"
 	ing.SetAnnotations(data)
 
-	i, _ := NewParser(&resolver.Mock{}).Parse(ing)
+	i, err := NewParser(&resolver.Mock{}).Parse(ing)
+	if err != nil {
+		t.Errorf("expected no error but returned %v", err)
+	}
 	useNodePort, ok := i.(bool)
 	if !ok {
 		t.Errorf("expected a Config type")
@@ -93,7 +96,10 @@ func TestAnnotationWhenFalse(t *testing.T) {
 	data[parser.GetAnnotationWithPrefix("use-node-port")] = "false"
 	ing.SetAnnotations(data)
 
-	i, _ := NewParser(&resolver.Mock{}).Parse(ing)
+	i, err := NewParser(&resolver.Mock{}).Parse(ing)
+	if err != nil {
+		t.Errorf("expected no error but returned %v", err)
+	}
 	useNodePort, ok := i.(bool)
 	if !ok {
 		t.Errorf("expected a Config type")

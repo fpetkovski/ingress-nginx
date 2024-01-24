@@ -33,12 +33,13 @@ You can add these Kubernetes annotations to specific Ingress objects to customiz
 |[nginx.ingress.kubernetes.io/auth-cache-key](#external-authentication)|string|
 |[nginx.ingress.kubernetes.io/auth-cache-duration](#external-authentication)|string|
 |[nginx.ingress.kubernetes.io/auth-keepalive](#external-authentication)|number|
+|[nginx.ingress.kubernetes.io/auth-keepalive-share-vars](#external-authentication)|"true" or "false"|
 |[nginx.ingress.kubernetes.io/auth-keepalive-requests](#external-authentication)|number|
 |[nginx.ingress.kubernetes.io/auth-keepalive-timeout](#external-authentication)|number|
 |[nginx.ingress.kubernetes.io/auth-proxy-set-headers](#external-authentication)|string|
 |[nginx.ingress.kubernetes.io/auth-snippet](#external-authentication)|string|
 |[nginx.ingress.kubernetes.io/enable-global-auth](#external-authentication)|"true" or "false"|
-|[nginx.ingress.kubernetes.io/backend-protocol](#backend-protocol)|string|HTTP,HTTPS,GRPC,GRPCS,AJP|
+|[nginx.ingress.kubernetes.io/backend-protocol](#backend-protocol)|string|HTTP,HTTPS,GRPC,GRPCS|
 |[nginx.ingress.kubernetes.io/canary](#canary)|"true" or "false"|
 |[nginx.ingress.kubernetes.io/canary-by-header](#canary)|string|
 |[nginx.ingress.kubernetes.io/canary-by-header-value](#canary)|string|
@@ -315,7 +316,7 @@ nginx.ingress.kubernetes.io/configuration-snippet: |
   more_set_headers "Request-Id: $req_id";
 ```
 
-Be aware this can be dangerous in multi-tenant clusters, as it can lead to people with otherwise limited permissions being able to retrieve all secrets on the cluster. The recommended mitigation for this threat is to disable this feature, so it may not work for you. See CVE-2021-25742 and the [related issue on github](https://github.com/kubernetes/ingress-nginx/issues/7837) for more information.
+Since version 1.9.0 this annotation is disabled by default and has to be explicitly enabled, see [allow-snippet-annotations](./configmap.md#allow-snippet-annotations). Enabling it can be dangerous in multi-tenant clusters, as it can lead to people with otherwise limited permissions being able to retrieve all secrets on the cluster. See CVE-2021-25742 and the [related issue on github](https://github.com/kubernetes/ingress-nginx/issues/7837) for more information.
 
 ### Custom HTTP Errors
 
@@ -467,6 +468,9 @@ Additionally it is possible to set:
 > Note: does not work with HTTP/2 listener because of a limitation in Lua [subrequests](https://github.com/openresty/lua-nginx-module#spdy-mode-not-fully-supported).
 > [UseHTTP2](./configmap.md#use-http2) configuration should be disabled!
 
+* `nginx.ingress.kubernetes.io/auth-keepalive-share-vars`:
+  Whether to share Nginx variables among the current request and the auth request. Example use case is to track requests: when set to "true" X-Request-ID HTTP header will be the same for the backend and the auth request.
+  Defaults to "false".
 * `nginx.ingress.kubernetes.io/auth-keepalive-requests`:
   `<Requests>` to specify the maximum number of requests that can be served through one keepalive connection.
   Defaults to `1000` and only applied if `auth-keepalive` is set to higher than `0`.
@@ -894,7 +898,7 @@ Include /etc/nginx/owasp-modsecurity-crs/nginx-modsecurity.conf
 ### Backend Protocol
 
 Using `backend-protocol` annotations is possible to indicate how NGINX should communicate with the backend service. (Replaces `secure-backends` in older versions)
-Valid Values: HTTP, HTTPS, GRPC, GRPCS, AJP and FCGI
+Valid Values: HTTP, HTTPS, GRPC, GRPCS and FCGI
 
 By default NGINX uses `HTTP`.
 
