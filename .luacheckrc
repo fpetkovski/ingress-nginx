@@ -7,5 +7,5 @@ files["rootfs/etc/nginx/lua/lua_ingress.lua"] = {
   --read_globals = {"math.randomseed"},
 }
 files["rootfs/etc/nginx/lua/plugins/opentelemetry/*.lua"] = {
-  ignore = { "631" },
+  ignore = { "631", "212" },
 }

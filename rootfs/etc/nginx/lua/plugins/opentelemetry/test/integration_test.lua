@@ -28,10 +28,13 @@ local function make_propagation_headers(span, sampled, tracestate)
         sampled = "0"
     end
     local header_value =  span:context().trace_id .. "/" .. shopify_utils.hex_to_decimal_string(span:context().span_id) .. ";o=" .. sampled
+    local traceparent_value = "00-" .. span:context().trace_id .. "-" .. span:context().span_id .. "-" .. string.format("%02d", tonumber(sampled))
 
     return {
         ["x-shopify-trace-context"] = header_value,
         ["x-cloud-trace-context"] = header_value,
+        ["x-shopify-trace-hint"] = "true",
+        ["traceparent"] = traceparent_value,
         ["tracestate"] = tracestate or "",
     }
 end
@@ -329,5 +332,70 @@ describe("sending traceresponse", function()
         local config = test_utils.make_config({  plugin_open_telemetry_set_traceresponse = false })
         local result = simulate_request(config, {}, nil)
         assert.are.same(result.resp_headers_added, {})
+    end)
+end)
+
+describe("composite_propagator", function()
+    it("creates a new root span", function()
+        -- test with propagation_headers = {} ?
+    end)
+
+    it("propagates from legacy headers", function()
+        local trace_id = "11111111d5838de2663cac10341d8945"
+        local new_span_context = span_context.new(trace_id, "30e2bb20d2ad42b9", nil, nil, false)
+        local span = recording_span.new(nil, nil, new_span_context, "test_span", {})
+        local header_value =  span:context().trace_id .. "/" .. shopify_utils.hex_to_decimal_string(span:context().span_id) .. ";o=1"
+        local propagation_headers = {
+            ["x-shopify-trace-context"] = header_value,
+            ["x-cloud-trace-context"] = header_value,
+            ["tracestate"] = tracestate or "",
+        }
+        local result = simulate_request(nil, propagation_headers, nil)
+        assert.are_same(1, #result.finished_spans)
+        assert.are_same(trace_id, result.request_span:context().trace_id)
+        assert.are_not_same(span:context().span_id, result.request_span:context().span_id)
+        assert.are_same(span:context().span_id, result.request_span.parent_ctx.span_id)
+        -- the result should have legacy, traceparent and hint added
+        assert.are_same(make_propagation_headers(result.request_span, "sampled"), result.req_headers_added)
+    end)
+
+    it("extracts from traceparent header", function()
+        local trace_id = "11111111d5838de2663cac10341d8945"
+        local new_span_context = span_context.new(trace_id, "30e2bb20d2ad42b9", nil, nil, false)
+        local span = recording_span.new(nil, nil, new_span_context, "test_span", {})
+        local header_value =  "00-" .. span:context().trace_id .. "-" .. span:context().span_id .. "-01"
+        local propagation_headers = {
+            ["traceparent"] = header_value,
+            ["tracestate"] = tracestate or "",
+        }
+        local result = simulate_request(nil, propagation_headers, nil)
+        assert.are_same(1, #result.finished_spans)
+        assert.are_same(trace_id, result.request_span:context().trace_id)
+        assert.are_not_same(span:context().span_id, result.request_span:context().span_id)
+        assert.are_same(span:context().span_id, result.request_span.parent_ctx.span_id)
+        -- the result should have legacy, traceparent and hint added
+        assert.are_same(make_propagation_headers(result.request_span, "sampled"), result.req_headers_added)
+    end)
+
+    it("extracts from legacy header in priority", function()
+        local trace_id = "11111111d5838de2663cac10341d8945"
+        local stale_trace_id = "0123456789abcdef0123456789abcdef"
+        local new_span_context = span_context.new(trace_id, "30e2bb20d2ad42b9", nil, nil, false)
+        local span = recording_span.new(nil, nil, new_span_context, "test_span", {})
+        local header_value =  span:context().trace_id .. "/" .. shopify_utils.hex_to_decimal_string(span:context().span_id) .. ";o=1"
+        local stale_header_value =  "00-" .. stale_trace_id .. "-" .. span:context().span_id .. "-01"
+        local propagation_headers = {
+            ["x-shopify-trace-context"] = header_value,
+            ["x-cloud-trace-context"] = header_value,
+            ["traceparent"] = stale_header_value,
+            ["tracestate"] = tracestate or "",
+        }
+        local result = simulate_request(nil, propagation_headers, nil)
+        assert.are_same(1, #result.finished_spans)
+        assert.are_same(trace_id, result.request_span:context().trace_id)
+        assert.are_not_same(span:context().span_id, result.request_span:context().span_id)
+        assert.are_same(span:context().span_id, result.request_span.parent_ctx.span_id)
+        -- the result should have legacy, traceparent and hint added
+        assert.are_same(make_propagation_headers(result.request_span, "sampled"), result.req_headers_added)
     end)
 end)

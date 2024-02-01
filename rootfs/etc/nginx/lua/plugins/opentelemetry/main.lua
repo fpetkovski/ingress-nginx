@@ -27,10 +27,12 @@ local otel_utils = require("opentelemetry.util")
 local otel_global = require("opentelemetry.global")
 local metrics_reporter = require("plugins.opentelemetry.metrics_reporter")
 otel_global.set_metrics_reporter(metrics_reporter)
-local trace_context_propagator = require("plugins.opentelemetry.shopify_propagator").new()
+local shopify_trace_propagator = require("plugins.opentelemetry.shopify_propagator").new()
+local shopify_hint_propagator = require("plugins.opentelemetry.trace_hint_propagator").new()
+local trace_context_propagator = require("opentelemetry.trace.propagation.text_map.trace_context_propagator").new()
 local composite_propagator = require(
   "opentelemetry.trace.propagation.text_map.composite_propagator"
-).new({ trace_context_propagator })
+).new({ trace_context_propagator, shopify_trace_propagator, shopify_hint_propagator })
 local traceresponse_propagator = require("plugins.opentelemetry.traceresponse_propagator").new()
 local exporter_client_new = require("opentelemetry.trace.exporter.http_client").new
 local otlp_exporter_new = require("opentelemetry.trace.exporter.otlp").new

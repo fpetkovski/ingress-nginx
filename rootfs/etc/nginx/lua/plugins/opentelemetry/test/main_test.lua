@@ -5,6 +5,7 @@ local recording_span = require("opentelemetry.trace.recording_span")
 local result         = require("opentelemetry.trace.sampling.result")
 local span_context   = require("opentelemetry.trace.span_context")
 local span_kind      = require("opentelemetry.trace.span_kind")
+local tracestate     = require("opentelemetry.trace.tracestate")
 local test_utils     = require("plugins.opentelemetry.test.utils")
 local utils          = require("plugins.opentelemetry.shopify_utils")
 
