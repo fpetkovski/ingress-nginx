@@ -13,7 +13,7 @@ local type     = type
 local unpack   = unpack
 local os       = os
 
-local OPENTELEMETRY_PLUGIN_VERSION = "0.2.2"
+local OPENTELEMETRY_PLUGIN_VERSION = "0.2.4"
 local BYPASSED = "BYPASSED"
 local DEFERRED_SAMPLING = "DEFERRED_SAMPLING"
 local VERBOSITY_SAMPLING = "VERBOSITY_SAMPLING"
@@ -565,7 +565,7 @@ function _M.log()
     end
 
     if status >= 500 then
-      ngx_ctx.opentelemetry.request_span_ctx.sp:set_status(span_status.error)
+      ngx_ctx.opentelemetry.request_span_ctx.sp:set_status(span_status.ERROR)
     end
 
     -- add header attributes, if configured
