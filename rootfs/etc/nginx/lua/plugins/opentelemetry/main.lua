@@ -558,6 +558,9 @@ function _M.log()
       attr.int("http.status_code", status)
     }
 
+    if ngx_var.upstream_connect_time then
+      table.insert(attributes, attr.string("nginx.upstream_connect_time", ngx_var.upstream_connect_time))
+    end
     if parsed_upstream.addr then
       table.insert(attributes, attr.string("net.sock.peer.addr", parsed_upstream.addr))
     end
