@@ -555,7 +555,8 @@ function _M.log()
       attr.string("net.peer.name", ngx_var.proxy_host),
       attr.string("net.host.name", ngx_var.server_name),
       attr.int("net.host.port", tonumber(ngx_var.server_port)),
-      attr.int("http.status_code", status)
+      attr.int("http.status_code", status),
+      attr.string("nginx.plugin_mode", _M.plugin_mode(ngx_var.proxy_upstream_name)),
     }
 
     if ngx_var.upstream_connect_time then
