@@ -407,6 +407,7 @@ function _M.init_worker(config)
 end
 
 function _M.rewrite()
+  ngx.ctx.opentelemetry_inbound_tracestate = ngx.req.get_headers()["tracestate"]
   local plugin_mode = _M.plugin_mode(ngx.var.proxy_upstream_name)
   metrics_reporter:add_to_counter(
     "otel.nginx.request",
@@ -568,7 +569,9 @@ function _M.log()
     if parsed_upstream.port then
       table.insert(attributes, attr.int("net.peer.port", parsed_upstream.port))
     end
-
+    if ngx_ctx.opentelemetry_inbound_tracestate then
+      table.insert(attributes, attr.string("nginx.inbound_tracestate", ngx_ctx.opentelemetry_inbound_tracestate))
+    end
     if status >= 500 then
       ngx_ctx.opentelemetry.request_span_ctx.sp:set_status(span_status.ERROR)
     end
