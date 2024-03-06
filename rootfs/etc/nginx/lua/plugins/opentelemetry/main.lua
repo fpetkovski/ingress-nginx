@@ -572,6 +572,10 @@ function _M.log()
     if ngx_ctx.opentelemetry_inbound_tracestate then
       table.insert(attributes, attr.string("nginx.inbound_tracestate", ngx_ctx.opentelemetry_inbound_tracestate))
     end
+    if ngx_ctx.opentelemetry_tracesampling_p then
+      table.insert(attributes, attr.string("http.response.header.x_shopify_tracesampling_p", ngx_ctx.opentelemetry_tracesampling_p))
+    end
+
     if status >= 500 then
       ngx_ctx.opentelemetry.request_span_ctx.sp:set_status(span_status.ERROR)
     end
