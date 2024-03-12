@@ -38,3 +38,6 @@ commands:
   static-check:
     desc: 'Run static checks'
     run: build/run-in-docker.sh make static-check
+  server:
+    desc: 'start nginx server'
+    run: podman-compose -f shopify-localdev/podman-compose.yml up

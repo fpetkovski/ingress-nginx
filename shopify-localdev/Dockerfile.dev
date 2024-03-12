@@ -1,0 +1,16 @@
+FROM gcr.io/shopify-docker-images/apps/ci/nginx-e2e-test-runner:de0bb82696c95dee7c9f7fe32b30ce91c13d4734
+# You can also build your own test runnner if you want
+
+
+RUN apk add sudo vim
+RUN luarocks install luabenchmark
+
+RUN ln -sf /dev/stdout /var/log/nginx/access.log \
+    && ln -sf /dev/stderr /var/log/nginx/error.log
+
+RUN set -o vi
+
+EXPOSE 443
+WORKDIR /etc/nginx/lua
+
+CMD ["nginx"]

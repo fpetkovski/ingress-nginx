@@ -1,0 +1,24 @@
+services:
+  nginx-dev:
+    volumes:
+      - ../rootfs/etc/nginx/lua:/etc/nginx/lua:ro
+      - ./nginx.conf.dev:/etc/nginx/nginx.conf
+      # - ../../../yangxikun/opentelemetry-lua/lib/opentelemetry:/usr/local/share/lua/5.1/opentelemetry # use this to mount local copy of  opentelemetry-lua to your container
+    build:
+      context: "../images/nginx/rootfs"
+      # We could supply a relative path here with enough docs-diving
+      dockerfile: "/Users/$USER/src/github.com/Shopify/ingress-nginx/shopify-localdev/Dockerfile.dev"
+    ports:
+      - 1024:80
+    depends_on:
+      - backing-service
+    command:
+      - "nginx"
+      # - "cd /usr/local/share/lua/5.1/opentelemetry && luarocks make rockspec/opentelemetry-lua-master-0.rockspec && nginx" # use this to update with changes to opentelemetry-lua
+    environment:
+      - STATSD_HOST=datadog
+      - STATSD_PORT=8125
+  backing-service:
+    image: "mendhak/http-https-echo:25"
+    ports:
+      - 8080:8080

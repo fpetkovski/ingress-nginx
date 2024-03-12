@@ -1,0 +1,270 @@
+pid /tmp/nginx.pid;
+error_log  /var/log/nginx/error.log info;
+daemon off;
+
+worker_rlimit_nofile 8192;
+
+ events {
+      #  worker_connections 20000;
+}
+
+http {
+  # log_format compression '';
+  log_format localdev 'shopify_trace_context: "$http_x_shopify_trace_context"';
+  access_log /var/log/nginx/error.log localdev;
+  lua_package_path "/etc/nginx/lua/?.lua;;";
+
+  lua_shared_dict balancer_ewma 10M;
+  lua_shared_dict balancer_ewma_last_touched_at 10M;
+  lua_shared_dict balancer_ewma_locks 1M;
+  lua_shared_dict certificate_data 20M;
+  lua_shared_dict certificate_servers 5M;
+  lua_shared_dict configuration_data 20M;
+  lua_shared_dict global_throttle_cache 10M;
+  lua_shared_dict ocsp_response_cache 5M;
+
+  init_by_lua_block {
+    collectgarbage("collect")
+
+    -- init modules
+    local ok, res
+
+    ok, res = pcall(require, "lua_ingress")
+    if not ok then
+    error("require failed: " .. tostring(res))
+    else
+    lua_ingress = res
+    lua_ingress.set_config({
+            use_forwarded_headers = false,
+            use_proxy_protocol = false,
+            is_ssl_passthrough_enabled = false,
+            http_redirect_code = 308,
+            listen_ports = { ssl_proxy = "442", https = "443" },
+
+            hsts = false,
+
+            global_throttle = {
+                    memcached = {
+                            host = "", port = 11211, connect_timeout = 50, max_idle_timeout = 10000, pool_size = 50,
+                    },
+                    status_code = 429,
+            }
+    })
+    end
+
+    ok, res = pcall(require, "configuration")
+    if not ok then
+    error("require failed: " .. tostring(res))
+    else
+    configuration = res
+    configuration.prohibited_localhost_port = '10246'
+    end
+
+    ok, res = pcall(require, "balancer")
+    if not ok then
+    error("require failed: " .. tostring(res))
+    else
+    balancer = res
+    end
+
+    ok, res = pcall(require, "monitor")
+    if not ok then
+    error("require failed: " .. tostring(res))
+    else
+    monitor = res
+    end
+
+    ok, res = pcall(require, "certificate")
+    if not ok then
+    error("require failed: " .. tostring(res))
+    else
+    certificate = res
+    certificate.is_ocsp_stapling_enabled = false
+    end
+
+    ok, res = pcall(require, "plugins")
+    if not ok then
+    error("require failed: " .. tostring(res))
+    else
+    plugins = res
+    end
+    -- load all plugins that'll be used here
+   plugins.init({ "opentelemetry" })
+   -- plugins.init({ })
+  }
+
+  init_worker_by_lua_block {
+          lua_ingress.init_worker()
+          balancer.init_worker()
+
+          monitor.init_worker(10000)
+
+          plugins.run({
+                plugin_open_telemetry_bsp_batch_timeout = 3,
+                plugin_open_telemetry_bsp_drop_on_queue_full = true,
+                plugin_open_telemetry_bsp_inactive_timeout = 2,
+                plugin_open_telemetry_bsp_max_export_batch_size = 512,
+                plugin_open_telemetry_bsp_max_queue_size = 2048,
+                plugin_open_telemetry_enabled = true,
+                plugin_open_telemetry_environment = "production",
+                plugin_open_telemetry_exporter_otlp_endpoint = "10.89.0.23:4318",
+                plugin_open_telemetry_exporter_otlp_headers = "hi=mom;",
+                plugin_open_telemetry_exporter_timeout = 5,
+                plugin_open_telemetry_service = "nginx",
+                plugin_open_telemetry_bypassed_upstreams = "",
+                plugin_opentelemetry_firehose_upstreams = "all",
+                plugin_open_telemetry_deferred_sampling_upstreams = "",
+                plugin_open_telemetry_record_p = false,
+                plugin_open_telemetry_shopify_verbosity_sampler_percentage = "1.0",
+                plugin_open_telemetry_set_traceresponse = false,
+                plugin_open_telemetry_strip_traceresponse = false,
+                plugin_open_telemetry_captured_request_headers = "",
+                plugin_open_telemetry_captured_response_headers = "",
+                plugin_open_telemetry_add_cloudflare_span = true
+          })
+  }
+
+  server { # simple reverse-proxy
+    # resolver 127.0.0.11 ipv6=off;
+    # resolver 10.89.0.1 ipv6=off;
+    resolver 10.89.3.1 ipv6=off;
+    listen       80;
+    access_log /var/log/nginx/error.log localdev;
+
+    location / {
+      set $namespace      "default";
+      set $ingress_name   "example-ingress";
+      set $service_name   "foo-service";
+      set $service_port   "80";
+      set $location_path  "/";
+      set $global_rate_limit_exceeding n;
+
+      set_by_lua_block $redirect_to {
+
+      }
+      rewrite_by_lua_block {
+              lua_ingress.rewrite({
+                     force_ssl_redirect = false,
+                     ssl_redirect = true,
+                     force_no_ssl_redirect = false,
+                     preserve_trailing_slash = false,
+                     use_port_in_redirects = false,
+                     global_throttle = { namespace = "", limit = 0, window_size = 0, key = { }, ignored_cidrs = { } },
+              })
+              -- avoid using balancer.rewrite because we are not using lua balancing in dev
+              -- balancer.rewrite()
+              plugins.run({
+                plugin_open_telemetry_bsp_exporter_timeout = 5000,
+                plugin_open_telemetry_bsp_max_export_batch_size = 3,
+                plugin_open_telemetry_bsp_max_queue_size = 6,
+                plugin_open_telemetry_drop_on_queue_full = true,
+                plugin_open_telemetry_exporter_otlp_endpoint = "otel-collector:4318",
+                plugin_open_telemetry_exporter_otlp_headers = "",
+                plugin_open_telemetry_inactive_timeout = 1,
+                plugin_open_telemetry_shopify_verbosity_sampler_percentage = 0
+          })
+      }
+
+      # be careful with `access_by_lua_block` and `satisfy any` directives as satisfy any
+      # will always succeed when there's `access_by_lua_block` that does not have any lua code doing `ngx.exit(ngx.DECLINED)`
+      # other authentication method such as basic auth or external auth useless - all requests will be allowed.
+      #access_by_lua_block {
+      #}
+
+      header_filter_by_lua_block {
+              lua_ingress.header()
+                        plugins.run({
+                plugin_open_telemetry_exporter_timeout = 5000,
+                plugin_open_telemetry_bsp_max_export_batch_size = 3,
+                plugin_open_telemetry_bsp_max_queue_size = 6,
+                plugin_open_telemetry_drop_on_queue_full = true,
+                plugin_open_telemetry_exporter_otlp_endpoint = "otel-collector:4318",
+                plugin_open_telemetry_exporter_otlp_headers = "",
+                plugin_open_telemetry_inactive_timeout = 1,
+                plugin_open_telemetry_shopify_verbosity_sampler_percentage = 0
+          })
+      }
+
+      body_filter_by_lua_block {
+                        plugins.run({
+                plugin_open_telemetry_bsp_exporter_timeout = 5000,
+                plugin_open_telemetry_bsp_max_export_batch_size = 3,
+                plugin_open_telemetry_bsp_max_queue_size = 6,
+                plugin_open_telemetry_drop_on_queue_full = true,
+                plugin_open_telemetry_exporter_otlp_endpoint = "otel-collector:4318",
+                plugin_open_telemetry_exporter_otlp_headers = "",
+                plugin_open_telemetry_inactive_timeout = 1,
+                plugin_open_telemetry_shopify_verbosity_sampler_percentage = 0
+          })
+      }
+
+      log_by_lua_block {
+              balancer.log()
+
+              monitor.call()
+
+                        plugins.run({
+                plugin_open_telemetry_bsp_exporter_timeout = 5000,
+                plugin_open_telemetry_bsp_max_export_batch_size = 3,
+                plugin_open_telemetry_bsp_max_queue_size = 6,
+                plugin_open_telemetry_drop_on_queue_full = true,
+                plugin_open_telemetry_exporter_otlp_endpoint = "otel-collector:4318",
+                plugin_open_telemetry_exporter_otlp_headers = "",
+                plugin_open_telemetry_inactive_timeout = 1,
+                plugin_open_telemetry_shopify_verbosity_sampler_percentage = 0
+          })
+        }
+
+      port_in_redirect off;
+
+      set $balancer_ewma_score -1;
+      set $proxy_upstream_name "default-traceresponse-service-80";
+      set $proxy_host          $proxy_upstream_name;
+      set $pass_access_scheme  $scheme;
+
+      set $pass_server_port    $server_port;
+
+      set $best_http_host      $http_host;
+      set $pass_port           $pass_server_port;
+
+      set $proxy_alternative_upstream_name "";
+
+      client_max_body_size                    1m;
+
+      proxy_set_header Host                   $best_http_host;
+
+      # Pass the original X-Forwarded-For
+      proxy_set_header X-Original-Forwarded-For $http_x_forwarded_for;
+
+      # mitigate HTTPoxy Vulnerability
+      # https://www.nginx.com/blog/mitigating-the-httpoxy-vulnerability-with-nginx/
+      proxy_set_header Proxy                  "";
+
+      # Custom headers to proxied server
+
+      proxy_connect_timeout                   1s;
+      proxy_send_timeout                      60s;
+      proxy_read_timeout                      60s;
+
+      proxy_buffering                         off;
+      proxy_buffer_size                       4k;
+      proxy_buffers                           4 4k;
+
+      proxy_max_temp_file_size                1024m;
+
+      proxy_request_buffering                 on;
+      proxy_http_version                      1.1;
+
+      proxy_cookie_domain                     off;
+      proxy_cookie_path                       off;
+
+      # In case of errors try the next upstream server before returning an error
+      proxy_next_upstream                     error timeout;
+      proxy_next_upstream_timeout             0;
+      proxy_next_upstream_tries               3;
+
+      proxy_redirect                          off;
+      proxy_pass                              http://backing-service:8080/;
+    }
+  }
+}
