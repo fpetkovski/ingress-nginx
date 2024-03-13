@@ -54,7 +54,8 @@ local _M = {}
 -- so that env vars are available to the Lua VM. If you were to run this code from a foo_by_lua block in an NGINX
 -- configuration file, os.getenv would not return the env vars on the pod, since NGINX strips most env vars.
 local env_attrs = { POD_NAMESPACE = "k8s.namespace.name", POD_NAME = "k8s.pod.name",
-                    NODE_NAME = "k8s.node.name", KUBE_LOCATION = "cloud.region", KUBE_CLUSTER = "k8s.cluster.name"}
+                    NODE_NAME = "k8s.node.name", KUBE_LOCATION = "cloud.region", KUBE_CLUSTER = "k8s.cluster.name",
+                    REVISION = "service.version" }
 local parsed_env_attrs = {}
 local function get_env_attrs()
   for env_var, attr_name in pairs(env_attrs) do

@@ -538,7 +538,7 @@ describe("init_worker", function()
         os.getenv = function(str)
             local hash = { POD_NAMESPACE = "my-namespace", POD_NAME = "abc123",
                            NODE_NAME = "my-cool-node", KUBE_LOCATION = "us-north-northwest-1",
-                           KUBE_CLUSTER = "my-cool-cluster" }
+                           KUBE_CLUSTER = "my-cool-cluster", REVISION = "abc123" }
             return hash[str]
         end
         local main = require("plugins.opentelemetry.main")
@@ -547,7 +547,7 @@ describe("init_worker", function()
 
         local env_attrs = { POD_NAMESPACE = "k8s.namespace.name", POD_NAME = "k8s.pod.name",
                             NODE_NAME = "k8s.node.name", KUBE_LOCATION = "cloud.region",
-                            KUBE_CLUSTER = "k8s.cluster.name" }
+                            KUBE_CLUSTER = "k8s.cluster.name", REVISION = "service.version" }
         for _, attr in pairs(env_attrs) do
             local present = false
             for _i, r_attr in ipairs(main.tracer("DEFERRED_SAMPLING").provider.resource.attrs) do
