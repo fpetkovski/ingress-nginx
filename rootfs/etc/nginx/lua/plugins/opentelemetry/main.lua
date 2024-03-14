@@ -419,6 +419,7 @@ function _M.rewrite()
       plugin_mode)
   )
   if plugin_mode == BYPASSED then
+    metrics_reporter:add_to_counter("otel.nginx.phase_skip", 1, { phase = "rewrite", reason = "bypassed" })
     ngx.log(ngx.INFO, "skipping rewrite")
     return
   end
@@ -477,6 +478,7 @@ function _M.header_filter()
     end
 
     ngx.log(ngx.INFO, "skipping header filter")
+    metrics_reporter:add_to_counter("otel.nginx.phase_skip", 1, { phase = "header_filter", reason = "bypassed" })
     return
   end
 
@@ -484,6 +486,7 @@ function _M.header_filter()
   local ngx_ctx = ngx.ctx
 
   if not ngx_ctx["opentelemetry"] then
+    metrics_reporter:add_to_counter("otel.nginx.phase_skip", 1, { phase = "header_filter", reason = "missing_otel_ctx" })
     ngx.log(ngx.INFO,
       "Bailing from header_filter(). ngx_ctx['opentelemetry'] is nil.")
     return
@@ -520,6 +523,7 @@ end
 
 function _M.log()
   if _M.plugin_mode(ngx.var.proxy_upstream_name) == BYPASSED then
+    metrics_reporter:add_to_counter("otel.nginx.phase_skip", 1, { phase = "log", reason = "bypassed" })
     ngx.log(ngx.INFO, "skipping log")
     return
   end
@@ -529,6 +533,7 @@ function _M.log()
 
   local ngx_ctx = ngx.ctx
   if not ngx_ctx["opentelemetry"] then
+    metrics_reporter:add_to_counter("otel.nginx.phase_skip", 1, { phase = "log", reason = "missing_otel_ctx" })
     return
   end
   local ngx_var = ngx.var
