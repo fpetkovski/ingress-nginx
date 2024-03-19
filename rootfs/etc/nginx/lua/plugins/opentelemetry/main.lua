@@ -13,7 +13,7 @@ local type     = type
 local unpack   = unpack
 local os       = os
 
-local OPENTELEMETRY_PLUGIN_VERSION = "0.2.4"
+local OPENTELEMETRY_PLUGIN_VERSION = "0.2.5"
 local BYPASSED = "BYPASSED"
 local DEFERRED_SAMPLING = "DEFERRED_SAMPLING"
 local VERBOSITY_SAMPLING = "VERBOSITY_SAMPLING"

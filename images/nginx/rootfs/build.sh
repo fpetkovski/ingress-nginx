@@ -98,9 +98,9 @@ export LUA_RESTY_GLOBAL_THROTTLE_VERSION=0.2.0
 # Check for recent changes: https://github.com/starwing/lua-protobuf/compare/0.3.4...master
 export LUA_PROTOBUF_VERSION=0.3.4
 
-# Check for recent changes: https://github.com/yangxikun/opentelemetry-lua/compare/0.2.4...master
+# Check for recent changes: https://github.com/yangxikun/opentelemetry-lua/compare/0.2.5...master
 # Update tags in plugins/opentelemetry/statsd.lua when updating this.
-export LUA_OPENTELEMETRY_VERSION=0.2.4
+export LUA_OPENTELEMETRY_VERSION=0.2.5
 
 # Check for recent changes:  https://github.com/microsoft/mimalloc/compare/v1.7.6...master
 export MIMALOC_VERSION=1.7.6
@@ -275,7 +275,7 @@ get_src 0fb790e394510e73fdba1492e576aaec0b8ee9ef08e3e821ce253a07719cf7ea \
 get_src cb27d08c888aca5ff8ab4c72fd9ccdd85dbe0d69b2850a6e0e9751ed9de613f3 \
     "https://github.com/starwing/lua-protobuf/archive/refs/tags/$LUA_PROTOBUF_VERSION.tar.gz"
 
-get_src b9df613fe526ab72d9fe814d68a0d09b4a64f248f4a3bb50c727a33c50bad141 \
+get_src a9666fcf72d80a89d5ce6d1b2b30d2283bc5e4964e26281141461445d2794f9a \
     "https://github.com/yangxikun/opentelemetry-lua/archive/refs/tags/v$LUA_OPENTELEMETRY_VERSION.tar.gz"
 
 get_src d74f86ada2329016068bc5a243268f1f555edd620b6a7d6ce89295e7d6cf18da \

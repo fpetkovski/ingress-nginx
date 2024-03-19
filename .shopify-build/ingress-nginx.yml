@@ -2,7 +2,7 @@
 
 containers:
   default:
-    docker: gcr.io/shopify-docker-images/apps/ci/nginx-e2e-test-runner:255af3890486d99e9c1c52394f7fbeeb95083249
+    docker: gcr.io/shopify-docker-images/apps/ci/nginx-e2e-test-runner:8fac7a523c8864407c9ca945ee7aa549f23506a4
     workdir: /go/src/k8s.io/ingress-nginx
 
 steps:

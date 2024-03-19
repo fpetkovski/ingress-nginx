@@ -7,7 +7,7 @@ local pairs = pairs
 
 local _M = { statsd = statsd }
 local default_labels = {
-    ["telemetry.sdk.version"] = '0.2.4',
+    ["telemetry.sdk.version"] = '0.2.5',
     ["telemetry.sdk.language"] = 'lua'
 }
 --------------------------------------------------------------------------------
