@@ -206,4 +206,30 @@ function _M.parse_region(unparsed_string)
   return string.gsub(unparsed_string, "gcp%-", "")
 end
 
+--------------------------------------------------------------------------------
+-- Returns cloudflare start timestamp from  timing header as an int, if present
+--
+-- @param raw x_shopify_request_timing header
+-- @return (nil | int)
+--------------------------------------------------------------------------------
+function _M.cloudflare_start_from_timing_header(unparsed_string)
+  unparsed_string = unparsed_string or ""
+  local seconds = string.match(unparsed_string, "cf;t=([%d%.]+),")
+  if seconds then
+    local seconds_num = tonumber(seconds)
+
+    -- 4854029796 is unix timestamp for 2123.
+    -- If this breaks something in 2123, dance a jig on my grave.
+    -- This is a sanity check to ensure that we don't create a span that starts in the distant future.
+    if not seconds_num or seconds_num > 4854029796 then
+      return nil
+    end
+
+    -- header comes in as seconds since epoch, we want nanoseconds since epoch for opentelemetry-lua
+    return seconds_num * 1000000000
+  else
+    return nil
+  end
+end
+
 return _M

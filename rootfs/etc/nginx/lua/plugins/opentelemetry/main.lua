@@ -134,18 +134,29 @@ end
 --
 -- @param sampler_name The sampler to use in the provider.
 -- @param sbp A span buffering processor to use.
+-- @param is_cf A bool to indicate if this is a phony cf tracer_provider
 --
 -- @return The tracer provider.
 --------------------------------------------------------------------------------
-function _M.create_tracer_provider(sampler, sbp)
-  local resource_attrs = {
-    attr.string("host.name", get_hostname()),
-    attr.string("service.name", _M.plugin_open_telemetry_service),
-    attr.string("deployment.environment", _M.plugin_open_telemetry_environment),
-    attr.string("cloud.provider", "gcp")
-  }
-  for k, v in pairs(parsed_env_attrs) do
-    table.insert(resource_attrs, attr.string(k, v))
+function _M.create_tracer_provider(sampler, sbp, is_cf)
+  local resource_attrs
+  if is_cf then
+    resource_attrs = {
+      attr.string("service.name", "cloudflare-cdn"),
+      attr.string("deployment.environment", _M.plugin_open_telemetry_environment),
+      attr.string("cloud.provider", "cloudflare"),
+      attr.string("phony", "true")
+    }
+  else
+    resource_attrs = {
+      attr.string("host.name", get_hostname()),
+      attr.string("service.name", _M.plugin_open_telemetry_service),
+      attr.string("deployment.environment", _M.plugin_open_telemetry_environment),
+      attr.string("cloud.provider", "gcp")
+    }
+    for k, v in pairs(parsed_env_attrs) do
+      table.insert(resource_attrs, attr.string(k, v))
+    end
   end
 
   -- Create tracer provider
@@ -287,6 +298,29 @@ function _M.tracer(plugin_mode)
 end
 
 --------------------------------------------------------------------------------
+-- Function to return a cloudflare tracer stored on _M.
+-- It's the same thing as the above but for the cf tracer
+--
+-- @param plugin_mode The mode the plugin is running in.
+-- @return tracer instance.
+--------------------------------------------------------------------------------
+function _M.cf_tracer(plugin_mode)
+  if ngx.ctx.cloudflare_tracer then
+    return ngx.ctx.cloudflare_tracer
+  end
+
+  if plugin_mode == nil then
+    error("plugin mode not set, cannot get tracer")
+  elseif plugin_mode == DEFERRED_SAMPLING then
+    ngx.ctx.cloudflare_tracer = _M.CFDeferredSamplerTracer
+  elseif plugin_mode == VERBOSITY_SAMPLING then
+    ngx.ctx.cloudflare_tracer = _M.CFVerbositySamplerTracer
+  end
+
+  return ngx.ctx.cloudflare_tracer
+end
+
+--------------------------------------------------------------------------------
 -- Decide whether or not we should force sample spans. The logic also holds for
 -- whether or not we should return a traceresponse header to the requester. The
 -- logic is also spelled out here:
@@ -378,6 +412,7 @@ function _M.init_worker(config)
   _M.plugin_open_telemetry_captured_request_headers             = shopify_utils.parse_http_header_list(config.plugin_open_telemetry_captured_request_headers)
   _M.plugin_open_telemetry_captured_response_headers            = shopify_utils.parse_http_header_list(config.plugin_open_telemetry_captured_response_headers)
   _M.plugin_open_telemetry_record_p                             = config.plugin_open_telemetry_record_p
+  _M.plugin_open_telemetry_add_cloudflare_span                  = config.plugin_open_telemetry_add_cloudflare_span
 
   local tracer_samplers = {
     VerbositySamplerTracer = verbosity_sampler.new(_M.plugin_open_telemetry_shopify_verbosity_sampler_percentage),
@@ -397,10 +432,14 @@ function _M.init_worker(config)
   for t, s in pairs(tracer_samplers) do
     -- We can reuse the buffering span processor because each request only has one sampling mode
     -- and hence, only uses one tracer.
-    local tp = _M.create_tracer_provider(s, span_buffering_processor)
+    local tp = _M.create_tracer_provider(s, span_buffering_processor, false)
+    local cf_tp = _M.create_tracer_provider(s, span_buffering_processor, true)
     local tracer = tp:tracer("ingress_nginx.plugins.opentelemetry",
       { version = OPENTELEMETRY_PLUGIN_VERSION, schema_url = "" })
+    local cf_tracer = cf_tp:tracer("ingress_nginx.plugins.opentelemetry",
+      { version = OPENTELEMETRY_PLUGIN_VERSION, schema_url = "" })
     _M[t] = tracer
+    _M["CF" .. t] = cf_tracer
   end
 
   ngx.log(ngx.INFO, "OpenTelemetry ingress-nginx plugin enabled.")
@@ -427,9 +466,18 @@ function _M.rewrite()
 
   local rewrite_start = otel_utils.gettimeofday_ms()
 
-  -- Extract trace context from the headers of downstream HTTP request
   local upstream_context = composite_propagator:extract(new_context(), ngx.req)
-  local request_span_ctx = tracer:start(upstream_context, "nginx.request", {
+  local cf_span_context = nil
+
+  if _M.should_create_cloudflare_span(ngx.req.get_headers()["x-shopify-request-timing"]) then
+    local cf_tracer = _M.cf_tracer(plugin_mode)
+    cf_span_context = cf_tracer:start(upstream_context, "cloudflare.proxy", {
+      kind = span_kind.server
+    })
+  end
+
+  -- Extract trace context from the headers of downstream HTTP request
+  local request_span_ctx = tracer:start(cf_span_context or upstream_context, "nginx.request", {
     kind = span_kind.server,
   })
 
@@ -441,6 +489,7 @@ function _M.rewrite()
     initial_sampling_decision = request_span_ctx:span_context():is_sampled() and result.record_and_sample or
         result.record_only,
     request_span_ctx          = request_span_ctx,
+    cf_span_ctx               = cf_span_context,
   }
 
   local rewrite_end = otel_utils.gettimeofday_ms()
@@ -468,6 +517,15 @@ end
 local function should_strip_traceresponse()
   return _M.plugin_open_telemetry_strip_traceresponse and
     ngx.var.arg_debug_headers == nil
+end
+
+function _M.should_create_cloudflare_span(timing_header)
+  if not _M.plugin_open_telemetry_add_cloudflare_span then
+    return false
+  end
+
+  ngx.ctx.opentelemetry_cf_span_start = shopify_utils.cloudflare_start_from_timing_header(timing_header)
+  return ngx.ctx.opentelemetry_cf_span_start ~= nil
 end
 
 function _M.header_filter()
@@ -537,6 +595,7 @@ function _M.log()
     return
   end
   local ngx_var = ngx.var
+  local cf_attributes = {}
 
   -- close request span if present
   -- See https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/trace/semantic_conventions/http.md#status
@@ -601,6 +660,10 @@ function _M.log()
         -- upstream doesn't have attr limits, so we do here; see https://github.com/yangxikun/opentelemetry-lua/issues/73
         local truncated_value = string.sub(header_value, 0, 128)
         table.insert(attributes, attr.string("http.request.header." .. underscored_attr, truncated_value))
+        -- add the attr to the phony cf span if it starts with edge_ or cf_
+        if underscored_attr:sub(1, #"edge_") == "edge_" or underscored_attr:sub(1, #"cf_") == "cf_" then
+          table.insert(cf_attributes, attr.string(underscored_attr, truncated_value))
+        end
       end
     end
 
@@ -626,6 +689,13 @@ function _M.log()
 
     ngx_ctx.opentelemetry.request_span_ctx.sp:set_attributes(unpack(attributes))
     ngx_ctx.opentelemetry.request_span_ctx.sp:finish(ngx_ctx.opentelemetry_span_end_time)
+  end
+
+  if _M.should_create_cloudflare_span(ngx.req.get_headers()["x-shopify-request-timing"]) then
+    ngx_ctx.opentelemetry.cf_span_ctx.sp:set_attributes(unpack(cf_attributes))
+    -- We can do this timestamping more cleanly when we address https://github.com/yangxikun/opentelemetry-lua/issues/86
+    ngx_ctx.opentelemetry.cf_span_ctx.sp.start_time = ngx_ctx.opentelemetry_cf_span_start
+    ngx_ctx.opentelemetry.cf_span_ctx.sp:finish(ngx_ctx.opentelemetry_span_end_time)
   end
 
   -- Handle deferred sampling

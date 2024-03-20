@@ -251,6 +251,7 @@ The following table shows a configuration option's name, type, and the default v
 |[plugin-opentelemetry-strip-traceresponse](#plugin-opentelemetry-strip-traceresponse)|boolean|false||
 |[plugin-opentelemetry-set-traceresponse](#plugin-opentelemetry-set-traceresponse)|boolean|false||
 |[plugin-opentelemetry-captured-request-headers](#plugin-opentelemetry-captured-request-headers)|string|""||
+|[plugin-opentelemetry-add-cloudflare-span](#plugin-opentelemetry-add-cloudflare-span)|bool|false
 
 ## add-headers
 
@@ -1529,3 +1530,7 @@ Comma-separated list of http headers that, if present, will be added to nginx.re
 ### plugin-opentelemetry-record-p
 
 Boolean indicating whether or not to record `p` in tracestate when doing deferred sampling.
+
+### plugin-opentelemetry-add-cloudflare-span
+
+Indicates whether or not the plugin should create a span representing cloudflare's portion of the request using the x-shopify-request-timing header.
