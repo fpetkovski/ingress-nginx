@@ -145,7 +145,7 @@ function _M.create_tracer_provider(sampler, sbp, is_cf)
       attr.string("service.name", "cloudflare-cdn"),
       attr.string("deployment.environment", _M.plugin_open_telemetry_environment),
       attr.string("cloud.provider", "cloudflare"),
-      attr.string("phony", "true")
+      attr.bool("phony", true)
     }
   else
     resource_attrs = {
