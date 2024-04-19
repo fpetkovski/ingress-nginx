@@ -38,6 +38,7 @@ SHDICT_ARGS=(
     "--shdict" "balancer_ewma_locks 512k"
     "--shdict" "global_throttle_cache 5M"
     "--shdict" "balancer_least_requests 1M"
+    "--shdict" "chashboundedloads_requests 1M"
     "./rootfs/etc/nginx/lua/test/run.lua"
 )
 

@@ -32,6 +32,7 @@ local ngx = ngx
 local DEBUG_PARAM_NAME = "debug_headers"
 local DEFAULT_HASH_BALANCE_FACTOR = 2
 local HOST_SEED = util.get_host_seed()
+local REQUESTS_BY_ENDPOINT_SHARED_DICT = "chashboundedloads_requests"
 
 -- Controls how many "tenants" we'll keep track of
 -- to avoid routing them to alternative_backends
@@ -45,25 +46,18 @@ local SEEN_LRU_SIZE = 1000
 local _M = {}
 
 local function incr_req_stats(self, endpoint)
-  if not self.requests_by_endpoint[endpoint] then
-    self.requests_by_endpoint[endpoint] = 1
-  else
-    self.requests_by_endpoint[endpoint] = self.requests_by_endpoint[endpoint] + 1
-  end
-  self.total_requests = self.total_requests + 1
+  self.requests_by_endpoint:incr(endpoint, 1, 0)
+  self.requests_by_endpoint:incr("total_requests", 1, 0)
 end
 
 local function decr_req_stats(self, endpoint)
-  if not self.requests_by_endpoint[endpoint] then
+  if not self.requests_by_endpoint:get(endpoint) then
     ngx_log(ngx_ERR,
       "ASSERT FAILED: self.requests_by_endpoint is null for endpoint=", tostring(endpoint))
   else
-    self.requests_by_endpoint[endpoint] = self.requests_by_endpoint[endpoint] - 1
-    if self.requests_by_endpoint[endpoint] == 0 then
-      self.requests_by_endpoint[endpoint] = nil
-    end
+    self.requests_by_endpoint:incr(endpoint, -1, 1)
   end
-  self.total_requests = self.total_requests - 1
+  self.requests_by_endpoint:incr("total_requests", -1, 1)
 end
 
 local function get_hash_by_value(self)
@@ -79,19 +73,19 @@ local function get_hash_by_value(self)
 end
 
 local function endpoint_eligible(self, endpoint)
-  if self.total_requests < 0 then
+  local total_requests = self.requests_by_endpoint:get("total_requests") or 0
+  if total_requests < 0 then
     -- this is an extra sanity check for the rollout and it will be gone by final iteration
     ngx_log(ngx_ERR,
-      "ASSERT FAILED: self.requests_by_endpoint is expected to never be < 0",
-      self.total_requests,
+      "ASSERT FAILED: self.requests_by_endpoint.total_requests is expected to never be < 0",
       dump_table(self.requests_by_endpoint))
-    self.total_requests = 0
+      self.requests_by_endpoint:set("total_requests", 0)
   end
 
   -- (num_requests * hash-balance-factor / num_servers)
   local allowed = math_ceil(
-    (self.total_requests + 1) * self.balance_factor / self.total_endpoints)
-  local current = self.requests_by_endpoint[endpoint]
+    (total_requests + 1) * self.balance_factor / self.total_endpoints)
+  local current = self.requests_by_endpoint:get(endpoint)
   if current == nil then
     return true, 0, allowed
   else
@@ -210,16 +204,19 @@ function _M.new(self, backend)
     ngx_log(ngx_ERR, "could not parse the value of the upstream-hash-by: ", err)
   end
 
+  -- ensure shared dictionary exists before we use it
+  if not ngx.shared[REQUESTS_BY_ENDPOINT_SHARED_DICT] then
+    ngx_log(ngx_ERR, "shared dict: " .. REQUESTS_BY_ENDPOINT_SHARED_DICT .. " was not found")
+  end
+  ngx.shared[REQUESTS_BY_ENDPOINT_SHARED_DICT]:set("total_requests", 0)
+
   local o = {
     name = "chashboundedloads",
-
     chash = resty_chash:new(nodes),
     roundrobin = resty_roundrobin:new(nodes),
     alternative_backends = backend.alternativeBackends,
     hash_by = complex_val,
-
-    requests_by_endpoint = {},
-    total_requests = 0,
+    requests_by_endpoint = ngx.shared[REQUESTS_BY_ENDPOINT_SHARED_DICT],
     seen_hash_by_values = lrucache.new(SEEN_LRU_SIZE)
   }
 
@@ -275,7 +272,8 @@ function _M.balance(self)
   if endpoint then
     ngx.var.chashbl_debug = string_format(
       "attempt=%d score=%d allowed=%d total_requests=%d hash_by_value=%s",
-      attempt, current, allowed, self.total_requests, hash_by_value)
+      attempt, current, allowed, self.requests_by_endpoint:get("total_requests") or 0,
+      hash_by_value)
   else
     ngx.var.chashbl_debug = "fallback_consistent_endpoint"
     endpoint = consistent_endpoint
