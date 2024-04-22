@@ -56,7 +56,7 @@ var MaxmindRetriesTimeout = time.Second * 0
 const minimumRetriesCount = 1
 
 const (
-	geoIPPath   = "/etc/ingress-controller/geoip"
+	geoIPPath   = "/etc/nginx/geoip"
 	dbExtension = ".mmdb"
 
 	maxmindURL = "https://download.maxmind.com/app/geoip_download?license_key=%v&edition_id=%v&suffix=tar.gz"

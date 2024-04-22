@@ -49,6 +49,7 @@ import (
 
 const (
 	slash                   = "/"
+	equals                  = " = "
 	nonIdempotent           = "non_idempotent"
 	defBufferSize           = 65535
 	writeIndentOnEmptyLines = true // backward-compatibility
@@ -441,12 +442,12 @@ func buildPluginConfigForLua(input interface{}) string {
 
 			if _, ok := cfgVals.Field(i).Interface().(string); ok {
 				if cfgVals.Field(i).Interface() == "" {
-					pairs = append(pairs, luaTableField+" = "+"\"\"")
+					pairs = append(pairs, luaTableField+equals+"\"\"")
 				} else {
-					pairs = append(pairs, luaTableField+" = "+quote(cfgVals.Field(i).Interface()))
+					pairs = append(pairs, luaTableField+equals+quote(cfgVals.Field(i).Interface()))
 				}
 			} else {
-				pairs = append(pairs, luaTableField+" = "+fmt.Sprintf("%v", cfgVals.Field(i).Interface()))
+				pairs = append(pairs, luaTableField+equals+fmt.Sprintf("%v", cfgVals.Field(i).Interface()))
 			}
 		}
 	}

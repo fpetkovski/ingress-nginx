@@ -5,7 +5,7 @@ type: go
 up:
   - podman
   - go:
-      version: 1.21.1
+      version: 1.21.5
       modules: true
   - custom:
       name: Create GeoIP directory
@@ -22,7 +22,7 @@ env:
 commands:
   lint:
     desc: 'Run lua tests'
-    run: build/run-in-docker.sh hack/verify-lualint.sh
+    run: build/run-in-docker.sh hack/verify-lualint.sh hack/verify-golint.sh
   test-lua:
     desc: 'Run lua tests'
     run: build/run-in-docker.sh make lua-test

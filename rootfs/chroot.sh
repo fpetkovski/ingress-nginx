@@ -21,8 +21,6 @@ writeDirs=( \
   /chroot/etc/ingress-controller \
   /chroot/etc/ingress-controller/ssl \
   /chroot/etc/ingress-controller/auth \
-  /chroot/etc/ingress-controller/telemetry \
-  /chroot/etc/ingress-controller/geoip \
   /chroot/opt/modsecurity/var/log \
   /chroot/opt/modsecurity/var/upload \
   /chroot/opt/modsecurity/var/audit \

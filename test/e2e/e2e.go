@@ -53,7 +53,6 @@ import (
 	// _ "k8s.io/ingress-nginx/test/e2e/annotations/modsecurity"
 	// _ "k8s.io/ingress-nginx/test/e2e/annotations/influxdb"
 	// _ "k8s.io/ingress-nginx/test/e2e/settings/modsecurity"
-	// _ "k8s.io/ingress-nginx/test/e2e/settings/opentracing"
 )
 
 // RunE2ETests checks configuration parameters (specified through flags) and then runs
