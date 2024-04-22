@@ -69,7 +69,6 @@ image: clean-image ## Build image for a particular arch.
 	docker build \
 		${PLATFORM_FLAG} ${PLATFORM} \
 		--no-cache \
-		--pull \
 		--build-arg BASE_IMAGE="$(BASE_IMAGE)" \
 		--build-arg VERSION="$(TAG)" \
 		--build-arg TARGETARCH="$(ARCH)" \
@@ -87,7 +86,6 @@ image-chroot: clean-chroot-image ## Build image for a particular arch.
 	echo "Building docker image ($(ARCH))..."
 	docker build \
 		--no-cache \
-		--pull \
 		--build-arg BASE_IMAGE="$(BASE_IMAGE)" \
 		--build-arg VERSION="$(TAG)" \
 		--build-arg TARGETARCH="$(ARCH)" \
@@ -269,5 +267,5 @@ release: ensure-buildx clean
 
 .PHONY: build-docs
 build-docs:
-	pip install -U mkdocs-material==6.2.4 mkdocs-awesome-pages-plugin mkdocs-minify-plugin mkdocs-redirects
+	pip install -r docs/requirements.txt
 	mkdocs build --config-file mkdocs.yml

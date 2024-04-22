@@ -17,8 +17,10 @@ limitations under the License.
 package annotations
 
 import (
-	"github.com/imdario/mergo"
+	"dario.cat/mergo"
+
 	"k8s.io/ingress-nginx/internal/ingress/annotations/canary"
+	"k8s.io/ingress-nginx/internal/ingress/annotations/disableproxyintercepterrors"
 	"k8s.io/ingress-nginx/internal/ingress/annotations/modsecurity"
 	"k8s.io/ingress-nginx/internal/ingress/annotations/opentelemetry"
 	"k8s.io/ingress-nginx/internal/ingress/annotations/proxyssl"
@@ -50,7 +52,6 @@ import (
 	"k8s.io/ingress-nginx/internal/ingress/annotations/loadbalancing"
 	"k8s.io/ingress-nginx/internal/ingress/annotations/log"
 	"k8s.io/ingress-nginx/internal/ingress/annotations/mirror"
-	"k8s.io/ingress-nginx/internal/ingress/annotations/opentracing"
 	"k8s.io/ingress-nginx/internal/ingress/annotations/parser"
 	"k8s.io/ingress-nginx/internal/ingress/annotations/portinredirect"
 	"k8s.io/ingress-nginx/internal/ingress/annotations/proxy"
@@ -86,6 +87,7 @@ type Ingress struct {
 	Connection           connection.Config
 	CorsConfig           cors.Config
 	CustomHTTPErrors     []int
+	DisableProxyInterceptErrors bool
 	DefaultBackend       *apiv1.Service
 	FastCGI              fastcgi.Config
 	Denied               *string
@@ -138,6 +140,7 @@ func NewAnnotationExtractor(cfg resolver.Resolver) Extractor {
 			"Connection":           connection.NewParser(cfg),
 			"CorsConfig":           cors.NewParser(cfg),
 			"CustomHTTPErrors":     customhttperrors.NewParser(cfg),
+			"DisableProxyInterceptErrors": disableproxyintercepterrors.NewParser(cfg),
 			"DefaultBackend":       defaultbackend.NewParser(cfg),
 			"FastCGI":              fastcgi.NewParser(cfg),
 			"ExternalAuth":         authreq.NewParser(cfg),
