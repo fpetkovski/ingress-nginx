@@ -18,6 +18,8 @@ services:
     environment:
       - STATSD_HOST=datadog
       - STATSD_PORT=8125
+      - KUBE_LOCATION=foobar
+      - POD_NAMESPACE=fizzbuzz
   backing-service:
     image: "mendhak/http-https-echo:25"
     ports:
