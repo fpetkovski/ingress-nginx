@@ -245,7 +245,7 @@ end
 --------------------------------------------------------------------------------
 function _M.request_start_from_timing_header(unparsed_string)
   unparsed_string = unparsed_string or ""
-  local seconds = string.match(unparsed_string, "t=([%d%.]+)$")
+  local seconds = string.match(unparsed_string, "desc=.*;t=([%d%.]+)$")
   return timing_to_time(seconds)
 end
 
