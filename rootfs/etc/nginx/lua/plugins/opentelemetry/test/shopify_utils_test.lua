@@ -137,8 +137,9 @@ describe("parse_http_header_list", function()
     assert.are.same(utils.parse_http_header_list("PIZZA,PIE"),
       { ["pizza"] = "pizza", ["pie"] = "pie"})
   end)
+end)
 
-  describe("parse timing header", function()
+describe("parse cloudflare timing header", function()
     it("returns nil when timing header is absent", function()
       assert.are.same(utils.cloudflare_start_from_timing_header(nil), nil)
     end)
@@ -174,6 +175,43 @@ describe("parse_http_header_list", function()
     it("returns nil when argument is not a string", function()
       assert.are.same(utils.cloudflare_start_from_timing_header(123), nil)
     end)
-  end)
+end)
+
+  describe("parse request timing header", function()
+    it("returns nil when timing header is absent", function()
+      assert.are.same(utils.request_start_from_timing_header(nil), nil)
+    end)
+
+    it("returns nil when timing header does not have time", function()
+      assert.are.same(utils.request_start_from_timing_header("humbug"), nil)
+    end)
+
+    it("returns nil when timing header does not have request start time", function()
+      assert.are.same(utils.request_start_from_timing_header("cf;t=1697231466.646"), nil)
+    end)
+
+    it("returns timestamp when timing header has request start time", function()
+      assert.are.same(
+        utils.request_start_from_timing_header("cf;t=1697231466.646, global-proxy-cloudflare-production;desc=gcp-asia-east1;t=1697231466.660"),
+        1697231466660000000
+      )
+-- Expected:
+    end)
+
+    it("returns nil when timing header has invalid request start time", function()
+      assert.are.same(
+        utils.request_start_from_timing_header("cf;t=1697231466.646, global-proxy-cloudflare-production;desc=gcp-asia-east1;t=poopydiaper"),
+        nil)
+    end)
+
+    it("returns nil when timing header has very big request start time", function()
+      assert.are.same(
+        utils.request_start_from_timing_header("cf;t=1697231466.646, global-proxy-cloudflare-production;desc=gcp-asia-east1;t=111111111697231466.660"),
+        nil)
+    end)
+
+    it("returns nil when argument is not a string", function()
+      assert.are.same(utils.request_start_from_timing_header(123), nil)
+    end)
 end)
 

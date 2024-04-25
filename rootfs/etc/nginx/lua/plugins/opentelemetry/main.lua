@@ -691,7 +691,17 @@ function _M.log()
     ngx_ctx.opentelemetry.request_span_ctx.sp:finish(ngx_ctx.opentelemetry_span_end_time)
   end
 
-  if _M.should_create_cloudflare_span(ngx.req.get_headers()["x-shopify-request-timing"]) then
+
+
+  local timing_header = ngx.req.get_headers()["x-shopify-request-timing"]
+  if _M.should_create_cloudflare_span(timing_header) then
+    -- If we are creating a CF span, attempt to fix the start time using the request timing header
+    -- Check if we have a request start in the timing header and use for span if there
+    local request_start = shopify_utils.request_start_from_timing_header(timing_header)
+    if request_start and request_start < ngx_ctx.opentelemetry.request_span_ctx.sp.start_time then
+      -- We can do this timestamping more cleanly when we address https://github.com/yangxikun/opentelemetry-lua/issues/86
+      ngx_ctx.opentelemetry.request_span_ctx.sp.start_time = request_start
+    end
     ngx_ctx.opentelemetry.cf_span_ctx.sp:set_attributes(unpack(cf_attributes))
     -- We can do this timestamping more cleanly when we address https://github.com/yangxikun/opentelemetry-lua/issues/86
     ngx_ctx.opentelemetry.cf_span_ctx.sp.start_time = ngx_ctx.opentelemetry_cf_span_start

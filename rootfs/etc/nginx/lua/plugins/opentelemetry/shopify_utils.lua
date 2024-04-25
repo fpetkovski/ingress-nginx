@@ -75,6 +75,25 @@ end
 
 _M.hex_to_decimal_string = hex_to_decimal_string
 
+local function timing_to_time(string_seconds)
+  if string_seconds then
+    local seconds_num = tonumber(string_seconds)
+
+    -- 4854029796 is unix timestamp for 2123.
+    -- If this breaks something in 2123, dance a jig on my grave.
+    -- This is a sanity check to ensure that we don't create a span that starts in the distant future.
+    if not seconds_num or seconds_num > 4854029796 then
+      return nil
+    end
+
+    -- header comes in as seconds since epoch, we want nanoseconds since epoch for opentelemetry-lua
+    return seconds_num * 1000000000
+  else
+    return nil
+  end
+end
+
+
 -- This is following https://github.com/Shopify/shopify-tracing/blob/77e8ff79bd25580336ed92c62b7aa57e2795206b/lib/shopify/tracing/formats/http_format.rb#L15.
 -- The trust model and header prioritization are taken from that implementation.
 function _M.extract()
@@ -215,21 +234,19 @@ end
 function _M.cloudflare_start_from_timing_header(unparsed_string)
   unparsed_string = unparsed_string or ""
   local seconds = string.match(unparsed_string, "cf;t=([%d%.]+),")
-  if seconds then
-    local seconds_num = tonumber(seconds)
+  return timing_to_time(seconds)
+end
 
-    -- 4854029796 is unix timestamp for 2123.
-    -- If this breaks something in 2123, dance a jig on my grave.
-    -- This is a sanity check to ensure that we don't create a span that starts in the distant future.
-    if not seconds_num or seconds_num > 4854029796 then
-      return nil
-    end
-
-    -- header comes in as seconds since epoch, we want nanoseconds since epoch for opentelemetry-lua
-    return seconds_num * 1000000000
-  else
-    return nil
-  end
+--------------------------------------------------------------------------------
+-- Returns request start timestamp from  timing header as an int, if present
+--
+-- @param raw x_shopify_request_timing header
+-- @return (nil | int)
+--------------------------------------------------------------------------------
+function _M.request_start_from_timing_header(unparsed_string)
+  unparsed_string = unparsed_string or ""
+  local seconds = string.match(unparsed_string, "desc=.*;t=([%d%.]+)$")
+  return timing_to_time(seconds)
 end
 
 return _M

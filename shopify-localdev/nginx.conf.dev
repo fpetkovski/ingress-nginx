@@ -89,6 +89,7 @@ http {
     plugins = res
     end
     -- load all plugins that'll be used here
+   plugins.init({ "request_timing_header" })
    plugins.init({ "opentelemetry" })
    -- plugins.init({ })
   }
