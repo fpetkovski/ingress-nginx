@@ -38,6 +38,18 @@ export NGINX_SUBSTITUTIONS=b8a71eacc7f986ba091282ab8b1bbbc6ae1807e0
 # Check for recent changes: https://github.com/msgpack/msgpack-c/compare/cpp-3.3.0...master
 export MSGPACK_VERSION=3.3.0
 
+# Check for recent changes: https://github.com/DataDog/dd-opentracing-cpp/compare/v1.3.7...master
+export DATADOG_CPP_VERSION=1.3.7
+
+# Check for recent changes: https://github.com/SpiderLabs/ModSecurity-nginx/compare/v1.0.3...master
+export MODSECURITY_VERSION=1.0.3
+
+# Check for recent changes: https://github.com/SpiderLabs/ModSecurity/compare/v3.0.11...v3/master
+export MODSECURITY_LIB_VERSION=bbde9381cbccb49ea73f6194b08b478adc53f3bc
+
+# Check for recent changes: https://github.com/coreruleset/coreruleset/compare/v3.3.2...v3.3/master
+export OWASP_MODSECURITY_CRS_VERSION=v3.3.5
+
 # Check for recent changes: https://github.com/openresty/lua-nginx-module/compare/v0.10.25...master
 export LUA_NGX_VERSION=0.10.25
 
@@ -50,8 +62,8 @@ export LUA_UPSTREAM_VERSION=8aa93ead98ba2060d4efd594ae33a35d153589bf
 # Check for recent changes: https://github.com/openresty/lua-cjson/compare/2.1.0.11...openresty:master
 export LUA_CJSON_VERSION=2.1.0.11
 
-# Check for recent changes: https://github.com/leev/ngx_http_geoip2_module/compare/3.3...master
-export GEOIP2_VERSION=a26c6beed77e81553686852dceb6c7fdacc5970d
+# Check for recent changes: https://github.com/leev/ngx_http_geoip2_module/compare/3.4...master
+export GEOIP2_VERSION=a607a41a8115fecfc05b5c283c81532a3d605425
 
 # Check for recent changes: https://github.com/openresty/luajit2/compare/v2.1-20230410...v2.1-agentzh
 export LUAJIT_VERSION=2.1-20230410
@@ -65,8 +77,8 @@ export LUA_RESTY_CACHE=0.13
 # Check for recent changes: https://github.com/openresty/lua-resty-core/compare/v0.1.27...master
 export LUA_RESTY_CORE=0.1.27
 
-# Check for recent changes: https://github.com/cloudflare/lua-resty-cookie/compare/v0.1.0...master
-export LUA_RESTY_COOKIE_VERSION=303e32e512defced053a6484bc0745cf9dc0d39e
+# Check for recent changes: https://github.com/utix/lua-resty-cookie/compare/9533f47...master
+export LUA_RESTY_COOKIE_VERSION=9533f479371663107b515590fc9daf00d61ebf11
 
 # Check for recent changes: https://github.com/openresty/lua-resty-dns/compare/v0.22...master
 export LUA_RESTY_DNS=0.22
@@ -144,7 +156,6 @@ apk add \
   linux-headers \
   libxslt-dev \
   gd-dev \
-  geoip-dev \
   perl-dev \
   libedit-dev \
   mercurial \
@@ -222,7 +233,10 @@ get_src 77bbcbb24c3c78f51560017288f3118d995fe71240aa379f5818ff6b166712ff \
         "https://github.com/openresty/luajit2/archive/v$LUAJIT_VERSION.tar.gz"
 fi
 
-get_src 4c1933434572226942c65b2f2b26c8a536ab76aa771a3c7f6c2629faa764976b \
+get_src 8d39c6b23f941a2d11571daaccc04e69539a3fcbcc50a631837560d5861a7b96 \
+        "https://github.com/DataDog/dd-opentracing-cpp/archive/v$DATADOG_CPP_VERSION.tar.gz"
+
+get_src b6c9c09fd43eb34a71e706ad780b2ead26549a9a9f59280fe558f5b7b980b7c6 \
         "https://github.com/leev/ngx_http_geoip2_module/archive/$GEOIP2_VERSION.tar.gz"
 
 get_src deb4ab1ffb9f3d962c4b4a2c4bdff692b86a209e3835ae71ebdf3b97189e40a9 \
@@ -245,8 +259,8 @@ fi
 get_src a77b9de160d81712f2f442e1de8b78a5a7ef0d08f13430ff619f79235db974d4 \
         "https://github.com/openresty/lua-cjson/archive/$LUA_CJSON_VERSION.tar.gz"
 
-get_src 5ed48c36231e2622b001308622d46a0077525ac2f751e8cc0c9905914254baa4 \
-        "https://github.com/cloudflare/lua-resty-cookie/archive/$LUA_RESTY_COOKIE_VERSION.tar.gz"
+get_src a404c790553617424d743b82a9f01feccd0d2930b306b370c665ca3b7c09ccb6 \
+        "https://github.com/utix/lua-resty-cookie/archive/$LUA_RESTY_COOKIE_VERSION.tar.gz"
 
 get_src 573184006b98ccee2594b0d134fa4d05e5d2afd5141cbad315051ccf7e9b6403 \
         "https://github.com/openresty/lua-resty-lrucache/archive/v$LUA_RESTY_CACHE.tar.gz"
@@ -356,7 +370,6 @@ WITH_FLAGS="--with-debug \
   --with-http_realip_module \
   --with-http_auth_request_module \
   --with-http_addition_module \
-  --with-http_geoip_module \
   --with-http_gzip_static_module \
   --with-http_sub_module \
   --with-http_v2_module \

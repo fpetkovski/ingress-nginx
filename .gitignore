@@ -63,3 +63,4 @@ cmd/plugin/release/LICENSE
 rootfs/geoip
 tmp/
 test/junitreports/
+tests/__snapshot__

@@ -13,7 +13,7 @@
 # limitations under the License.
 
 
-FROM alpine:3.18.4 as base
+FROM alpine:3.19.0 as base
 
 RUN mkdir -p /opt/third_party/install
 COPY . /opt/third_party/
@@ -28,16 +28,12 @@ ENV NINJA_STATUS "[%p/%f/%t] "
 
 # install gRPC
 FROM base as grpc
-RUN bash /opt/third_party/build.sh -g v1.57.0
+RUN bash /opt/third_party/build.sh -g v1.60.0
 
-# install abseil-cpp
-FROM base as absl-cpp
-RUN bash /opt/third_party/build.sh -a 20230802.0
 
 # install OpenTelemetry-cpp
 FROM base as otel-cpp
 COPY --from=grpc /opt/third_party/install/ /usr
-COPY --from=absl-cpp /opt/third_party/install/ /usr
 RUN bash /opt/third_party/build.sh -o v1.11.0
 
 # install otel_ngx_module.so
@@ -54,7 +50,7 @@ COPY . .
 RUN go mod download
 RUN CGO_ENABLED=0 go build -o /go/bin/init_module
 
-FROM cgr.dev/chainguard/static as final
+FROM gcr.io/distroless/static-debian11 as final
 COPY --from=build-init /go/bin/init_module /
 COPY --from=nginx /etc/nginx/modules /etc/nginx/modules
 
