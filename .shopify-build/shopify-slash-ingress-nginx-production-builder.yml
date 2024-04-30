@@ -15,7 +15,7 @@ containers:
       platform: linux/amd64,linux/arm64
       build_timeout: 60m
       build_args:
-        BASE_IMAGE: gcr.io/shopify-docker-images/apps/ci/nginx-e2e-test-runner:84c09754d85008c55d23088a33d603fd05c94c34
+        BASE_IMAGE: gcr.io/shopify-docker-images/apps/production/nginx:0fa76b71c29e7dfade49be0b615ffa0fa666fddf
         GOLANG_VERSION: 1.21.5
         ETCD_VERSION: 3.4.3-0
         K8S_RELEASE: v1.26.0
@@ -35,7 +35,7 @@ containers:
       platform: linux/amd64,linux/arm64
       build_timeout: 60m
       build_args:
-        BASE_IMAGE: gcr.io/shopify-docker-images/apps/production/nginx:1.21.6.8
+        BASE_IMAGE: gcr.io/shopify-docker-images/apps/production/nginx:0fa76b71c29e7dfade49be0b615ffa0fa666fddf
         TARGETARCH: amd64
         VERSION: $SHOPIFY_BUILD_COMMIT
         COMMIT_SHA: $SHOPIFY_BUILD_COMMIT
