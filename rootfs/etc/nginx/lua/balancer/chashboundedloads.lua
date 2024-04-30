@@ -79,7 +79,7 @@ local function endpoint_eligible(self, endpoint)
     ngx_log(ngx_ERR,
       "ASSERT FAILED: self.requests_by_endpoint.total_requests is expected to never be < 0",
       dump_table(self.requests_by_endpoint))
-      self.requests_by_endpoint:set("total_requests", 0)
+    self.requests_by_endpoint:set("total_requests", 0)
   end
 
   -- (num_requests * hash-balance-factor / num_servers)

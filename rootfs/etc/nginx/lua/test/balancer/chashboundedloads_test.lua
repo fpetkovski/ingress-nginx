@@ -146,9 +146,11 @@ describe("Balancer chashboundedloads", function()
     local endpoint = instance:balance()
     assert.are.equals("some-round-robin-endpoint", endpoint)
     assert.are.same({'total_requests'}, instance.requests_by_endpoint:get_keys())
+    assert.are.equal(0, instance.requests_by_endpoint:get("total_requests"))
 
     instance:after_balance()
     assert.are.same({'total_requests'}, instance.requests_by_endpoint:get_keys())
+    assert.are.equal(0, instance.requests_by_endpoint:get("total_requests"))
   end)
 
   it("starts tracking tried endpoints", function ()
