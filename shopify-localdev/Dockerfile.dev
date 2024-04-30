@@ -1,4 +1,4 @@
-FROM gcr.io/shopify-docker-images/apps/ci/nginx-e2e-test-runner:de0bb82696c95dee7c9f7fe32b30ce91c13d4734
+FROM gcr.io/shopify-docker-images/apps/ci/nginx-e2e-test-runner:0a7141f1035ae606b47c3faf0095e5f0220a23b5
 # You can also build your own test runnner if you want
 
 
