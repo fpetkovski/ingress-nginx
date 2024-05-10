@@ -1075,7 +1075,7 @@ func NewDefault() Configuration {
 		PluginMagellanKeepalivePoolSize:                      100,
 		PluginMagellanServiceIdentifier:                      "nginx",
 		PluginMagellanTimerPollInterval:                      1.0,
-		GRPCBufferSizeKb:                       0,
+		GRPCBufferSizeKb:                                     0,
 	}
 
 	if klog.V(5).Enabled() {

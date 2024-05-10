@@ -55,7 +55,7 @@ const (
 	nginxStatusIpv6Whitelist              = "nginx-status-ipv6-whitelist"
 	proxyHeaderTimeout                    = "proxy-protocol-header-timeout"
 	workerProcesses                       = "worker-processes"
-	globalAllowedResponseHeaders  = "global-allowed-response-headers"
+	globalAllowedResponseHeaders          = "global-allowed-response-headers"
 	globalAuthURL                         = "global-auth-url"
 	globalAuthMethod                      = "global-auth-method"
 	globalAuthSignin                      = "global-auth-signin"
