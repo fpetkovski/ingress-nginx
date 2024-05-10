@@ -22,11 +22,11 @@ INIT_BUILDX=$(DIR)/../../hack/init-buildx.sh
 
 # 0.0.0 shouldn't clobber any released builds
 SHORT_SHA ?=$(shell git rev-parse --short HEAD)
-TAG ?=v$(shell date +%Y%m%d)-$(SHORT_SHA)
+TAG ?=$(shell cat TAG)
 
 REGISTRY ?= gcr.io/k8s-staging-ingress-nginx
 
-IMAGE = $(REGISTRY)/nginx
+IMAGE = $(REGISTRY)/nginx-1.25
 
 container:
 	# NOTE(elvinefendi): since Shopify's CI does not have recent docker we can not use buildx here
