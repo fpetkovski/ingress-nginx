@@ -27,7 +27,7 @@ LINT=${LINT:-golangci-lint}
 if [[ -z "$(command -v ${LINT})" ]]; then
   echo "${LINT} is missing. Installing it now."
   # See: https://golangci-lint.run/usage/install/#local-installation
-  curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.55.2
+  curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.56
   LINT=$(go env GOPATH)/bin/golangci-lint
 fi
 
