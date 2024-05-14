@@ -35,6 +35,12 @@ export NGINX_DIGEST_AUTH=v1.0.0
 # Check for recent changes: https://github.com/yaoweibin/ngx_http_substitutions_filter_module/compare/v0.6.4...master
 export NGINX_SUBSTITUTIONS=e12e965ac1837ca709709f9a26f572a54d83430e
 
+# Check for recent changes: https://github.com/msgpack/msgpack-c/compare/cpp-3.3.0...master
+export MSGPACK_VERSION=3.3.0
+
+# Check for recent changes: https://github.com/DataDog/dd-opentracing-cpp/compare/v1.3.7...master
+export DATADOG_CPP_VERSION=1.3.7
+
 # Check for recent changes: https://github.com/SpiderLabs/ModSecurity-nginx/compare/v1.0.3...master
 export MODSECURITY_VERSION=v1.0.3
 
@@ -99,6 +105,14 @@ export LUA_RESTY_REDIS_VERSION=8641b9f1b6f75cca50c90cf8ca5c502ad8950aa8
 export LUA_RESTY_IPMATCHER_VERSION=3e93c53eb8c9884efe939ef070486a0e507cc5be
 
 # Check for recent changes: https://github.com/ElvinEfendi/lua-resty-global-throttle/compare/v0.2.0...main
+export LUA_RESTY_GLOBAL_THROTTLE_VERSION=v0.2.0
+
+# Check for recent changes: https://github.com/starwing/lua-protobuf/compare/0.3.4...master
+export LUA_PROTOBUF_VERSION=v0.3.4
+
+# Check for recent changes: https://github.com/yangxikun/opentelemetry-lua/compare/0.2.5...master
+# Update tags in plugins/opentelemetry/statsd.lua when updating this.
+export LUA_OPENTELEMETRY_VERSION=v0.2.5
 export LUA_RESTY_GLOBAL_THROTTLE_VERSION=v0.2.0
 
 # Check for recent changes:  https://github.com/microsoft/mimalloc/compare/v1.7.6...master
@@ -595,6 +609,16 @@ INST_LUADIR=/usr/local/lib/lua make install
 
 cd "$BUILD_PATH/lua-resty-global-throttle"
 make install
+
+cd "$BUILD_PATH/lua-protobuf-$LUA_PROTOBUF_VERSION" \
+        && gcc -O2 -shared -fPIC -I "/usr/local/include/luajit-2.1" pb.c -o pb.so \
+        && install pb.so $LUAJIT_LIB/lua \
+        && install protoc.lua $LUAJIT_LIB/lua
+
+cd "$BUILD_PATH/opentelemetry-lua-$LUA_OPENTELEMETRY_VERSION" \
+        && install -d $LUA_LIB_DIR/opentelemetry \
+        && cd ./lib/opentelemetry \
+        && find . -type f -exec install -Dm 755 "{}" "$LUA_LIB_DIR/opentelemetry/{}" \;
 
 cd "$BUILD_PATH/mimalloc"
 mkdir -p out/release
