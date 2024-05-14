@@ -112,7 +112,7 @@ export LUA_PROTOBUF_VERSION=0.3.4
 
 # Check for recent changes: https://github.com/yangxikun/opentelemetry-lua/compare/0.2.5...master
 # Update tags in plugins/opentelemetry/statsd.lua when updating this.
-export LUA_OPENTELEMETRY_VERSION=v0.2.5
+export LUA_OPENTELEMETRY_VERSION=0.2.5
 
 # Check for recent changes:  https://github.com/microsoft/mimalloc/compare/v1.7.6...master
 export MIMALOC_VERSION=v2.1.2
