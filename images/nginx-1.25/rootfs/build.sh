@@ -108,7 +108,7 @@ export LUA_RESTY_IPMATCHER_VERSION=3e93c53eb8c9884efe939ef070486a0e507cc5be
 export LUA_RESTY_GLOBAL_THROTTLE_VERSION=v0.2.0
 
 # Check for recent changes: https://github.com/starwing/lua-protobuf/compare/0.3.4...master
-export LUA_PROTOBUF_VERSION=v0.3.4
+export LUA_PROTOBUF_VERSION=0.3.4
 
 # Check for recent changes: https://github.com/yangxikun/opentelemetry-lua/compare/0.2.5...master
 # Update tags in plugins/opentelemetry/statsd.lua when updating this.
