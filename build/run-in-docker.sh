@@ -76,18 +76,13 @@ fi
 
 USER=${USER:-nobody}
 
-#echo "..printing env & other vars to stdout"
-#echo "HOSTNAME=`hostname`"
-#uname -a
-#env
-#echo "DIND_ENABLED=$DOCKER_IN_DOCKER_ENABLED"
-#echo "done..printing env & other vars to stdout"
+USE_SHELL=${USE_SHELL:-"/bin/bash"}
 
 if [[ "$DOCKER_IN_DOCKER_ENABLED" == "true" ]]; then
   echo "..reached DIND check TRUE block, inside run-in-docker.sh"
   echo "FLAGS=$FLAGS"
   #go env
-  go install -mod=mod github.com/onsi/ginkgo/v2/ginkgo@v2.15.0
+  go install -mod=mod github.com/onsi/ginkgo/v2/ginkgo@v2.17.1
   find / -type f -name ginkgo 2>/dev/null
   which ginkgo
   /bin/bash -c "${FLAGS}"
@@ -100,5 +95,5 @@ else
     args="$args -v /var/run/docker.sock:/var/run/docker.sock"
   fi
 
-  ${RUNTIME} run $args ${E2E_IMAGE} /bin/bash -c "${FLAGS}"
+  ${RUNTIME} run $args ${E2E_IMAGE} ${USE_SHELL} -c "${FLAGS}"
 fi

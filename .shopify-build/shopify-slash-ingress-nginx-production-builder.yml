@@ -3,10 +3,10 @@ containers:
     environment: production
     application: nginx
     dockerfile:
-      dir: images/nginx/rootfs
+      dir: images/nginx-1.25/rootfs
       platform: linux/amd64,linux/arm64
       build_timeout: 400m
-      tag_using_path: images/nginx/rootfs/VERSION
+      tag_using_path: images/nginx-1.25/rootfs/VERSION
   e2e:
     environment: ci
     application: nginx-e2e-test-runner
@@ -15,8 +15,8 @@ containers:
       platform: linux/amd64,linux/arm64
       build_timeout: 60m
       build_args:
-        BASE_IMAGE: gcr.io/shopify-docker-images/apps/production/nginx:1.21.6.9
-        GOLANG_VERSION: 1.21.5
+        BASE_IMAGE: gcr.io/shopify-docker-images/apps/production/nginx:997d30e0a8a3da63f917b92c05110bff4e232e97
+        GOLANG_VERSION: 1.22.2
         ETCD_VERSION: 3.4.3-0
         K8S_RELEASE: v1.26.0
         RESTY_CLI_VERSION: "0.27"
@@ -24,10 +24,10 @@ containers:
         LUAROCKS_VERSION: 3.8.0
         LUAROCKS_SHA: ab6612ca9ab87c6984871d2712d05525775e8b50172701a0a1cabddf76de2be7
         CHART_TESTING_VERSION: 3.8.0
-        YAML_LINT_VERSION: 1.27.1
+        YAML_LINT_VERSION: 1.33.0
         YAMALE_VERSION: 4.0.4
         HELM_VERSION: 3.11.2
-        GINKGO_VERSION: 2.9.5
+        GINKGO_VERSION: 2.17.1
         GOLINT_VERSION: latest
   production:
     environment: production
@@ -35,7 +35,7 @@ containers:
       platform: linux/amd64,linux/arm64
       build_timeout: 60m
       build_args:
-        BASE_IMAGE: gcr.io/shopify-docker-images/apps/production/nginx:1.21.6.9
+        BASE_IMAGE: gcr.io/shopify-docker-images/apps/production/nginx:997d30e0a8a3da63f917b92c05110bff4e232e97
         TARGETARCH: amd64
         VERSION: $SHOPIFY_BUILD_COMMIT
         COMMIT_SHA: $SHOPIFY_BUILD_COMMIT

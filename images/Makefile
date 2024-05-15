@@ -23,6 +23,11 @@ INIT_BUILDX=$(DIR)/../hack/init-buildx.sh
 
 BASE_IMAGE = $(shell cat $(DIR)/../NGINX_BASE)
 
+# The env below is called GO_VERSION and not GOLANG_VERSION because 
+# the gcb image we use to build already defines GOLANG_VERSION and is a 
+# really old version
+GO_VERSION = $(shell cat $(DIR)/../GOLANG_VERSION)
+
 REGISTRY ?= local
 NAME ?=
 
