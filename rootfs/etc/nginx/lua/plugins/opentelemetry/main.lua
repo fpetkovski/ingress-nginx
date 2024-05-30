@@ -617,7 +617,7 @@ function _M.log()
       attr.string("http.scheme", ngx_var.scheme),
       attr.string("http.user_agent", ngx_var.http_user_agent),
       attr.string("nginx.proxy_upstream_name", ngx_var.proxy_upstream_name or "unknown"),
-      attr.string("http.request.header.x_request_id", ngx_var.http_x_request_id or "unknown"),
+      attr.string("http.request.header.x_request_id", ngx_var.req_id or "unknown"),
       attr.string("net.peer.name", ngx_var.proxy_host),
       attr.string("net.host.name", ngx_var.server_name),
       attr.int("net.host.port", tonumber(ngx_var.server_port)),
