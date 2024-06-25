@@ -551,6 +551,7 @@ function _M.header_filter()
   end
 
   ngx_ctx.opentelemetry_span_end_time = otel_utils.time_nano()
+  ngx_ctx.exemplar_id = ngx_ctx.opentelemetry.request_span_ctx.sp.ctx.trace_id
 
   if _M.plugin_open_telemetry_set_traceresponse then
     metrics_reporter:add_to_counter("otel.nginx.set_traceresponse", 1, { upstream = ngx.var.proxy_upstream_name or "unknown" })
@@ -722,6 +723,8 @@ function _M.log()
     end
     _M.span_buffering_processor:send_spans(true)
   else
+    -- Set the exemplar_id to nil to avoid links to non-existing traces.
+    ngx_ctx.exemplar_id = nil
     _M.span_buffering_processor:send_spans(false)
   end
 

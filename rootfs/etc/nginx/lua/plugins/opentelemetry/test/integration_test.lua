@@ -216,6 +216,27 @@ describe("deferred sampling", function()
             end
             assert.are_same({}, result.resp_headers_added)
         end)
+
+        it("sets exemplar_id when trace_id is present", function()
+            local result = simulate_request(
+                    config, {}, ngx_var, { traceresponse = "00-cdc9d461ab73f5a441fca78f6a970154-562144007775f2ec-01"})
+            assert.are_same(1, #result.finished_spans)
+            for _, v in ipairs(result.finished_spans) do
+                assert.is_true(v:context():is_sampled())
+            end
+            assert.are_not_same(nil, ngx.ctx.exemplar_id)
+            assert.are_same(span_by_name("nginx.request", result.finished_spans):context().trace_id, ngx.ctx.exemplar_id)
+        end)
+
+        it("does not set exemplar_id when trace_id is not present", function()
+            local result = simulate_request(config, {})
+            assert.are_same(1, #result.finished_spans)
+            assert.are_same(make_propagation_headers(result.request_span, "unsampled"), result.req_headers_added)
+            for _, v in ipairs(result.finished_spans) do
+                assert.is_false(v:context():is_sampled())
+            end
+            assert.are_same(nil, ngx.ctx.exemplar_id)
+        end)
     end)
 
     describe("when trace context headers indicate that upstream was sampled in", function()
